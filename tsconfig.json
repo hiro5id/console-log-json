@@ -1,0 +1,28 @@
+{
+  "$schema": "http://json.schemastore.org/tsconfig",
+  "compilerOptions": {
+    "emitDecoratorMetadata": true,
+    "experimentalDecorators": true,
+    "noImplicitAny": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noImplicitThis": false,
+    "noEmitOnError": true,
+    "strictNullChecks": true,
+    "resolveJsonModule": true,
+    "strict": true,
+    "alwaysStrict": true,
+    "strictPropertyInitialization": true,
+
+    "rootDir": ".",
+    "module": "commonjs", // Use commonjs for compatibility
+    "moduleResolution": "node",
+    "target": "es2019",
+    "outDir": "dist", // The javascript will be compiled to this folder.
+    "sourceMap": true,
+    "declaration": true, // To share typescript across modules, Typescript will then also export type definitions together with the compiled javascript code so the package can be used with both Typescript and Javascript.
+    "downlevelIteration" : true
+  },
+  "include": ["src", "test", "index.ts"], //All source files in the src folder
+  "exclude": ["node_modules/**", "**/*.d.ts"]
+}
