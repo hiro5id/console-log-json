@@ -44,7 +44,6 @@
     "url": "git@github.com:hiro5id/console-log-json.git"
   },
   "dependencies": {
-    "strip-ansi": "^5.2.0",
     "winston": "^3.2.1"
   },
   "devDependencies": {
