@@ -13,6 +13,16 @@
   "files": [
     "dist/**/*"
   ],
+  "keywords": [
+    "logging",
+    "LogDNA",
+    "console",
+    "console.log",
+    "console.debug",
+    "replacement",
+    "json",
+    "console log json"
+  ],
   "scripts": {
     "prebuild": "cti create ./src",
     "build": "npm run format:prettier && npm run lint && tsc",
