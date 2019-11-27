@@ -292,6 +292,19 @@ describe('logger', () => {
     expect(outputText[0]).contains('{"level":"warn","message":"this is a test - more messages","a":"stuff-a","b":"stuff-b","c":"stuff-c"');
   });
 
+  it('handle empty object', async()=>{
+    const {originalWrite, outputText} = overrideStdOut();
+    LoggerAdaptToConsole();
+
+    console.log({},'this is a test', {a:'stuff-a', b:'stuff-b'}, 'more messages', {c:'stuff-c'});
+
+    restoreStdOut(originalWrite);
+    LoggerRestoreConsole();
+
+    console.log(outputText[0]);
+    expect(outputText[0]).contains('{"level":"info","message":"this is a test - more messages","a":"stuff-a","b":"stuff-b","c":"stuff-c"');
+  });
+
 
   it('console.log logs as info when explicitly provided with level parameter that is not recognized', async()=>{
     const {originalWrite, outputText} = overrideStdOut();

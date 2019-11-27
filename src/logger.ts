@@ -248,17 +248,23 @@ function LoggerAdaptToConsole(logLevel: LOG_LEVEL = LOG_LEVEL.info) {
 function findExplicitLogLevelAndUseIt(args: any, level: LOG_LEVEL) {
   let foundLevel = false;
   args.forEach((f: any) => {
-    if (!foundLevel && typeof f === 'object' && Object.keys(f)[0].toLocaleLowerCase() === 'level') {
+    if (
+      !foundLevel &&
+      typeof f === 'object' &&
+      Object.keys(f) &&
+      Object.keys(f).length > 0 &&
+      Object.keys(f)[0].toLowerCase() === 'level'
+    ) {
       let specifiedLevelFromParameters: string = f[Object.keys(f)[0]];
 
       // Normalize alternate log level strings
-      if (specifiedLevelFromParameters.toLocaleLowerCase() === 'err') {
+      if (specifiedLevelFromParameters.toLowerCase() === 'err') {
         specifiedLevelFromParameters = LOG_LEVEL.error;
       }
-      if (specifiedLevelFromParameters.toLocaleLowerCase() === 'warning') {
+      if (specifiedLevelFromParameters.toLowerCase() === 'warning') {
         specifiedLevelFromParameters = LOG_LEVEL.warn;
       }
-      if (specifiedLevelFromParameters.toLocaleLowerCase() === 'information') {
+      if (specifiedLevelFromParameters.toLowerCase() === 'information') {
         specifiedLevelFromParameters = LOG_LEVEL.info;
       }
 
