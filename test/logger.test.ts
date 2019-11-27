@@ -238,6 +238,74 @@ describe('logger', () => {
     expect(outputText[0]).contains('{"level":"info","message":"this is a test - more messages","a":"stuff-a","b":"stuff-b","c":"stuff-c"');
   });
 
+
+  it('console.log logs as info when explicitly provided with level:info parameter', async()=>{
+    const {originalWrite, outputText} = overrideStdOut();
+    LoggerAdaptToConsole();
+
+    console.log({level:"info"},'this is a test', {a:'stuff-a', b:'stuff-b'}, 'more messages', {c:'stuff-c'});
+
+    restoreStdOut(originalWrite);
+    LoggerRestoreConsole();
+
+    console.log(outputText[0]);
+    expect(outputText[0]).contains('{"level":"info","message":"this is a test - more messages","a":"stuff-a","b":"stuff-b","c":"stuff-c"');
+  });
+
+  it('console.log logs as error when explicitly provided with level:error parameter', async()=>{
+    const {originalWrite, outputText} = overrideStdOut();
+    LoggerAdaptToConsole();
+
+    console.log({level:"error"},'this is a test', {a:'stuff-a', b:'stuff-b'}, 'more messages', {c:'stuff-c'});
+
+    restoreStdOut(originalWrite);
+    LoggerRestoreConsole();
+
+    console.log(outputText[0]);
+    expect(outputText[0]).contains('{"level":"error","message":"this is a test - more messages","a":"stuff-a","b":"stuff-b","c":"stuff-c"');
+  });
+
+  it('console.log logs as error when explicitly provided with level:err parameter', async()=>{
+    const {originalWrite, outputText} = overrideStdOut();
+    LoggerAdaptToConsole();
+
+    console.log({level:"err"},'this is a test', {a:'stuff-a', b:'stuff-b'}, 'more messages', {c:'stuff-c'});
+
+    restoreStdOut(originalWrite);
+    LoggerRestoreConsole();
+
+    console.log(outputText[0]);
+    expect(outputText[0]).contains('{"level":"error","message":"this is a test - more messages","a":"stuff-a","b":"stuff-b","c":"stuff-c"');
+  });
+
+
+  it('console.log logs as warn when explicitly provided with level:warning parameter', async()=>{
+    const {originalWrite, outputText} = overrideStdOut();
+    LoggerAdaptToConsole();
+
+    console.log({level:"warning"},'this is a test', {a:'stuff-a', b:'stuff-b'}, 'more messages', {c:'stuff-c'});
+
+    restoreStdOut(originalWrite);
+    LoggerRestoreConsole();
+
+    console.log(outputText[0]);
+    expect(outputText[0]).contains('{"level":"warn","message":"this is a test - more messages","a":"stuff-a","b":"stuff-b","c":"stuff-c"');
+  });
+
+
+  it('console.log logs as info when explicitly provided with level parameter that is not recognized', async()=>{
+    const {originalWrite, outputText} = overrideStdOut();
+    LoggerAdaptToConsole();
+
+    console.log({level:"somethingElse"},'this is a test', {a:'stuff-a', b:'stuff-b'}, 'more messages', {c:'stuff-c'});
+
+    restoreStdOut(originalWrite);
+    LoggerRestoreConsole();
+
+    console.log(outputText[0]);
+    expect(outputText[0]).contains('{"level":"info","message":"this is a test - more messages","a":"stuff-a","b":"stuff-b","c":"stuff-c"');
+  });
+
   it('console.log exception but is handled without crashing out', async()=>{
     // arrange
     const {originalWrite} = overrideStdOut();

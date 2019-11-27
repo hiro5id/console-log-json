@@ -245,9 +245,43 @@ function LoggerAdaptToConsole(logLevel: LOG_LEVEL = LOG_LEVEL.info) {
   Logger.level = logLevel;
 }
 
+function findExplicitLogLevelAndUseIt(args: any, level: LOG_LEVEL) {
+  let foundLevel = false;
+  args.forEach((f: any) => {
+    if (!foundLevel && typeof f === 'object' && Object.keys(f)[0].toLocaleLowerCase() === 'level') {
+      let specifiedLevelFromParameters: string = f[Object.keys(f)[0]];
+
+      // Normalize alternate log level strings
+      if (specifiedLevelFromParameters.toLocaleLowerCase() === 'err') {
+        specifiedLevelFromParameters = LOG_LEVEL.error;
+      }
+      if (specifiedLevelFromParameters.toLocaleLowerCase() === 'warning') {
+        specifiedLevelFromParameters = LOG_LEVEL.warn;
+      }
+      if (specifiedLevelFromParameters.toLocaleLowerCase() === 'information') {
+        specifiedLevelFromParameters = LOG_LEVEL.info;
+      }
+
+      const maybeLevel: LOG_LEVEL | undefined = (LOG_LEVEL as any)[specifiedLevelFromParameters];
+      if (maybeLevel !== undefined) {
+        level = maybeLevel;
+      } else {
+        level = LOG_LEVEL.info;
+      }
+
+      // Remove this property since we have absorbed it into the log level
+      delete f[Object.keys(f)[0]];
+      foundLevel = true;
+    }
+  });
+  return level;
+}
+
 export async function logUsingWinston(args: any, level: LOG_LEVEL) {
   const logPromise = new Promise(resolve => {
     try {
+      level = findExplicitLogLevelAndUseIt(args, level);
+
       // this line is only for enabling testing
       if (console.exception != null) {
         console.exception();
