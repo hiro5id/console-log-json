@@ -17,10 +17,11 @@
     "logging",
     "LogDNA",
     "console",
+    "log",
+    "json",
     "console.log",
     "console.debug",
     "replacement",
-    "json",
     "console log json"
   ],
   "scripts": {
