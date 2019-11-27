@@ -7,13 +7,10 @@ output be formatted to a consistent format in a single JSON line of text, includ
 so that it can be easily parsed by tool such as LogDNA.
 
 ## Features
-- the order of parameters or number of parameters don't matter, it figures out how to log it.
-- automatically add a date stamp in UTC to every log.
-- automatically parse stack traces and format them into a single
-line for for easy parsing in log management software such as LogDNA.
-- log extra context if passed in.
-- do not explode if an exception occurs during logging, instead fall
-back to original console.log, output what is possible and continue 
-the program without crashing out. 
-- logging is done in a non awaiting promise so that we yield to other processing while logging
-- logs via error level when message contains the word "error" to properly flag errors even if a mistake is made using the wrong console.info instead of console.error.
+- The order of parameters or number of parameters don't matter, it figures out how to log it.
+- Automatically add a date stamp in UTC to every log.
+- Automatically parse stack traces and format them into a single line for for easy parsing in log management software such as LogDNA.
+- Log extra context if passed in.
+- Won't crash out and cause the application to stop, if there is a problem with logger, instead try to fall back to original console.log, output what is possible and continue. 
+- Logging is done in a non awaiting promise so that we yield to other processing while logging
+- Logs via error level when message contains the word "error" to properly flag errors even if a mistake is made using the wrong console.info instead of console.error.
