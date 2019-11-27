@@ -3,7 +3,7 @@
 ## Pupose and Description
 A drop-in replacement for `console.log()`, `console.info()`, 
 `console.error()` to handle anything you throw at it and have the 
-output be formatted to single line JSON, including stack traces, 
+output be formatted to a consistent format in a single JSON line of text, including stack traces, 
 so that it can be easily parsed by tool such as LogDNA.
 
 ## Features
