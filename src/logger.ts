@@ -41,34 +41,42 @@ declare global {
   // tslint:disable-next-line:interface-name
   interface Console {
     Console: NodeJS.ConsoleConstructor;
+
     /**
      * Priority 0
      */
     error(...args: any[]): void;
+
     /**
      * Priority 1
      */
     warn(...args: any[]): void;
+
     /**
      * Priority 2
      */
     info(...args: any[]): void;
+
     /**
      * Priority 3
      */
     http(...args: any[]): void;
+
     /**
      * Priority 4
      */
     verbose(...args: any[]): void;
+
     /**
      * Priority 5
      */
     debug(...args: any[]): void;
+
     /**
      * Priority 6 (critical)
      */
     silly(...args: any[]): void;
+
     /**
      * Priority 2 (same as console.info)
      */
@@ -245,6 +253,16 @@ function LoggerAdaptToConsole(logLevel: LOG_LEVEL = LOG_LEVEL.info) {
   Logger.level = logLevel;
 }
 
+function filterNullParameters(args: any) {
+  args.forEach((f: any, index: number) => {
+    // Remove null parameters
+    if (f == null) {
+      args.splice(index, 1);
+      return;
+    }
+  });
+}
+
 function findExplicitLogLevelAndUseIt(args: any, level: LOG_LEVEL) {
   let foundLevel = false;
   args.forEach((f: any) => {
@@ -286,6 +304,7 @@ function findExplicitLogLevelAndUseIt(args: any, level: LOG_LEVEL) {
 export async function logUsingWinston(args: any, level: LOG_LEVEL) {
   const logPromise = new Promise(resolve => {
     try {
+      filterNullParameters(args);
       level = findExplicitLogLevelAndUseIt(args, level);
 
       // this line is only for enabling testing

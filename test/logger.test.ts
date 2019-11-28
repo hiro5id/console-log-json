@@ -130,6 +130,7 @@ describe('logger', () => {
       LoggerRestoreConsole();
     }
 
+    console.log(outputText[0]);
     expect(outputText[0]).contains('{"level":"debug","message":"this is a message","extra-context":"hello"');
   });
 
@@ -297,6 +298,19 @@ describe('logger', () => {
     LoggerAdaptToConsole();
 
     console.log({},'this is a test', {a:'stuff-a', b:'stuff-b'}, 'more messages', {c:'stuff-c'});
+
+    restoreStdOut(originalWrite);
+    LoggerRestoreConsole();
+
+    console.log(outputText[0]);
+    expect(outputText[0]).contains('{"level":"info","message":"this is a test - more messages","a":"stuff-a","b":"stuff-b","c":"stuff-c"');
+  });
+
+  it('handle null parameter', async()=>{
+    const {originalWrite, outputText} = overrideStdOut();
+    LoggerAdaptToConsole();
+
+    console.log(null,'this is a test',null, {a:'stuff-a', b:'stuff-b'}, 'more messages', {c:'stuff-c'});
 
     restoreStdOut(originalWrite);
     LoggerRestoreConsole();
