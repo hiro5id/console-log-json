@@ -1,6 +1,6 @@
 {
   "name": "console-log-json",
-  "version": "1.2.1",
+  "version": "1.2.2",
   "description": "console.log() anything and have the output be formatted to single line JSON, including stack traces, so that it can be easily parsed by tool such as LogDNA",
   "private": false,
   "types": "dist/index.d.ts",
