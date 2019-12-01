@@ -1,5 +1,7 @@
 # console-log-json
 
+A universal JSON logger that plugs in to the existing `console.log` native function.
+
 ## Pupose and Description
 A no fuss simple drop-in replacement for `console.log()`, `console.info()`, 
 `console.error()` to handle anything you throw at it and have the 
@@ -59,7 +61,7 @@ so that it can be easily parsed by tool such as LogDNA.
    ```
    Will produce:
    ```
-   {"level":"info","message":"hello world","firstName":"homer","lastName":"simpson","@timestamp":"2019-11-29T22:12:10.987Z"}
+   {"level":"info","message":"hello world","age":25,"firstName":"homer","lastName":"simpson","location":"mars","@timestamp":"2019-12-01T04:10:38.861Z"}
    ```
    - Notice that even though we supplied `hello world` as the last parameter it is still logged out as the `message` property and is always the first thing after the log `level`
    - Notice the `extraInnfo` data is split out and included as individual properties at the top level ready for easy parsing and filtering in logging tools such as LogDNA.
@@ -72,7 +74,8 @@ so that it can be easily parsed by tool such as LogDNA.
    ```
    Will produce:
    ```
-   {"level":"info","message":"hello world","firstName":"homer","lastName":"simpson","age":25,"location":"mars","@timestamp":"2019-11-29T22:18:16.697Z"}
+   {"level":"info","message":"hello world","age":25,"firstName":"homer","lastName":"simpson","location":"mars","@timestamp":"2019-12-01T04:10:38.861Z"}
    ```
    - Again notice that we are not picky about the order in which the parameters are passed in to *console.log()*
-   - Notice that properties fo `extraInfo1` and `extraInfo2` are extracted in order, and all logged in on line at the top level for easy parsing and filtering in logging tools such as LogDNA.
+   - Notice that properties fo `extraInfo1` and `extraInfo2` are extracted and all logged in on line at the top level for easy parsing and filtering in logging tools such as LogDNA.
+   - Notice that properties such as `firstName` and `age` etc are sorted alphabetically for consistent appearance of logs in JSON no matter what order they are passed in.
