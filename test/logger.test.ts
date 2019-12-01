@@ -333,6 +333,26 @@ describe('logger', () => {
     expect(outputText[0]).contains('{"level":"info","message":"this is a test - more messages","a":"stuff-a","b":"stuff-b","c":"stuff-c"');
   });
 
+  it('logging in a different order produces same result', async()=>{
+    const {originalWrite, outputText} = overrideStdOut();
+    LoggerAdaptToConsole();
+
+    const extraInfo1 = {firstName: 'homer', lastName: 'simpson'};
+    const extraInfo2 = {age: 25, location: 'mars'};
+    console.log(extraInfo1, 'hello world', extraInfo2);
+    console.log('hello world', extraInfo2, extraInfo1);
+
+    restoreStdOut(originalWrite);
+    LoggerRestoreConsole();
+
+    outputText[0] = stripTimeStamp(outputText[0]);
+    outputText[1] = stripTimeStamp(outputText[1]);
+    console.log(outputText[0]);
+    console.log(outputText[1]);
+    expect(outputText[0]).equal(outputText[1])
+  });
+
+
   it('console.log exception but is handled without crashing out', async()=>{
     // arrange
     const {originalWrite} = overrideStdOut();
@@ -380,3 +400,9 @@ describe('logger', () => {
 
   // Todo: test multiple nested ErrorWithContext objects to ensure proper stacktrace and error messages
 });
+
+const stripTimeStamp = (input: string) => {
+  const obj = JSON.parse(input);
+  delete obj["@timestamp"];
+  return JSON.stringify(obj);
+};
