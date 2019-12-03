@@ -173,6 +173,14 @@ let consoleDebugBackup: any = null;
 let consoleSillyBackup: any = null;
 let consoleLogBackup: any = null;
 
+export function NativeConsoleLog(...args: any[]) {
+  if (consoleLogBackup) {
+    consoleLogBackup(...args);
+  } else {
+    console.log(...args);
+  }
+}
+
 function ifEverythingFailsLogger(functionName: string, err: Error) {
   if (consoleErrorBackup != null) {
     try {

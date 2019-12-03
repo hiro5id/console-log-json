@@ -4,7 +4,7 @@ import {
   FormatErrorObject, GetLogLevel,
   LOG_LEVEL,
   LoggerAdaptToConsole,
-  LoggerRestoreConsole, overrideStdOut, restoreStdOut, SetLogLevel
+  LoggerRestoreConsole, NativeConsoleLog, overrideStdOut, restoreStdOut, SetLogLevel
 } from '../src';
 
 describe('logger', () => {
@@ -13,6 +13,7 @@ describe('logger', () => {
     LoggerAdaptToConsole();
     try {
       // action
+      NativeConsoleLog('testing native log');
       console.error('some string', new ErrorWithContext('error \r\nobject', {'extra-context': 'extra-context'}));
     } finally {
       restoreStdOut(originalWrite);
@@ -21,7 +22,8 @@ describe('logger', () => {
 
     // assert
     console.log(outputText);
-    expect(outputText[0]).contains(
+    expect(outputText[0]).equal('testing native log\n');
+    expect(outputText[1]).contains(
         '{"level":"error","message":"some string - error object","extra-context":"extra-context","stack":"Error: error object    at',
     );
   });
