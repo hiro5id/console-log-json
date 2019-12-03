@@ -156,11 +156,11 @@ const Logger = w.createLogger({
   transports: [new w.transports.Console()],
 });
 
-function GetLogLevel() {
+export function GetLogLevel() {
   return Logger.level;
 }
 
-function SetLogLevel(level: string) {
+export function SetLogLevel(level: string) {
   Logger.level = level;
 }
 
@@ -187,7 +187,7 @@ function ifEverythingFailsLogger(functionName: string, err: Error) {
   }
 }
 
-function LoggerAdaptToConsole(logLevel: LOG_LEVEL = LOG_LEVEL.info) {
+export function LoggerAdaptToConsole(logLevel: LOG_LEVEL = LOG_LEVEL.info) {
   if (consoleErrorBackup == null) {
     consoleErrorBackup = console.error;
   }
@@ -359,7 +359,7 @@ export enum LOG_LEVEL {
   silly = 'silly',
 }
 
-function LoggerRestoreConsole() {
+export function LoggerRestoreConsole() {
   if (consoleErrorBackup != null) {
     console.error = consoleErrorBackup;
   }
@@ -466,5 +466,3 @@ export function overrideStdOut() {
 export function restoreStdOut(originalWrite: any) {
   (process.stdout.write as any) = originalWrite;
 }
-
-export { SetLogLevel, GetLogLevel, LoggerAdaptToConsole, LoggerRestoreConsole };
