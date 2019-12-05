@@ -21,10 +21,10 @@ describe('logger', () => {
     }
 
     // assert
-    console.log(outputText);
+    console.log(outputText[1]);
     expect(outputText[0]).equal('testing native log\n');
-    expect(outputText[1]).contains(
-        '{"level":"error","message":"some string - error object","extra-context":"extra-context","stack":"Error: error object    at',
+    expect(JSON.parse(stripTimeStamp(outputText[1]))).eql(
+        {"level":"error","message":"some string - error object","extra-context":"extra-context","stack":"Error: error object    at Context.<anonymous> (/Users/roberto/dev/console-log-json/test/logger.test.ts:17:36)    at callFn (/Users/roberto/dev/console-log-json/node_modules/mocha/lib/runnable.js:387:21)    at Test.Runnable.run (/Users/roberto/dev/console-log-json/node_modules/mocha/lib/runnable.js:379:7)    at Runner.runTest (/Users/roberto/dev/console-log-json/node_modules/mocha/lib/runner.js:535:10)    at /Users/roberto/dev/console-log-json/node_modules/mocha/lib/runner.js:653:12    at next (/Users/roberto/dev/console-log-json/node_modules/mocha/lib/runner.js:447:14)    at /Users/roberto/dev/console-log-json/node_modules/mocha/lib/runner.js:457:7    at next (/Users/roberto/dev/console-log-json/node_modules/mocha/lib/runner.js:362:14)    at Immediate._onImmediate (/Users/roberto/dev/console-log-json/node_modules/mocha/lib/runner.js:425:5)    at processImmediate (internal/timers.js:439:21)"},
     );
   });
 
@@ -39,8 +39,9 @@ describe('logger', () => {
       LoggerRestoreConsole();
     }
     // assert
-    expect(outputText[0]).contains(
-        '{"level":"error","message":"some string - error object","extra-context":"extra-context","stack":"Error: error object    at',
+    console.log(outputText[0]);
+    expect(JSON.parse(stripTimeStamp(outputText[0]))).eql(
+        {"level":"error","message":"some string - error object","extra-context":"extra-context","stack":"Error: error object    at Context.<anonymous> (/Users/roberto/dev/console-log-json/test/logger.test.ts:36:34)    at callFn (/Users/roberto/dev/console-log-json/node_modules/mocha/lib/runnable.js:387:21)    at Test.Runnable.run (/Users/roberto/dev/console-log-json/node_modules/mocha/lib/runnable.js:379:7)    at Runner.runTest (/Users/roberto/dev/console-log-json/node_modules/mocha/lib/runner.js:535:10)    at /Users/roberto/dev/console-log-json/node_modules/mocha/lib/runner.js:653:12    at next (/Users/roberto/dev/console-log-json/node_modules/mocha/lib/runner.js:447:14)    at /Users/roberto/dev/console-log-json/node_modules/mocha/lib/runner.js:457:7    at next (/Users/roberto/dev/console-log-json/node_modules/mocha/lib/runner.js:362:14)    at Immediate._onImmediate (/Users/roberto/dev/console-log-json/node_modules/mocha/lib/runner.js:425:5)    at processImmediate (internal/timers.js:439:21)"}
     );
   });
 
@@ -133,7 +134,7 @@ describe('logger', () => {
     }
 
     console.log(outputText[0]);
-    expect(outputText[0]).contains('{"level":"debug","message":"this is a message","extra-context":"hello"');
+    expect(JSON.parse(stripTimeStamp(outputText[0]))).eql({"level":"debug","message":"this is a message","extra-context":"hello"});
   });
 
   it('console.silly works', () => {
@@ -264,8 +265,7 @@ describe('logger', () => {
     restoreStdOut(originalWrite);
     LoggerRestoreConsole();
 
-    console.log(outputText[0]);
-    expect(outputText[0]).contains('{"level":"error","message":"this is a test - more messages","a":"stuff-a","b":"stuff-b","c":"stuff-c"');
+    expect(JSON.parse(stripTimeStamp(outputText[0]))).eql({"level":"error","message":"this is a test - more messages","a":"stuff-a","b":"stuff-b","c":"stuff-c"});
   });
 
   it('console.log logs as error when explicitly provided with level:err parameter', async()=>{
@@ -278,7 +278,7 @@ describe('logger', () => {
     LoggerRestoreConsole();
 
     console.log(outputText[0]);
-    expect(outputText[0]).contains('{"level":"error","message":"this is a test - more messages","a":"stuff-a","b":"stuff-b","c":"stuff-c"');
+    expect(JSON.parse(stripTimeStamp(outputText[0]))).eql({"level":"error","message":"this is a test - more messages","a":"stuff-a","b":"stuff-b","c":"stuff-c"});
   });
 
 
@@ -292,7 +292,7 @@ describe('logger', () => {
     LoggerRestoreConsole();
 
     console.log(outputText[0]);
-    expect(outputText[0]).contains('{"level":"warn","message":"this is a test - more messages","a":"stuff-a","b":"stuff-b","c":"stuff-c"');
+    expect(JSON.parse(stripTimeStamp(outputText[0]))).eql({"level":"warn","message":"this is a test - more messages","a":"stuff-a","b":"stuff-b","c":"stuff-c"});
   });
 
   it('handle empty object', async()=>{
@@ -305,7 +305,7 @@ describe('logger', () => {
     LoggerRestoreConsole();
 
     console.log(outputText[0]);
-    expect(outputText[0]).contains('{"level":"info","message":"this is a test - more messages","a":"stuff-a","b":"stuff-b","c":"stuff-c"');
+    expect(JSON.parse(stripTimeStamp(outputText[0]))).eql({"level":"info","message":"this is a test - more messages","a":"stuff-a","b":"stuff-b","c":"stuff-c"});
   });
 
   it('handle null parameter', async()=>{
@@ -318,7 +318,7 @@ describe('logger', () => {
     LoggerRestoreConsole();
 
     console.log(outputText[0]);
-    expect(outputText[0]).contains('{"level":"info","message":"this is a test - more messages","a":"stuff-a","b":"stuff-b","c":"stuff-c"');
+    expect(JSON.parse(stripTimeStamp(outputText[0]))).eql({"level":"info","message":"this is a test - more messages","a":"stuff-a","b":"stuff-b","c":"stuff-c"});
   });
 
 
@@ -332,7 +332,7 @@ describe('logger', () => {
     LoggerRestoreConsole();
 
     console.log(outputText[0]);
-    expect(outputText[0]).contains('{"level":"info","message":"this is a test - more messages","a":"stuff-a","b":"stuff-b","c":"stuff-c"');
+    expect(JSON.parse(stripTimeStamp(outputText[0]))).eql({"level":"info","message":"this is a test - more messages","a":"stuff-a","b":"stuff-b","c":"stuff-c"});
   });
 
   it('logging in a different order produces same result', async()=>{
@@ -403,7 +403,7 @@ describe('logger', () => {
   // Todo: test multiple nested ErrorWithContext objects to ensure proper stacktrace and error messages
 });
 
-const stripTimeStamp = (input: string) => {
+const stripTimeStamp = (input: string): string => {
   const obj = JSON.parse(input);
   delete obj["@timestamp"];
   return JSON.stringify(obj);
