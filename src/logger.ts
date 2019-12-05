@@ -1,7 +1,10 @@
 /* tslint:disable:object-literal-sort-keys */
+import appRootPath from 'app-root-path';
+import callsites from 'callsites';
 import * as w from 'winston';
 import { ErrorWithContext } from './error-with-context';
 import { ToOneLine } from './to-one-line';
+// tslint:disable-next-line:no-var-requires
 
 /* tslint:disable:no-conditional-assignment */
 // Console-polyfill. MIT license.
@@ -310,6 +313,17 @@ function findExplicitLogLevelAndUseIt(args: any, level: LOG_LEVEL) {
 }
 
 export async function logUsingWinston(args: any, level: LOG_LEVEL) {
+  try {
+    const callsite = callsites()[2];
+    let name = callsite.getFileName();
+    if (name) {
+      name = name.replace(appRootPath.toString(), '');
+    }
+    args.push({ filename: name });
+  } catch (err) {
+    // Don't do anything
+  }
+
   const logPromise = new Promise(resolve => {
     try {
       filterNullParameters(args);

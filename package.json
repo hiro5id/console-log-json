@@ -46,21 +46,24 @@
     "url": "git@github.com:hiro5id/console-log-json.git"
   },
   "dependencies": {
+    "app-root-path": "^3.0.0",
+    "callsites": "^3.1.0",
     "winston": "^3.2.1"
   },
   "devDependencies": {
+    "@types/app-root-path": "^1.2.4",
     "@types/chai": "^4.2.3",
     "@types/mocha": "^5.2.7",
     "@types/node": "^12.7.7",
     "@types/rimraf": "^2.0.2",
+    "chai": "^4.2.0",
     "create-ts-index": "^1.11.1",
+    "mocha": "^6.2.0",
     "prettier": "^1.18.2",
     "rimraf": "^3.0.0",
+    "ts-node": "^8.4.1",
     "tslint": "^5.20.0",
     "tslint-config-prettier": "^1.18.0",
-    "typescript": "^3.6.3",
-    "chai": "^4.2.0",
-    "mocha": "^6.2.0",
-    "ts-node": "^8.4.1"
+    "typescript": "^3.6.3"
   }
 }

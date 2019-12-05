@@ -13,6 +13,7 @@
     "strict": true,
     "alwaysStrict": true,
     "strictPropertyInitialization": true,
+    "esModuleInterop": true,
 
     "rootDir": ".",
     "module": "commonjs", // Use commonjs for compatibility
