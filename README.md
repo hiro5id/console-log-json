@@ -1,4 +1,5 @@
 # console-log-json
+![title](docs/images/console-log-json-image.png)
 
 A universal JSON logger that plugs in to the existing `console.log` native function.
 
