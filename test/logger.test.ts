@@ -31,7 +31,7 @@ describe('logger', () => {
 
         expect(testObj).eql({"level":"error","message":"some string - error object","extra-context":"extra-context"});
 
-        expect(JSON.parse(outputText[1]).stack.startsWith("Error: error object    at ")).eql(true, "starts with specific text");
+        expect(JSON.parse(outputText[1]).stack.startsWith("Error: error object\n    at ")).eql(true, "starts with specific text");
     });
 
     it('logs error in correct shape using console.log', () => {
@@ -46,13 +46,14 @@ describe('logger', () => {
         }
         // assert
         console.log(outputText[0]);
+
+        expect(JSON.parse(outputText[0]).stack.startsWith("Error: error object\n    at ")).eql(true, "starts with specific text");
+
         const testObj = JSON.parse(stripTimeStamp(outputText[0]));
         delete testObj.filename;
         delete testObj.stack;
-
         expect(testObj).eql({"level":"error","message":"some string - error object","extra-context":"extra-context"});
 
-        expect(JSON.parse(outputText[0]).stack.startsWith("Error: error object    at ")).eql(true, "starts with specific text");
     });
 
     it('console.log is correctly adapted when using a combination of types', () => {
@@ -79,7 +80,7 @@ describe('logger', () => {
         delete testObj.stack;
         expect(testObj).eql({"level":"error","message":"some string1 - 123 - some string2 - error object","extra-context":"extra-context","property1":"proptery1","property2":"property2"});
 
-        expect(JSON.parse(outputText[0]).stack.startsWith("Error: error object    at")).eql(true,"starts with specific string")
+        expect(JSON.parse(outputText[0]).stack.startsWith("Error: error object\n    at")).eql(true,"starts with specific string")
     });
 
 
@@ -225,7 +226,7 @@ describe('logger', () => {
         const testObj = JSON.parse(outputText[0]);
         expect(testObj.level).eql("error");
         expect(testObj.message).eql(" - error message 1 - this is a test string");
-        expect(testObj.stack.startsWith("Error: error message 1 - this is a test string    at")).eql(true, "stack starts with specific message");
+        expect(testObj.stack.startsWith("Error: error message 1 - this is a test string\n    at")).eql(true, "stack starts with specific message");
     });
 
     it('logs error properly when extra context is a string and main error is an error object', async () => {
@@ -251,7 +252,7 @@ describe('logger', () => {
 
         const testObj2 = JSON.parse(outputText[0]);
         expect(testObj2.filename).include("/test/logger.test");
-        expect(testObj2.stack.startsWith("Error: error message 2 - this is a test string    at")).eql(true,"stack starts with specific text")
+        expect(testObj2.stack.startsWith("Error: error message 2 - this is a test string\n    at")).eql(true,"stack starts with specific text")
     });
 
     it('console.info works', async () => {

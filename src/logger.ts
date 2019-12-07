@@ -3,10 +3,11 @@ import appRootPath from 'app-root-path';
 import callsites from 'callsites';
 import * as w from 'winston';
 import { ErrorWithContext } from './error-with-context';
+import { formatStackTrace } from './format-stack-trace';
 import { ToOneLine } from './to-one-line';
 // tslint:disable-next-line:no-var-requires
-
 /* tslint:disable:no-conditional-assignment */
+
 // Console-polyfill. MIT license.
 // https://github.com/paulmillr/console-polyfill
 // Make it safe to do console.log() always.
@@ -108,16 +109,16 @@ export function FormatErrorObject(object: any) {
   // Add stack trace if available
   if (object.stack) {
     const stack = object.stack;
-    const stackOneLine = ToOneLine(stack);
+    const stackOneLine = formatStackTrace(ToOneLine(stack));
     delete returnData.stack;
     returnData = Object.assign(returnData, { stack: stackOneLine });
     returnData.level = 'error';
 
     // Lets put a space into the message when stack message exists
     if (returnData.message) {
-      const stackRegex = /^Error:[ ](.*?)([ ]{4})(at )/im;
+      const stackRegex = /^Error:[ ](.*?)\n/im;
       const stackRegexMatch = stackOneLine.match(stackRegex);
-      if (stackRegexMatch != null && stackRegexMatch.length >= 4) {
+      if (stackRegexMatch != null && stackRegexMatch.length >= 2) {
         const stackMessage = stackRegexMatch[1];
         returnData.message = `${ToOneLine(returnData.message).replace(stackMessage, '')} - ${stackMessage}`;
       }
