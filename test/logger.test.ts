@@ -343,7 +343,7 @@ describe('logger', () => {
         expect(testObj).eql({"level":"info","message":"this is a test - more messages","a":"stuff-a","b":"stuff-b","c":"stuff-c"});
     });
 
-    it('handle null parameter', async () => {
+    it('ignore null parameters among other parameters', async () => {
         const {originalWrite, outputText} = overrideStdOut();
         LoggerAdaptToConsole();
 
@@ -360,6 +360,22 @@ describe('logger', () => {
         expect(testObj.b).eql("stuff-b");
         expect(testObj.c).eql("stuff-c");
         expect(testObj.filename).include("/test/logger.test");
+    });
+
+    it('handle when only null parameter is provided', async () => {
+        const {originalWrite, outputText} = overrideStdOut();
+        LoggerAdaptToConsole();
+
+        console.log(null);
+
+        restoreStdOut(originalWrite);
+        LoggerRestoreConsole();
+
+        console.log(outputText[0]);
+        const testObj = JSON.parse(outputText[0]);
+        expect(testObj.level).eql("info");
+        expect(testObj.filename).include("/test/logger.test");
+        expect(testObj.message).eql("<value-passed-to-console-log-json-was-null>");
     });
 
 

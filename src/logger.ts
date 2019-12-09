@@ -188,7 +188,9 @@ export function NativeConsoleLog(...args: any[]) {
 function ifEverythingFailsLogger(functionName: string, err: Error) {
   if (consoleErrorBackup != null) {
     try {
-      consoleErrorBackup(`Error: console-log-json: error while trying to process ${functionName} : ${err.message}`);
+      consoleErrorBackup(
+        `{"level":"error","message":"Error: console-log-json: error while trying to process ${functionName} : ${err.message}"}`,
+      );
     } catch (err) {
       throw new Error(`Failed to call ${functionName} and failed to fall back to native function`);
     }
@@ -265,14 +267,18 @@ export function LoggerAdaptToConsole(logLevel: LOG_LEVEL = LOG_LEVEL.info) {
   Logger.level = logLevel;
 }
 
-function filterNullParameters(args: any) {
+function filterNullOrUndefinedParameters(args: any): number {
+  let nullOrUndefinedCount = 0;
   args.forEach((f: any, index: number) => {
     // Remove null parameters
     if (f == null) {
+      nullOrUndefinedCount += 1;
       args.splice(index, 1);
       return;
     }
   });
+
+  return nullOrUndefinedCount;
 }
 
 function findExplicitLogLevelAndUseIt(args: any, level: LOG_LEVEL) {
@@ -280,6 +286,7 @@ function findExplicitLogLevelAndUseIt(args: any, level: LOG_LEVEL) {
   args.forEach((f: any) => {
     if (
       !foundLevel &&
+      f &&
       typeof f === 'object' &&
       Object.keys(f) &&
       Object.keys(f).length > 0 &&
@@ -314,7 +321,7 @@ function findExplicitLogLevelAndUseIt(args: any, level: LOG_LEVEL) {
 }
 
 function getCallingFilename(): string | null {
-  const callsite = callsites()[2];
+  const callsite = callsites()[3];
   let name: string | null = callsite.getFileName();
   if (name) {
     name = name.replace(appRootPath.toString(), '');
@@ -335,7 +342,6 @@ export async function logUsingWinston(args: any, level: LOG_LEVEL) {
 
   const logPromise = new Promise(resolve => {
     try {
-      filterNullParameters(args);
       level = findExplicitLogLevelAndUseIt(args, level);
 
       // this line is only for enabling testing
@@ -422,10 +428,12 @@ export function LoggerRestoreConsole() {
   }
 }
 
-function extractParametersFromArguments(args: any) {
+function extractParametersFromArguments(args: any[]) {
   let message = '';
   let errorObject: ErrorWithContext | undefined;
   let extraContext: object | undefined;
+
+  const nullOrUndefinedCount = filterNullOrUndefinedParameters(args);
 
   args.forEach((f: any) => {
     // String parameter or number parameter
@@ -462,6 +470,10 @@ function extractParametersFromArguments(args: any) {
       // noinspection JSUnusedAssignment
       errorObject = new ErrorWithContext(errorObject, extraContext);
     }
+  }
+
+  if (nullOrUndefinedCount > 0 && message.length === 0) {
+    message = '<value-passed-to-console-log-json-was-null>';
   }
 
   return { message, errorObject };
