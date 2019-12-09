@@ -149,6 +149,10 @@ export function FormatErrorObject(object: any) {
     returnData.message = returnData.message.substring(3);
   }
 
+  if (returnData.message.length === 0) {
+    returnData.message = '<no-error-message-was-passed-to-console-log>';
+  }
+
   const jsonString = JSON.stringify(returnData);
 
   // strip ansi colors

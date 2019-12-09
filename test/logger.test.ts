@@ -394,6 +394,23 @@ describe('logger', () => {
         expect(testObj.message).eql("<nothing-was-passed-to-console-log>");
     });
 
+    it('no error message was passed, it displays informative message in log', async () => {
+        const {originalWrite, outputText} = overrideStdOut();
+        LoggerAdaptToConsole();
+
+        console.error({durationInSeconds: 1,totalErrored:2, totalFlaggedAsSent: 4, totalPickedUp:5, totalSent: 3});
+
+        restoreStdOut(originalWrite);
+        LoggerRestoreConsole();
+
+        console.log(outputText[0]);
+        const testObj = JSON.parse(outputText[0]);
+        expect(testObj.level).eql("error");
+        expect(testObj.filename).include("/test/logger.test");
+        expect(testObj.message).eql("<no-error-message-was-passed-to-console-log>");
+    });
+
+
     it('handle single error object with message', async () => {
         const {originalWrite, outputText} = overrideStdOut();
         LoggerAdaptToConsole();
