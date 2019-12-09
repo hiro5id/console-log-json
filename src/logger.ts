@@ -338,7 +338,7 @@ function getCallingFilename(): string | null {
   return name;
 }
 
-export async function logUsingWinston(args: any, level: LOG_LEVEL) {
+export async function logUsingWinston(args: any[], level: LOG_LEVEL) {
   // Discover calling filename
   try {
     const name = getCallingFilename();
