@@ -349,6 +349,7 @@ export async function logUsingWinston(args: any, level: LOG_LEVEL) {
         console.exception();
       }
       const { message, errorObject } = extractParametersFromArguments(args);
+
       Logger.log(level, message, errorObject);
     } catch (err) {
       ifEverythingFailsLogger('console.log', err);
@@ -432,6 +433,8 @@ function extractParametersFromArguments(args: any[]) {
   let message = '';
   let errorObject: ErrorWithContext | undefined;
   let extraContext: object | undefined;
+  let errorObjectWasPassed = false;
+  let extraContextWasPassed = false;
 
   const nullOrUndefinedCount = filterNullOrUndefinedParameters(args);
 
@@ -464,9 +467,12 @@ function extractParametersFromArguments(args: any[]) {
     // noinspection JSUnusedAssignment
     extraContext = sortObject(extraContext);
     if (errorObject === undefined) {
-      // noinspection JSUnusedAssignment
+      errorObjectWasPassed = false;
+      // pass it dry
       errorObject = extraContext as any;
     } else {
+      errorObjectWasPassed = true;
+      // wrap it into existing error object
       // noinspection JSUnusedAssignment
       errorObject = new ErrorWithContext(errorObject, extraContext);
     }
@@ -474,6 +480,19 @@ function extractParametersFromArguments(args: any[]) {
 
   if (nullOrUndefinedCount > 0 && message.length === 0) {
     message = '<value-passed-to-console-log-json-was-null>';
+  }
+
+  // count extra context values
+  if (extraContext) {
+    const knownExtraContextKeys: string[] = ['filename'];
+    const knownFiltered = Object.keys(extraContext).filter((f: string) => !knownExtraContextKeys.includes(f));
+    if (knownFiltered.length > 0) {
+      extraContextWasPassed = true;
+    }
+  }
+
+  if (nullOrUndefinedCount === 0 && message.length === 0 && !errorObjectWasPassed && !extraContextWasPassed) {
+    message = '<nothing-was-passed-to-console-log>';
   }
 
   return { message, errorObject };

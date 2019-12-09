@@ -378,6 +378,22 @@ describe('logger', () => {
         expect(testObj.message).eql("<value-passed-to-console-log-json-was-null>");
     });
 
+    it('handle when nothing is provided', async () => {
+        const {originalWrite, outputText} = overrideStdOut();
+        LoggerAdaptToConsole();
+
+        console.log();
+
+        restoreStdOut(originalWrite);
+        LoggerRestoreConsole();
+
+        console.log(outputText[0]);
+        const testObj = JSON.parse(outputText[0]);
+        expect(testObj.level).eql("info");
+        expect(testObj.filename).include("/test/logger.test");
+        expect(testObj.message).eql("<nothing-was-passed-to-console-log>");
+    });
+
 
     it('console.log logs as info when explicitly provided with level parameter that is not recognized', async () => {
         const {originalWrite, outputText} = overrideStdOut();
