@@ -225,7 +225,7 @@ describe('logger', () => {
         console.log(outputText[0]);
         const testObj = JSON.parse(outputText[0]);
         expect(testObj.level).eql("error");
-        expect(testObj.message).eql(" - error message 1 - this is a test string");
+        expect(testObj.message).eql("error message 1 - this is a test string");
         expect(testObj.stack.startsWith("Error: error message 1 - this is a test string\n    at")).eql(true, "stack starts with specific message");
     });
 
@@ -248,7 +248,7 @@ describe('logger', () => {
         const testObj1 = JSON.parse(stripTimeStamp(outputText[0]));
         delete testObj1.filename;
         delete testObj1.stack;
-        expect(testObj1).eql({"level":"error","message":" - error message 2 - this is a test string"});
+        expect(testObj1).eql({"level":"error","message":"error message 2 - this is a test string"});
 
         const testObj2 = JSON.parse(outputText[0]);
         expect(testObj2.filename).include("/test/logger.test");
@@ -392,6 +392,22 @@ describe('logger', () => {
         expect(testObj.level).eql("info");
         expect(testObj.filename).include("/test/logger.test");
         expect(testObj.message).eql("<nothing-was-passed-to-console-log>");
+    });
+
+    it('handle single error object with message', async () => {
+        const {originalWrite, outputText} = overrideStdOut();
+        LoggerAdaptToConsole();
+
+        console.log(new Error('error-message'));
+
+        restoreStdOut(originalWrite);
+        LoggerRestoreConsole();
+
+        console.log(outputText[0]);
+        const testObj = JSON.parse(outputText[0]);
+        expect(testObj.level).eql("error");
+        expect(testObj.filename).include("/test/logger.test");
+        expect(testObj.message).eql("error-message");
     });
 
 

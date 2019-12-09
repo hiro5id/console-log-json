@@ -144,6 +144,11 @@ export function FormatErrorObject(object: any) {
   // Add timestamp
   returnData['@timestamp'] = new Date().toISOString();
 
+  // cleanup leading dash in message
+  if (returnData.message && returnData.message.startsWith(' - ')) {
+    returnData.message = returnData.message.substring(3);
+  }
+
   const jsonString = JSON.stringify(returnData);
 
   // strip ansi colors
@@ -482,7 +487,7 @@ function extractParametersFromArguments(args: any[]) {
     message = '<value-passed-to-console-log-json-was-null>';
   }
 
-  // count extra context values
+  // check if user defined extra context was passed
   if (extraContext) {
     const knownExtraContextKeys: string[] = ['filename'];
     const knownFiltered = Object.keys(extraContext).filter((f: string) => !knownExtraContextKeys.includes(f));
