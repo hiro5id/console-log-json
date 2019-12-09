@@ -313,14 +313,22 @@ function findExplicitLogLevelAndUseIt(args: any, level: LOG_LEVEL) {
   return level;
 }
 
+function getCallingFilename(): string | null {
+  const callsite = callsites()[2];
+  let name: string | null = callsite.getFileName();
+  if (name) {
+    name = name.replace(appRootPath.toString(), '');
+  }
+  return name;
+}
+
 export async function logUsingWinston(args: any, level: LOG_LEVEL) {
+  // Discover calling filename
   try {
-    const callsite = callsites()[2];
-    let name = callsite.getFileName();
+    const name = getCallingFilename();
     if (name) {
-      name = name.replace(appRootPath.toString(), '');
+      args.push({ filename: name });
     }
-    args.push({ filename: name });
   } catch (err) {
     // Don't do anything
   }
