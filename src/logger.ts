@@ -368,7 +368,7 @@ export async function logUsingWinston(args: any[], level: LOG_LEVEL) {
   try {
     const name = getCallingFilename();
     if (name) {
-      args.push({ '@filename': name, logCallStack: getCallStack() });
+      args.push({ '@filename': name, '@logCallStack': getCallStack() });
     }
   } catch (err) {
     // Don't do anything
@@ -524,7 +524,7 @@ function extractParametersFromArguments(args: any[]) {
 
   // check if user defined extra context was passed
   if (extraContext) {
-    const knownExtraContextKeys: string[] = ['@filename', 'logCallStack'];
+    const knownExtraContextKeys: string[] = ['@filename', '@logCallStack'];
     const knownFiltered = Object.keys(extraContext).filter((f: string) => !knownExtraContextKeys.includes(f));
     if (knownFiltered.length > 0) {
       extraContextWasPassed = true;
