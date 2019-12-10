@@ -1,6 +1,7 @@
 import appRootPath from 'app-root-path';
 
 export class FormatStackTrace {
+  public static readonly divider = '    at';
   public static toNewLines(stack: string): string {
     const lines = this.toArray(stack);
     return lines.join(`\n${this.divider}`);
@@ -16,6 +17,4 @@ export class FormatStackTrace {
     const linesWithoutFullPath = linesWithoutLocalFiles.map(m => m.replace(appRootPath.toString(), ''));
     return linesWithoutFullPath;
   }
-
-  private static readonly divider = '    at';
 }
