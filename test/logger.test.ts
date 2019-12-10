@@ -137,7 +137,7 @@ describe('logger', () => {
     it('console.debug works', () => {
         const backupLevel = GetLogLevel();
         const {originalWrite, outputText} = overrideStdOut();
-        LoggerAdaptToConsole(LOG_LEVEL.debug);
+        LoggerAdaptToConsole({logLevel:LOG_LEVEL.debug});
 
         try {
             console.debug('this is a message', {'extra-context': 'hello'});
@@ -158,7 +158,7 @@ describe('logger', () => {
     it('console.silly works', () => {
         const backupLevel = GetLogLevel();
         const {originalWrite, outputText} = overrideStdOut();
-        LoggerAdaptToConsole(LOG_LEVEL.silly);
+        LoggerAdaptToConsole({logLevel:LOG_LEVEL.silly});
 
         try {
             console.silly('this is a message', {'extra-context': 'hello'});
@@ -176,7 +176,7 @@ describe('logger', () => {
     it('console.warn works with log level info', () => {
         const backupLevel = GetLogLevel();
         const {originalWrite, outputText} = overrideStdOut();
-        LoggerAdaptToConsole(LOG_LEVEL.info);
+        LoggerAdaptToConsole({logLevel:LOG_LEVEL.info});
 
         try {
             console.warn('this is a message', {'extra-context': 'hello'});
@@ -194,7 +194,7 @@ describe('logger', () => {
     it('console.warn is not shown with log level error', () => {
         const backupLevel = GetLogLevel();
         const {originalWrite, outputText} = overrideStdOut();
-        LoggerAdaptToConsole(LOG_LEVEL.error);
+        LoggerAdaptToConsole({logLevel:LOG_LEVEL.error});
 
         try {
             console.warn('this is a message', {'extra-context': 'hello'});
@@ -427,6 +427,23 @@ describe('logger', () => {
         expect(testObj.message).eql("error-message");
     });
 
+    it('log with debug shows debug line', async () => {
+        const {originalWrite, outputText} = overrideStdOut();
+        LoggerAdaptToConsole({debugString:true});
+
+        console.log(new Error('error-message'), 'test string');
+
+        restoreStdOut(originalWrite);
+        LoggerRestoreConsole();
+
+        console.log(outputText[0]);
+        const testObj = JSON.parse(outputText[0]);
+        expect(testObj.level).eql("error");
+        expect(testObj.filename).include("/test/logger.test");
+        expect(testObj.message).eql("test string - error-message");
+        expect(testObj._loggerDebug).contains("\"test string\"");
+        expect(testObj._loggerDebug).contains("\"stack\":\"Error: error-message");
+    });
 
     it('console.log logs as info when explicitly provided with level parameter that is not recognized', async () => {
         const {originalWrite, outputText} = overrideStdOut();

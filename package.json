@@ -48,11 +48,13 @@
   "dependencies": {
     "app-root-path": "^3.0.0",
     "callsites": "^3.1.0",
+    "json-stringify-safe": "^5.0.1",
     "winston": "^3.2.1"
   },
   "devDependencies": {
     "@types/app-root-path": "^1.2.4",
     "@types/chai": "^4.2.3",
+    "@types/json-stringify-safe": "^5.0.0",
     "@types/mocha": "^5.2.7",
     "@types/node": "^12.7.7",
     "@types/rimraf": "^2.0.2",

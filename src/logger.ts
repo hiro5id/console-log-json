@@ -1,10 +1,12 @@
 /* tslint:disable:object-literal-sort-keys */
 import appRootPath from 'app-root-path';
 import callsites from 'callsites';
+import stringify from 'json-stringify-safe';
 import * as w from 'winston';
 import { ErrorWithContext } from './error-with-context';
 import { formatStackTrace } from './format-stack-trace';
 import { ToOneLine } from './to-one-line';
+
 // tslint:disable-next-line:no-var-requires
 /* tslint:disable:no-conditional-assignment */
 
@@ -153,7 +155,7 @@ export function FormatErrorObject(object: any) {
     returnData.message = '<no-error-message-was-passed-to-console-log>';
   }
 
-  const jsonString = JSON.stringify(returnData);
+  const jsonString = stringify(returnData);
 
   // strip ansi colors
   return jsonString.replace(/\\u001B\[\d*m/gim, '');
@@ -210,7 +212,15 @@ function ifEverythingFailsLogger(functionName: string, err: Error) {
   }
 }
 
-export function LoggerAdaptToConsole(logLevel: LOG_LEVEL = LOG_LEVEL.info) {
+let logParams!: { logLevel: LOG_LEVEL; debugString: boolean };
+
+export function LoggerAdaptToConsole(options?: { logLevel?: LOG_LEVEL; debugString?: boolean }) {
+  const defaultOptions = {
+    logLevel: LOG_LEVEL.info,
+    debugString: false,
+  };
+
+  logParams = { ...defaultOptions, ...options };
   if (consoleErrorBackup == null) {
     consoleErrorBackup = console.error;
   }
@@ -273,7 +283,7 @@ export function LoggerAdaptToConsole(logLevel: LOG_LEVEL = LOG_LEVEL.info) {
     void logUsingWinston(args, LOG_LEVEL.info);
   };
 
-  Logger.level = logLevel;
+  Logger.level = logParams.logLevel;
 }
 
 function filterNullOrUndefinedParameters(args: any): number {
@@ -339,6 +349,20 @@ function getCallingFilename(): string | null {
 }
 
 export async function logUsingWinston(args: any[], level: LOG_LEVEL) {
+  // log debug logging if needed
+  try {
+    if (logParams.debugString) {
+      const argsStringArray = args.map(m => JSON.stringify(m, Object.getOwnPropertyNames(m)));
+      let argsString = `[${argsStringArray.join(',')}]`;
+      if (!argsString) {
+        argsString = '';
+      }
+      args.push({ _loggerDebug: argsString });
+    }
+  } catch (err) {
+    args.push({ _loggerDebug: `err ${err.message}` });
+  }
+
   // Discover calling filename
   try {
     const name = getCallingFilename();
