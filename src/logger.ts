@@ -118,6 +118,7 @@ export function FormatErrorObject(object: any) {
     const stack = object.stack;
     const stackOneLine = FormatStackTrace.toNewLines(ToOneLine(stack));
     delete returnData.stack;
+    delete returnData.errCallStack;
     returnData = Object.assign(returnData, { errCallStack: stackOneLine });
     returnData.level = 'error';
 
@@ -156,7 +157,7 @@ export function FormatErrorObject(object: any) {
     returnData.message = returnData.message.substring(3);
   }
 
-  if (returnData.message.length === 0) {
+  if (returnData.message.length === 0 && returnData.level === 'error') {
     returnData.message = '<no-error-message-was-passed-to-console-log>';
   }
 
@@ -367,7 +368,7 @@ export async function logUsingWinston(args: any[], level: LOG_LEVEL) {
   try {
     const name = getCallingFilename();
     if (name) {
-      args.push({ filename: name, callStack: getCallStack() });
+      args.push({ filename: name, logCallStack: getCallStack() });
     }
   } catch (err) {
     // Don't do anything
@@ -517,7 +518,7 @@ function extractParametersFromArguments(args: any[]) {
 
   // check if user defined extra context was passed
   if (extraContext) {
-    const knownExtraContextKeys: string[] = ['filename', 'callStack'];
+    const knownExtraContextKeys: string[] = ['filename', 'logCallStack'];
     const knownFiltered = Object.keys(extraContext).filter((f: string) => !knownExtraContextKeys.includes(f));
     if (knownFiltered.length > 0) {
       extraContextWasPassed = true;

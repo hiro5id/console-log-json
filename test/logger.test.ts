@@ -28,7 +28,7 @@ describe('logger', () => {
         const testObj = JSON.parse(stripTimeStamp(outputText[1]));
         delete testObj.filename;
         delete testObj.errCallStack;
-        delete testObj.callStack;
+        delete testObj.logCallStack;
 
         expect(testObj).eql({"level":"error","message":"some string - error object","extra-context":"extra-context"});
 
@@ -53,7 +53,7 @@ describe('logger', () => {
         const testObj = JSON.parse(stripTimeStamp(outputText[0]));
         delete testObj.filename;
         delete testObj.errCallStack;
-        delete testObj.callStack;
+        delete testObj.logCallStack;
 
         expect(testObj).eql({"level":"error","message":"some string - error object","extra-context":"extra-context"});
 
@@ -81,7 +81,7 @@ describe('logger', () => {
         const testObj = JSON.parse(stripTimeStamp(outputText[0]));
         delete testObj.filename;
         delete testObj.errCallStack;
-        delete testObj.callStack;
+        delete testObj.logCallStack;
 
         expect(testObj).eql({"level":"error","message":"some string1 - 123 - some string2 - error object","extra-context":"extra-context","property1":"proptery1","property2":"property2"});
 
@@ -253,7 +253,7 @@ describe('logger', () => {
         const testObj1 = JSON.parse(stripTimeStamp(outputText[0]));
         delete testObj1.filename;
         delete testObj1.errCallStack;
-        delete testObj1.callStack;
+        delete testObj1.logCallStack;
         expect(testObj1).eql({"level":"error","message":"error message 2 - this is a test string"});
 
         const testObj2 = JSON.parse(outputText[0]);
@@ -346,7 +346,7 @@ describe('logger', () => {
         console.log(outputText[0]);
         const testObj = JSON.parse(stripTimeStamp(outputText[0]));
         delete testObj.filename;
-        delete testObj.callStack;
+        delete testObj.logCallStack;
         expect(testObj).eql({"level":"info","message":"this is a test - more messages","a":"stuff-a","b":"stuff-b","c":"stuff-c"});
     });
 
@@ -507,9 +507,9 @@ describe('logger', () => {
         LoggerRestoreConsole();
 
         outputText[0] = stripTimeStamp(outputText[0]);
-        outputText[0] = stripProperty(outputText[0], "callStack");
+        outputText[0] = stripProperty(outputText[0], "logCallStack");
         outputText[1] = stripTimeStamp(outputText[1]);
-        outputText[1] = stripProperty(outputText[1], "callStack");
+        outputText[1] = stripProperty(outputText[1], "logCallStack");
 
         console.log(outputText[0]);
         console.log(outputText[1]);
