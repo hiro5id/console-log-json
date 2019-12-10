@@ -288,6 +288,23 @@ describe('logger', () => {
         });
     });
 
+    it('handles object with circular reference', async () => {
+        const {originalWrite, outputText} = overrideStdOut();
+        LoggerAdaptToConsole();
+
+        const circObject: any = {bob:"bob"};
+        circObject.circ = circObject;
+
+        console.log('circular reference test', circObject);
+
+        restoreStdOut(originalWrite);
+        LoggerRestoreConsole();
+
+        console.log(outputText[0]);
+        expect(JSON.parse(outputText[0]).level).eql("info");
+        expect(JSON.parse(outputText[0]).circ.bob).eql("bob");
+        expect(JSON.parse(outputText[0]).circ.circ).eql("[Circular ~.circ]");
+    });
 
     it('console.log logs as info when explicitly provided with level:info parameter', async () => {
         const {originalWrite, outputText} = overrideStdOut();
