@@ -352,12 +352,11 @@ export async function logUsingWinston(args: any[], level: LOG_LEVEL) {
   // log debug logging if needed
   try {
     if (logParams.debugString) {
-      const argsStringArray = args.map(m => JSON.stringify(m, Object.getOwnPropertyNames(m)));
-      let argsString = `[${argsStringArray.join(',')}]`;
-      if (!argsString) {
-        argsString = '';
+      let argsStringArray = args.map(m => JSON.stringify(m, Object.getOwnPropertyNames(m)));
+      if (!argsStringArray) {
+        argsStringArray = [];
       }
-      args.push({ _loggerDebug: argsString });
+      args.push({ _loggerDebug: argsStringArray });
     }
   } catch (err) {
     args.push({ _loggerDebug: `err ${err.message}` });
