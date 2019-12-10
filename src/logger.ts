@@ -1,11 +1,16 @@
 /* tslint:disable:object-literal-sort-keys */
-import appRootPath from 'app-root-path';
-import callsites from 'callsites';
 import stringify from 'json-stringify-safe';
 import * as w from 'winston';
 import { ErrorWithContext } from './error-with-context';
-import { formatStackTrace } from './format-stack-trace';
+import { FormatStackTrace } from './format-stack-trace';
+import { getCallStack } from './get-call-stack';
+import { getCallingFilename } from './get-calling-filename';
 import { ToOneLine } from './to-one-line';
+
+// tslint:disable-next-line:no-var-requires
+require('source-map-support').install({
+  hookRequire: true,
+});
 
 // tslint:disable-next-line:no-var-requires
 /* tslint:disable:no-conditional-assignment */
@@ -111,7 +116,7 @@ export function FormatErrorObject(object: any) {
   // Add stack trace if available
   if (object.stack) {
     const stack = object.stack;
-    const stackOneLine = formatStackTrace(ToOneLine(stack));
+    const stackOneLine = FormatStackTrace.toNewLines(ToOneLine(stack));
     delete returnData.stack;
     returnData = Object.assign(returnData, { stack: stackOneLine });
     returnData.level = 'error';
@@ -339,15 +344,6 @@ function findExplicitLogLevelAndUseIt(args: any, level: LOG_LEVEL) {
   return level;
 }
 
-function getCallingFilename(): string | null {
-  const callsite = callsites()[3];
-  let name: string | null = callsite.getFileName();
-  if (name) {
-    name = name.replace(appRootPath.toString(), '');
-  }
-  return name;
-}
-
 export async function logUsingWinston(args: any[], level: LOG_LEVEL) {
   // log debug logging if needed
   try {
@@ -371,7 +367,7 @@ export async function logUsingWinston(args: any[], level: LOG_LEVEL) {
   try {
     const name = getCallingFilename();
     if (name) {
-      args.push({ filename: name });
+      args.push({ filename: name, callStack: getCallStack() });
     }
   } catch (err) {
     // Don't do anything
@@ -521,7 +517,7 @@ function extractParametersFromArguments(args: any[]) {
 
   // check if user defined extra context was passed
   if (extraContext) {
-    const knownExtraContextKeys: string[] = ['filename'];
+    const knownExtraContextKeys: string[] = ['filename', 'callStack'];
     const knownFiltered = Object.keys(extraContext).filter((f: string) => !knownExtraContextKeys.includes(f));
     if (knownFiltered.length > 0) {
       extraContextWasPassed = true;

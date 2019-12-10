@@ -28,6 +28,7 @@ describe('logger', () => {
         const testObj = JSON.parse(stripTimeStamp(outputText[1]));
         delete testObj.filename;
         delete testObj.stack;
+        delete testObj.callStack;
 
         expect(testObj).eql({"level":"error","message":"some string - error object","extra-context":"extra-context"});
 
@@ -52,6 +53,8 @@ describe('logger', () => {
         const testObj = JSON.parse(stripTimeStamp(outputText[0]));
         delete testObj.filename;
         delete testObj.stack;
+        delete testObj.callStack;
+
         expect(testObj).eql({"level":"error","message":"some string - error object","extra-context":"extra-context"});
 
     });
@@ -78,6 +81,8 @@ describe('logger', () => {
         const testObj = JSON.parse(stripTimeStamp(outputText[0]));
         delete testObj.filename;
         delete testObj.stack;
+        delete testObj.callStack;
+
         expect(testObj).eql({"level":"error","message":"some string1 - 123 - some string2 - error object","extra-context":"extra-context","property1":"proptery1","property2":"property2"});
 
         expect(JSON.parse(outputText[0]).stack.startsWith("Error: error object\n    at")).eql(true,"starts with specific string")
@@ -169,7 +174,7 @@ describe('logger', () => {
         }
 
         console.log(outputText[0]);
-        expect(outputText[0]).contains('{"level":"silly","message":"this is a message","extra-context":"hello"');
+        expect(JSON.parse(outputText[0]).level).eql("silly");
     });
 
 
@@ -187,7 +192,7 @@ describe('logger', () => {
         }
 
         console.log(outputText[0]);
-        expect(outputText[0]).contains('{"level":"warn","message":"this is a message","extra-context":"hello"');
+        expect(JSON.parse(outputText[0]).level).eql("warn");
     });
 
 
@@ -248,6 +253,7 @@ describe('logger', () => {
         const testObj1 = JSON.parse(stripTimeStamp(outputText[0]));
         delete testObj1.filename;
         delete testObj1.stack;
+        delete testObj1.callStack;
         expect(testObj1).eql({"level":"error","message":"error message 2 - this is a test string"});
 
         const testObj2 = JSON.parse(outputText[0]);
@@ -340,6 +346,7 @@ describe('logger', () => {
         console.log(outputText[0]);
         const testObj = JSON.parse(stripTimeStamp(outputText[0]));
         delete testObj.filename;
+        delete testObj.callStack;
         expect(testObj).eql({"level":"info","message":"this is a test - more messages","a":"stuff-a","b":"stuff-b","c":"stuff-c"});
     });
 
@@ -500,7 +507,10 @@ describe('logger', () => {
         LoggerRestoreConsole();
 
         outputText[0] = stripTimeStamp(outputText[0]);
+        outputText[0] = stripProperty(outputText[0], "callStack");
         outputText[1] = stripTimeStamp(outputText[1]);
+        outputText[1] = stripProperty(outputText[1], "callStack");
+
         console.log(outputText[0]);
         console.log(outputText[1]);
         expect(outputText[0]).equal(outputText[1])
@@ -560,5 +570,11 @@ describe('logger', () => {
 const stripTimeStamp = (input: string): string => {
     const obj = JSON.parse(input);
     delete obj["@timestamp"];
+    return JSON.stringify(obj);
+};
+
+const stripProperty = (input: string, propertyName: string): string => {
+    const obj = JSON.parse(input);
+    delete obj[propertyName];
     return JSON.stringify(obj);
 };
