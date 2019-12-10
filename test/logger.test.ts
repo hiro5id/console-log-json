@@ -275,10 +275,13 @@ describe('logger', () => {
         outputText[0] = stripProperty(outputText[0],"@logCallStack");
         outputText[0] = stripTimeStamp(outputText[0]);
 
+        expect(JSON.parse(outputText[0])["@filename"]).contains("/test/logger.test");
+
+        outputText[0] = stripProperty(outputText[0],"@filename");
+
         expect(JSON.parse(outputText[0])).eql({
             "level": "info",
             "message": "this is a test - more messages",
-            "@filename": "/test/logger.test.ts",
             "a": "stuff-a",
             "b": "stuff-b",
             "c": "stuff-c"
