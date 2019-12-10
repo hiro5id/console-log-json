@@ -118,7 +118,7 @@ export function FormatErrorObject(object: any) {
     const stack = object.stack;
     const stackOneLine = FormatStackTrace.toNewLines(ToOneLine(stack));
     delete returnData.stack;
-    returnData = Object.assign(returnData, { stack: stackOneLine });
+    returnData = Object.assign(returnData, { errCallStack: stackOneLine });
     returnData.level = 'error';
 
     // Lets put a space into the message when stack message exists
