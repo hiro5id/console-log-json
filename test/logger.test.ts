@@ -26,7 +26,7 @@ describe('logger', () => {
         expect(outputText[0]).equal('testing native log\n');
 
         const testObj = JSON.parse(stripTimeStamp(outputText[1]));
-        delete testObj.filename;
+        delete testObj["@filename"];
         delete testObj.errCallStack;
         delete testObj.logCallStack;
 
@@ -51,7 +51,7 @@ describe('logger', () => {
         expect(JSON.parse(outputText[0]).errCallStack.startsWith("Error: error object\n    at ")).eql(true, "starts with specific text");
 
         const testObj = JSON.parse(stripTimeStamp(outputText[0]));
-        delete testObj.filename;
+        delete testObj["@filename"];
         delete testObj.errCallStack;
         delete testObj.logCallStack;
 
@@ -79,7 +79,7 @@ describe('logger', () => {
         // assert
         console.log(outputText[0]);
         const testObj = JSON.parse(stripTimeStamp(outputText[0]));
-        delete testObj.filename;
+        delete testObj["@filename"];
         delete testObj.errCallStack;
         delete testObj.logCallStack;
 
@@ -157,7 +157,7 @@ describe('logger', () => {
         expect(testObj.level).eql("debug");
         expect(testObj.message).eql("this is a message");
         expect(testObj["extra-context"]).eql("hello");
-        expect(testObj.filename).contain("/test/logger.test");
+        expect(testObj["@filename"]).contain("/test/logger.test");
     });
 
     it('console.silly works', () => {
@@ -251,13 +251,13 @@ describe('logger', () => {
 
         console.log(outputText[0]);
         const testObj1 = JSON.parse(stripTimeStamp(outputText[0]));
-        delete testObj1.filename;
+        delete testObj1["@filename"];
         delete testObj1.errCallStack;
         delete testObj1.logCallStack;
         expect(testObj1).eql({"level":"error","@errorObjectName": "Error","message":"error message 2 - this is a test string"});
 
         const testObj2 = JSON.parse(outputText[0]);
-        expect(testObj2.filename).include("/test/logger.test");
+        expect(testObj2["@filename"]).include("/test/logger.test");
         expect(testObj2.errCallStack.startsWith("Error: error message 2 - this is a test string\n    at")).eql(true,"stack starts with specific text")
     });
 
@@ -271,7 +271,18 @@ describe('logger', () => {
         LoggerRestoreConsole();
 
         console.log(outputText[0]);
-        expect(outputText[0]).contains('{"level":"info","message":"this is a test - more messages","a":"stuff-a","b":"stuff-b","c":"stuff-c"');
+
+        outputText[0] = stripProperty(outputText[0],"logCallStack");
+        outputText[0] = stripTimeStamp(outputText[0]);
+
+        expect(JSON.parse(outputText[0])).eql({
+            "level": "info",
+            "message": "this is a test - more messages",
+            "@filename": "/test/logger.test.ts",
+            "a": "stuff-a",
+            "b": "stuff-b",
+            "c": "stuff-c"
+        });
     });
 
 
@@ -285,7 +296,7 @@ describe('logger', () => {
         LoggerRestoreConsole();
 
         console.log(outputText[0]);
-        expect(outputText[0]).contains('{"level":"info","message":"this is a test - more messages","a":"stuff-a","b":"stuff-b","c":"stuff-c"');
+        expect(JSON.parse(outputText[0]).level).eql("info");
     });
 
     it('console.log logs as error when explicitly provided with level:error parameter', async () => {
@@ -345,7 +356,7 @@ describe('logger', () => {
 
         console.log(outputText[0]);
         const testObj = JSON.parse(stripTimeStamp(outputText[0]));
-        delete testObj.filename;
+        delete testObj["@filename"];
         delete testObj.logCallStack;
         expect(testObj).eql({"level":"info","message":"this is a test - more messages","a":"stuff-a","b":"stuff-b","c":"stuff-c"});
     });
@@ -366,7 +377,7 @@ describe('logger', () => {
         expect(testObj.a).eql("stuff-a");
         expect(testObj.b).eql("stuff-b");
         expect(testObj.c).eql("stuff-c");
-        expect(testObj.filename).include("/test/logger.test");
+        expect(testObj["@filename"]).include("/test/logger.test");
     });
 
     it('handle when only null parameter is provided', async () => {
@@ -381,7 +392,7 @@ describe('logger', () => {
         console.log(outputText[0]);
         const testObj = JSON.parse(outputText[0]);
         expect(testObj.level).eql("info");
-        expect(testObj.filename).include("/test/logger.test");
+        expect(testObj["@filename"]).include("/test/logger.test");
         expect(testObj.message).eql("<value-passed-to-console-log-json-was-null>");
     });
 
@@ -397,7 +408,7 @@ describe('logger', () => {
         console.log(outputText[0]);
         const testObj = JSON.parse(outputText[0]);
         expect(testObj.level).eql("info");
-        expect(testObj.filename).include("/test/logger.test");
+        expect(testObj["@filename"]).include("/test/logger.test");
         expect(testObj.message).eql("<nothing-was-passed-to-console-log>");
     });
 
@@ -413,7 +424,7 @@ describe('logger', () => {
         console.log(outputText[0]);
         const testObj = JSON.parse(outputText[0]);
         expect(testObj.level).eql("error");
-        expect(testObj.filename).include("/test/logger.test");
+        expect(testObj["@filename"]).include("/test/logger.test");
         expect(testObj.message).eql("<no-error-message-was-passed-to-console-log>");
     });
 
@@ -430,7 +441,7 @@ describe('logger', () => {
         console.log(outputText[0]);
         const testObj = JSON.parse(outputText[0]);
         expect(testObj.level).eql("error");
-        expect(testObj.filename).include("/test/logger.test");
+        expect(testObj["@filename"]).include("/test/logger.test");
         expect(testObj.message).eql("error-message");
     });
 
@@ -452,7 +463,7 @@ describe('logger', () => {
         console.log(outputText[0]);
         const testObj = JSON.parse(outputText[0]);
         expect(testObj.level).eql("error");
-        expect(testObj.filename).include("/test/logger.test");
+        expect(testObj["@filename"]).include("/test/logger.test");
         expect(testObj.message).eql("Encountered Fatal Error on startup of public-api - Server selection timed out after 30000 ms");
         expect(testObj["@errorObjectName"]).eql("MongoTimeoutError");
     });
@@ -469,7 +480,7 @@ describe('logger', () => {
         console.log(outputText[0]);
         const testObj = JSON.parse(outputText[0]);
         expect(testObj.level).eql("error");
-        expect(testObj.filename).include("/test/logger.test");
+        expect(testObj["@filename"]).include("/test/logger.test");
         expect(testObj.message).eql("test string - error-message");
         expect(testObj._loggerDebug).contains("\"test string\"");
         expect(testObj._loggerDebug[0]).contains("\"stack\":\"Error: error-message");
@@ -490,7 +501,7 @@ describe('logger', () => {
         console.log(outputText[0]);
         const testObj = JSON.parse(outputText[0]);
         expect(testObj.level).eql("info");
-        expect(testObj.filename).include("/test/logger.test");
+        expect(testObj["@filename"]).include("/test/logger.test");
         expect(testObj.message).eql("testing");
         expect(testObj._loggerDebug).eql("err error while building debugString");
     });
@@ -514,7 +525,7 @@ describe('logger', () => {
         expect(testObj.a).eql("stuff-a");
         expect(testObj.b).eql("stuff-b");
         expect(testObj.c).eql("stuff-c");
-        expect(testObj.filename).include("/test/logger.test")
+        expect(testObj["@filename"]).include("/test/logger.test")
     });
 
     it('logging in a different order produces same result', async () => {
