@@ -442,7 +442,7 @@ describe('logger', () => {
         expect(testObj.filename).include("/test/logger.test");
         expect(testObj.message).eql("test string - error-message");
         expect(testObj._loggerDebug).contains("\"test string\"");
-        expect(testObj._loggerDebug).contains("\"stack\":\"Error: error-message");
+        expect(testObj._loggerDebug[0]).contains("\"stack\":\"Error: error-message");
     });
 
     it('console.log logs as info when explicitly provided with level parameter that is not recognized', async () => {
