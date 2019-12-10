@@ -96,7 +96,6 @@ declare global {
 }
 
 export function FormatErrorObject(object: any) {
-  // const stack = {level: 'error', stack: ToOneLine(info.stack)};
   let returnData: any = object;
 
   // Flatten message if it is an object
