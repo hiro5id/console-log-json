@@ -434,6 +434,28 @@ describe('logger', () => {
         expect(testObj.message).eql("error-message");
     });
 
+    it('handle scenario where non traditional error object is passed', async () => {
+        const {originalWrite, outputText} = overrideStdOut();
+        LoggerAdaptToConsole();
+
+        console.error("Encountered Fatal Error on startup of public-api",
+            {
+                "name": "MongoTimeoutError",
+                "stack": "MongoTimeoutError: Server selection timed out after 30000 ms\n    at Timeout._onTimeout (/Users/roberto/dev/cnp/web/public-api/node_modules/mongodb/lib/core/sdam/server_selection.js:308:9)\n    at listOnTimeout (internal/timers.js:531:17)\n    at processTimers (internal/timers.js:475:7)",
+                "message": "Server selection timed out after 30000 ms"
+            }
+            );
+
+        restoreStdOut(originalWrite);
+        LoggerRestoreConsole();
+
+        console.log(outputText[0]);
+        const testObj = JSON.parse(outputText[0]);
+        expect(testObj.level).eql("error");
+        expect(testObj.filename).include("/test/logger.test");
+        expect(testObj.message).eql("Encountered Fatal Error on startup of public-api - Server selection timed out after 30000 ms");
+    });
+
     it('log with debug shows debug line', async () => {
         const {originalWrite, outputText} = overrideStdOut();
         LoggerAdaptToConsole({debugString:true});

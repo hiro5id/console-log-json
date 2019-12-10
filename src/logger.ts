@@ -480,7 +480,8 @@ function extractParametersFromArguments(args: any[]) {
     // Error Object parameter
     else if (
       typeof f === 'object' &&
-      f.name === 'Error' &&
+      // f.name === 'Error' &&
+      (typeof f.message as any) === 'string' &&
       (typeof f.stack as any) === 'string' &&
       f.stack.length > 0
     ) {
