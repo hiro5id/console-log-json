@@ -445,6 +445,26 @@ describe('logger', () => {
         expect(testObj._loggerDebug[0]).contains("\"stack\":\"Error: error-message");
     });
 
+    it('error during processing of debug line shows the error', async () => {
+        const {originalWrite, outputText} = overrideStdOut();
+        LoggerAdaptToConsole({debugString:true});
+        (console as any).debugStringException = () => {
+            throw new Error('error while building debugString')
+        };
+        console.log('testing');
+
+        restoreStdOut(originalWrite);
+        LoggerRestoreConsole();
+        delete (console as any).debugStringException;
+
+        console.log(outputText[0]);
+        const testObj = JSON.parse(outputText[0]);
+        expect(testObj.level).eql("info");
+        expect(testObj.filename).include("/test/logger.test");
+        expect(testObj.message).eql("testing");
+        expect(testObj._loggerDebug).eql("err error while building debugString");
+    });
+
     it('console.log logs as info when explicitly provided with level parameter that is not recognized', async () => {
         const {originalWrite, outputText} = overrideStdOut();
         LoggerAdaptToConsole();

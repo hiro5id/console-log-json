@@ -352,6 +352,11 @@ export async function logUsingWinston(args: any[], level: LOG_LEVEL) {
   // log debug logging if needed
   try {
     if (logParams.debugString) {
+      // this line is only for enabling testing
+      if ((console as any).debugStringException != null) {
+        (console as any).debugStringException();
+      }
+
       let argsStringArray = args.map(m => JSON.stringify(m, Object.getOwnPropertyNames(m)));
       if (!argsStringArray) {
         argsStringArray = [];
