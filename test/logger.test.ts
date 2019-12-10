@@ -30,7 +30,7 @@ describe('logger', () => {
         delete testObj.errCallStack;
         delete testObj.logCallStack;
 
-        expect(testObj).eql({"level":"error","message":"some string - error object","extra-context":"extra-context"});
+        expect(testObj).eql({"level":"error","@errorObjectName": "Error","message":"some string - error object","extra-context":"extra-context"});
 
         expect(JSON.parse(outputText[1]).errCallStack.startsWith("Error: error object\n    at ")).eql(true, "starts with specific text");
     });
@@ -55,7 +55,7 @@ describe('logger', () => {
         delete testObj.errCallStack;
         delete testObj.logCallStack;
 
-        expect(testObj).eql({"level":"error","message":"some string - error object","extra-context":"extra-context"});
+        expect(testObj).eql({"level":"error","@errorObjectName": "Error","message":"some string - error object","extra-context":"extra-context"});
 
     });
 
@@ -83,7 +83,7 @@ describe('logger', () => {
         delete testObj.errCallStack;
         delete testObj.logCallStack;
 
-        expect(testObj).eql({"level":"error","message":"some string1 - 123 - some string2 - error object","extra-context":"extra-context","property1":"proptery1","property2":"property2"});
+        expect(testObj).eql({"level":"error","@errorObjectName": "Error","message":"some string1 - 123 - some string2 - error object","extra-context":"extra-context","property1":"proptery1","property2":"property2"});
 
         expect(JSON.parse(outputText[0]).errCallStack.startsWith("Error: error object\n    at")).eql(true,"starts with specific string")
     });
@@ -254,7 +254,7 @@ describe('logger', () => {
         delete testObj1.filename;
         delete testObj1.errCallStack;
         delete testObj1.logCallStack;
-        expect(testObj1).eql({"level":"error","message":"error message 2 - this is a test string"});
+        expect(testObj1).eql({"level":"error","@errorObjectName": "Error","message":"error message 2 - this is a test string"});
 
         const testObj2 = JSON.parse(outputText[0]);
         expect(testObj2.filename).include("/test/logger.test");
@@ -454,6 +454,7 @@ describe('logger', () => {
         expect(testObj.level).eql("error");
         expect(testObj.filename).include("/test/logger.test");
         expect(testObj.message).eql("Encountered Fatal Error on startup of public-api - Server selection timed out after 30000 ms");
+        expect(testObj["@errorObjectName"]).eql("MongoTimeoutError");
     });
 
     it('log with debug shows debug line', async () => {

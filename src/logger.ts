@@ -501,13 +501,18 @@ function extractParametersFromArguments(args: any[]) {
   if (extraContext != undefined) {
     // noinspection JSUnusedAssignment
     extraContext = sortObject(extraContext);
-    if (errorObject === undefined) {
+    if (errorObject == undefined) {
       errorObjectWasPassed = false;
       // pass it dry
       errorObject = extraContext as any;
     } else {
       errorObjectWasPassed = true;
       // wrap it into existing error object
+      // noinspection JSUnusedAssignment
+      if (errorObject.name != null && errorObject.name.length > 0) {
+        // noinspection JSUnusedAssignment
+        extraContext = { ...extraContext, ...{ '@errorObjectName': errorObject.name } };
+      }
       // noinspection JSUnusedAssignment
       errorObject = new ErrorWithContext(errorObject, extraContext);
     }
