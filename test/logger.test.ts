@@ -668,6 +668,29 @@ describe('logger', () => {
         expect((errWithContext as any).extraContext.additional).to.eql('context');
     });
 
+    it('handle string as extraContext', async () => {
+        const {originalWrite, outputText} = overrideStdOut();
+        LoggerAdaptToConsole();
+
+        const err1 = {
+            "stack": "Error: Error while querying DB2 database\n    at Db2QueryService.<anonymous> (/app/src/shared/Db2QueryService.ts:14:13)\n    at Generator.throw (<anonymous>)\n    at rejected (/app/dist/packages/internal-api/src/shared/Db2QueryService.js:6:65)",
+            "message": "Error while querying DB2 database",
+            "extraContext": "Timed out in 20000ms."
+        };
+        console.log(err1);
+
+        restoreStdOut(originalWrite);
+        LoggerRestoreConsole();
+
+        outputText.forEach(l=>{
+            console.log(l);
+        });
+        const testObj = JSON.parse(outputText[0]);
+        expect(testObj.level).eql("error");
+        expect(testObj["@filename"]).include("/test/logger.test");
+        expect(testObj.message).eql("Timed out in 20000ms. - Error while querying DB2 database");
+    });
+
     // Todo: test multiple nested ErrorWithContext objects to ensure proper stacktrace and error messages
 });
 

@@ -22,8 +22,22 @@ export class ErrorWithContext extends Error {
     if (typeof error !== 'string') {
       const nestedStackTrace = new CaptureNestedStackTrace();
       nestedStackTrace.capture(this, error);
-      if ((error as any).extraContext) {
-        (this as any).extraContext = Object.assign((error as any).extraContext, extraContext);
+      if ((error as any).extraContext != null) {
+        if (typeof (error as any).extraContext === "string") {
+          // noinspection SuspiciousTypeOfGuard
+          if (typeof extraContext === "string") {
+            (this as any).extraContext = {...{message: (error as any).extraContext}, ...{message2: extraContext}}
+          } else {
+            (this as any).extraContext = {...{message: (error as any).extraContext}, ...extraContext}
+          }
+        } else {
+          // noinspection SuspiciousTypeOfGuard
+          if (typeof extraContext === "string") {
+            (this as any).extraContext = {...(error as any).extraContext, ...{message: extraContext}};
+          } else {
+            (this as any).extraContext = {...(error as any).extraContext, ...extraContext};
+          }
+        }
       }
     }
   }
