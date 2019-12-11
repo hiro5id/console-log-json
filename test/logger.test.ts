@@ -104,6 +104,7 @@ describe('logger', () => {
         }
 
         // assert
+        console.log(outputText[0]);
         expect(outputText[0]).contains('some outer error - this is the inner error 1234');
     });
 
@@ -116,6 +117,7 @@ describe('logger', () => {
         const formatted = FormatErrorObject(sut);
 
         // assert
+        console.log(formatted);
         expect(formatted).contains('"contextInner":"dataInner"');
         expect(formatted).contains('"contextForOuterError":"dataOuter"');
         expect(formatted).contains('inner error 1234');
@@ -302,8 +304,8 @@ describe('logger', () => {
 
         console.log(outputText[0]);
         expect(JSON.parse(outputText[0]).level).eql("info");
-        expect(JSON.parse(outputText[0]).circ.bob).eql("bob");
-        expect(JSON.parse(outputText[0]).circ.circ).eql("[Circular ~.circ]");
+        expect(JSON.parse(outputText[0]).bob).eql("bob");
+        expect(JSON.parse(outputText[0]).circ).eql("[Circular ~]");
     });
 
     it('Handle where a string is passed to the logger that happens to be JSON, with new lines in it', async () => {
@@ -515,22 +517,28 @@ describe('logger', () => {
         expect(testObj.message).eql("error-message");
     });
 
-    it('log errors with self referencing properties', async () => {
+    it('log works with self referencing properties', async () => {
+        // arrange
         const {originalWrite, outputText} = overrideStdOut();
         LoggerAdaptToConsole();
 
+        // action 1
         const err1 = new Error('Error1');
         (err1 as any).self = err1;
         console.log(err1);
 
+        // action 2
         const objSelf:any = {"name": "objSelf"};
         objSelf.self = objSelf;
         const err2 = new ErrorWithContext('Error2', objSelf);
         console.log(err2);
 
+
+        // cleanup
         restoreStdOut(originalWrite);
         LoggerRestoreConsole();
 
+        // assert
         outputText.forEach(l=>{
             console.log(l);
         });
@@ -538,7 +546,7 @@ describe('logger', () => {
         expect(testObj.level).eql("error");
         expect(testObj["@filename"]).include("/test/logger.test");
         expect(testObj.message).eql("Error2");
-        expect(testObj.self.self).eql("[Circular ~.self]");
+        expect(testObj.self.self).eql(undefined);
     });
 
     it('handle scenario where non traditional error object is passed', async () => {
@@ -625,24 +633,31 @@ describe('logger', () => {
     });
 
     it('logging in a different order produces same result', async () => {
+        // arrange
         const {originalWrite, outputText} = overrideStdOut();
         LoggerAdaptToConsole();
 
         const extraInfo1 = {firstName: 'homer', lastName: 'simpson'};
         const extraInfo2 = {age: 25, location: 'mars'};
+
+        // action1
         console.log(extraInfo1, 'hello world', extraInfo2);
+        // action2
         console.log('hello world', extraInfo2, extraInfo1);
 
+        // cleanup
         restoreStdOut(originalWrite);
         LoggerRestoreConsole();
 
-        outputText[0] = stripTimeStamp(outputText[0]);
-        outputText[0] = stripProperty(outputText[0], "@logCallStack");
-        outputText[1] = stripTimeStamp(outputText[1]);
-        outputText[1] = stripProperty(outputText[1], "@logCallStack");
-
+        // assert
         console.log(outputText[0]);
         console.log(outputText[1]);
+
+        outputText[0] = stripTimeStamp(outputText[0]);
+        outputText[1] = stripTimeStamp(outputText[1]);
+        outputText[0] = stripProperty(outputText[0], "@logCallStack");
+        outputText[1] = stripProperty(outputText[1], "@logCallStack");
+
         expect(outputText[0]).equal(outputText[1])
     });
 

@@ -1,4 +1,5 @@
 import { CaptureNestedStackTrace } from './capture-nested-stack-trace';
+import { safeObjectAssign } from './safe-object-assign';
 
 export class ErrorWithContext extends Error {
   constructor(error: Error | string, extraContext: { [_: string]: any } = {}) {
@@ -25,16 +26,16 @@ export class ErrorWithContext extends Error {
         if (typeof (error as any).extraContext === 'string') {
           // noinspection SuspiciousTypeOfGuard
           if (typeof extraContext === 'string') {
-            (this as any).extraContext = { ...{ message: (error as any).extraContext }, ...{ message2: extraContext } };
+            (this as any).extraContext = safeObjectAssign({ message: (error as any).extraContext }, [], { message2: extraContext });
           } else {
-            (this as any).extraContext = { ...{ message: (error as any).extraContext }, ...extraContext };
+            (this as any).extraContext = safeObjectAssign({ message: (error as any).extraContext }, [], extraContext);
           }
         } else {
           // noinspection SuspiciousTypeOfGuard
           if (typeof extraContext === 'string') {
-            (this as any).extraContext = { ...(error as any).extraContext, ...{ message: extraContext } };
+            (this as any).extraContext = safeObjectAssign((error as any).extraContext, [], { message: extraContext });
           } else {
-            (this as any).extraContext = { ...(error as any).extraContext, ...extraContext };
+            (this as any).extraContext = safeObjectAssign((error as any).extraContext, [], extraContext);
           }
         }
       }

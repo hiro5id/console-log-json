@@ -5,6 +5,7 @@ import { ErrorWithContext } from './error-with-context';
 import { FormatStackTrace } from './format-stack-trace';
 import { getCallStack } from './get-call-stack';
 import { getCallingFilename } from './get-calling-filename';
+import { safeObjectAssign } from './safe-object-assign';
 import { sortObject } from './sort-object';
 import { ToOneLine } from './to-one-line';
 
@@ -101,16 +102,16 @@ export function FormatErrorObject(object: any) {
 
   // Flatten message if it is an object
   if (typeof object.message === 'object') {
-    const messageObj = object.message;
-    delete returnData.message;
-    returnData = Object.assign(returnData, messageObj);
+    // const messageObj = object.message;
+    // delete returnData.message;
+    returnData = safeObjectAssign(returnData, ['message'], object.message);
   }
 
   // Combine extra context from ErrorWithContext
   if (object.extraContext) {
     const extraContext = object.extraContext;
     delete returnData.extraContext;
-    returnData = Object.assign(returnData, extraContext);
+    returnData = safeObjectAssign(returnData, ['message'], extraContext);
   }
 
   // Add stack trace if available
@@ -119,7 +120,7 @@ export function FormatErrorObject(object: any) {
     const stackOneLine = FormatStackTrace.toNewLines(ToOneLine(stack));
     delete returnData.stack;
     delete returnData.errCallStack;
-    returnData = Object.assign(returnData, { errCallStack: stackOneLine });
+    returnData = safeObjectAssign(returnData, ['message'], { errCallStack: stackOneLine });
     returnData.level = 'error';
 
     // Lets put a space into the message when stack message exists
@@ -219,16 +220,12 @@ export function NativeConsoleLog(...args: any[]) {
 function ifEverythingFailsLogger(functionName: string, err: Error) {
   if (consoleErrorBackup != null) {
     try {
-      consoleErrorBackup(
-        `{"level":"error","message":"Error: console-log-json: error while trying to process ${functionName} : ${err.message}"}`,
-      );
+      consoleErrorBackup(`{"level":"error","message":"Error: console-log-json: error while trying to process ${functionName} : ${err.message}"}`);
     } catch (err) {
       throw new Error(`Failed to call ${functionName} and failed to fall back to native function`);
     }
   } else {
-    throw new Error(
-      'Error: console-log-json: This is unexpected, there is no where to call console.log, this should never happen',
-    );
+    throw new Error('Error: console-log-json: This is unexpected, there is no where to call console.log, this should never happen');
   }
 }
 
@@ -323,14 +320,7 @@ function filterNullOrUndefinedParameters(args: any): number {
 function findExplicitLogLevelAndUseIt(args: any, level: LOG_LEVEL) {
   let foundLevel = false;
   args.forEach((f: any) => {
-    if (
-      !foundLevel &&
-      f &&
-      typeof f === 'object' &&
-      Object.keys(f) &&
-      Object.keys(f).length > 0 &&
-      Object.keys(f)[0].toLowerCase() === 'level'
-    ) {
+    if (!foundLevel && f && typeof f === 'object' && Object.keys(f) && Object.keys(f).length > 0 && Object.keys(f)[0].toLowerCase() === 'level') {
       let specifiedLevelFromParameters: string = f[Object.keys(f)[0]];
 
       // Normalize alternate log level strings
@@ -506,7 +496,7 @@ function extractParametersFromArguments(args: any[]) {
       if (extraContext == null) {
         extraContext = f;
       } else {
-        extraContext = { ...extraContext, ...f };
+        extraContext = safeObjectAssign(extraContext, ['message'], f);
       }
     }
   });
@@ -525,7 +515,7 @@ function extractParametersFromArguments(args: any[]) {
       // noinspection JSUnusedAssignment
       if (errorObject.name != null && errorObject.name.length > 0) {
         // noinspection JSUnusedAssignment
-        extraContext = { ...extraContext, ...{ '@errorObjectName': errorObject.name } };
+        extraContext = safeObjectAssign(extraContext, ['message'], { '@errorObjectName': errorObject.name });
       }
       // noinspection JSUnusedAssignment
       errorObject = new ErrorWithContext(errorObject, extraContext);
