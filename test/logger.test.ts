@@ -515,6 +515,32 @@ describe('logger', () => {
         expect(testObj.message).eql("error-message");
     });
 
+    it('log errors with self referencing properties', async () => {
+        const {originalWrite, outputText} = overrideStdOut();
+        LoggerAdaptToConsole();
+
+        const err1 = new Error('Error1');
+        (err1 as any).self = err1;
+        console.log(err1);
+
+        const objSelf:any = {"name": "objSelf"};
+        objSelf.self = objSelf;
+        const err2 = new ErrorWithContext('Error2', objSelf);
+        console.log(err2);
+
+        restoreStdOut(originalWrite);
+        LoggerRestoreConsole();
+
+        outputText.forEach(l=>{
+            console.log(l);
+        });
+        const testObj = JSON.parse(outputText[1]);
+        expect(testObj.level).eql("error");
+        expect(testObj["@filename"]).include("/test/logger.test");
+        expect(testObj.message).eql("Error2");
+        expect(testObj.self.self).eql("[Circular ~.self]");
+    });
+
     it('handle scenario where non traditional error object is passed', async () => {
         const {originalWrite, outputText} = overrideStdOut();
         LoggerAdaptToConsole();

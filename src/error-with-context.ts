@@ -16,7 +16,6 @@ export class ErrorWithContext extends Error {
     }
     super(typeof error === 'string' ? (error as string) : (error as Error).message);
 
-    // this.message = `${this.message} ${JSON.stringify(extraContext)}`;
     (this as any).extraContext = extraContext;
 
     if (typeof error !== 'string') {
