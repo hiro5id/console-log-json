@@ -156,7 +156,21 @@ export function FormatErrorObject(object: any) {
     returnData.message = returnData.message.substring(3);
   }
 
-  if (returnData.message.length === 0 && returnData.level === 'error') {
+  // interpret JSON if it is inside the error message
+  if (returnData.message && returnData.message.length > 0) {
+    let parsedObject = null;
+    try {
+      parsedObject = JSON.parse(returnData.message);
+    } catch (err) {
+      // do nothing
+    }
+    if (parsedObject != null) {
+      returnData.message = '<auto-parsed-json-string-see-@autoParsedJson-property>';
+      returnData['@autoParsedJson'] = parsedObject;
+    }
+  }
+
+  if (returnData.message != null && returnData.message.length === 0 && returnData.level === 'error') {
     returnData.message = '<no-error-message-was-passed-to-console-log>';
   }
 

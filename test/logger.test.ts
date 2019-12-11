@@ -306,6 +306,56 @@ describe('logger', () => {
         expect(JSON.parse(outputText[0]).circ.circ).eql("[Circular ~.circ]");
     });
 
+    it('Handle where a string is passed to the logger that happens to be JSON, with new lines in it', async () => {
+        const {originalWrite, outputText} = overrideStdOut();
+        LoggerAdaptToConsole();
+
+        const circObject: any = {bob:"bob"};
+        circObject.circ = circObject;
+
+        const sampleStringJson = `
+        {
+  "attachments": [
+    {
+      "color": "#0062FF",
+      "fields": [
+        {
+          "title": "# of SDs for READY state update",
+          "value": "56"
+        },
+        {
+          "title": "PDF_VERIFIED => READY",
+          "value": "56"
+        }
+      ],
+      "author_name": "DSP Conversion Runner"
+    },
+    {
+      "color": "#DA1E28",
+      "fields": [
+        {
+          "title": "# of SDs failed to update state",
+          "value": "0"
+        }
+      ],
+      "author_name": "DSP Conversion Runner"
+    }
+  ]
+}  
+     `;
+
+        console.log(sampleStringJson);
+
+        restoreStdOut(originalWrite);
+        LoggerRestoreConsole();
+
+        console.log(outputText[0]);
+
+        expect(JSON.parse(outputText[0]).level).eql("info");
+        expect(JSON.parse(outputText[0])["@autoParsedJson"]).eql({"attachments":[{"color":"#0062FF","fields":[{"title":"# of SDs for READY state update","value":"56"},{"title":"PDF_VERIFIED => READY","value":"56"}],"author_name":"DSP Conversion Runner"},{"color":"#DA1E28","fields":[{"title":"# of SDs failed to update state","value":"0"}],"author_name":"DSP Conversion Runner"}]});
+    });
+
+
     it('console.log logs as info when explicitly provided with level:info parameter', async () => {
         const {originalWrite, outputText} = overrideStdOut();
         LoggerAdaptToConsole();
