@@ -11,6 +11,7 @@ so that it can be easily parsed by tool such as LogDNA.
 
 ## Features
 - The order of parameters or number of parameters don't matter, it figures out how to log it.
+- Handles circular references
 - Automatically add a date stamp in UTC to every log.
 - Automatically parse stack traces and format them into a single line for for easy parsing in log management software such as LogDNA.
 - Log extra context if passed in.
