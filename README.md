@@ -6,11 +6,12 @@ A universal JSON logger that plugs in to the existing `console.log` native funct
 ## Pupose and Description
 A no fuss simple drop-in replacement for `console.log()`, `console.info()`, 
 `console.error()` to handle anything you throw at it and have the 
-output be formatted to a consistent format in a single JSON line of text, including stack traces (if passing an error object), 
+output be formatted to a consistent format in a single **JSON** line of text, including **stack traces** (if passing an error object), 
 so that it can be easily parsed by tool such as LogDNA.
 
 ## Features
 - The order of parameters or number of parameters don't matter, it figures out how to log it.
+- Handles circular references
 - Automatically add a date stamp in UTC to every log.
 - Automatically parse stack traces and format them into a single line for for easy parsing in log management software such as LogDNA.
 - Log extra context if passed in.
