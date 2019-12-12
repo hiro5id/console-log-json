@@ -174,8 +174,12 @@ export function FormatErrorObject(object: any) {
     }
   }
 
-  if (returnData.message != null && returnData.message.length === 0 && returnData.level === 'error') {
-    returnData.message = '<no-error-message-was-passed-to-console-log>';
+  if (returnData.message != null && returnData.message.length === 0) {
+    if (returnData.level === 'error') {
+      returnData.message = '<no-error-message-was-passed-to-console-log>';
+    } else {
+      returnData.message = '<no-message-was-passed-to-console-log>';
+    }
   }
 
   const jsonString = stringify(returnData);
