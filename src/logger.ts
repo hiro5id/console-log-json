@@ -185,7 +185,10 @@ export function FormatErrorObject(object: any) {
   const jsonString = stringify(returnData);
 
   // strip ansi colors
-  return jsonString.replace(/\\u001B\[\d*m/gim, '');
+  const colorStripped = jsonString.replace(/\\u001B\[\d*m/gim, '');
+
+  // add new line at the end for better local readability
+  return `${colorStripped}\n`;
 }
 
 const print = w.format.printf((info: any) => {
