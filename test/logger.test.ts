@@ -9,19 +9,20 @@ import {
 } from '../src';
 
 describe('logger', () => {
-    it('logs error in correct shape', () => {
+    it('logs error in correct shape', async () => {
         const {originalWrite, outputText} = overrideStdOut();
         LoggerAdaptToConsole();
         try {
             // action
             NativeConsoleLog('testing native log');
-            console.error('some string', new ErrorWithContext('error \r\nobject', {'extra-context': 'extra-context'}));
+            await console.error('some string', new ErrorWithContext('error \r\nobject', {'extra-context': 'extra-context'}));
         } finally {
             restoreStdOut(originalWrite);
             LoggerRestoreConsole();
         }
 
         // assert
+        console.log(outputText[0]);
         console.log(outputText[1]);
         expect(outputText[0]).equal('testing native log\n');
 
@@ -30,17 +31,23 @@ describe('logger', () => {
         delete testObj.errCallStack;
         delete testObj["@logCallStack"];
 
-        expect(testObj).eql({"level":"error","@errorObjectName": "Error","message":"some string - error object","extra-context":"extra-context"});
+        expect(testObj).eql({
+            "level": "error",
+            "message": "some string - error object",
+            "@errorObjectName": "Error",
+            "@packageName": "console-log-json",
+            "extra-context": "extra-context",
+        });
 
         expect(JSON.parse(outputText[1]).errCallStack.startsWith("Error: error object\n    at ")).eql(true, "starts with specific text");
     });
 
-    it('logs error in correct shape using console.log', () => {
+    it('logs error in correct shape using console.log', async () => {
         const {originalWrite, outputText} = overrideStdOut();
         LoggerAdaptToConsole();
         try {
             // action
-            console.log('some string', new ErrorWithContext('error \r\nobject', {'extra-context': 'extra-context'}));
+            await console.log('some string', new ErrorWithContext('error \r\nobject', {'extra-context': 'extra-context'}));
         } finally {
             restoreStdOut(originalWrite);
             LoggerRestoreConsole();
@@ -55,16 +62,22 @@ describe('logger', () => {
         delete testObj.errCallStack;
         delete testObj["@logCallStack"];
 
-        expect(testObj).eql({"level":"error","@errorObjectName": "Error","message":"some string - error object","extra-context":"extra-context"});
+        expect(testObj).eql({
+            "@errorObjectName": "Error",
+            "@packageName": "console-log-json",
+            "extra-context": "extra-context",
+            "level": "error",
+            "message": "some string - error object"
+        });
 
     });
 
-    it('console.log is correctly adapted when using a combination of types', () => {
+    it('console.log is correctly adapted when using a combination of types', async () => {
         const {originalWrite, outputText} = overrideStdOut();
         LoggerAdaptToConsole();
         try {
             // action
-            console.log(
+            await console.log(
                 'some string1',
                 123,
                 'some string2',
@@ -83,13 +96,21 @@ describe('logger', () => {
         delete testObj.errCallStack;
         delete testObj["@logCallStack"];
 
-        expect(testObj).eql({"level":"error","@errorObjectName": "Error","message":"some string1 - 123 - some string2 - error object","extra-context":"extra-context","property1":"proptery1","property2":"property2"});
+        expect(testObj).eql({
+            "@errorObjectName": "Error",
+            "@packageName": "console-log-json",
+            "extra-context": "extra-context",
+            "level": "error",
+            "message": "some string1 - 123 - some string2 - error object",
+            "property1": "proptery1",
+            "property2": "property2"
+        });
 
         expect(JSON.parse(outputText[0]).errCallStack.startsWith("Error: error object\n    at")).eql(true,"starts with specific string")
     });
 
 
-    it('console.error logs the inner error', () => {
+    it('console.error logs the inner error', async () => {
         // arrange
         const innerError = new ErrorWithContext('this is the inner error 1234', {extraContextInner: 'blah inner context'});
         const {originalWrite, outputText} = overrideStdOut();
@@ -97,7 +118,7 @@ describe('logger', () => {
 
         try {
             // action
-            console.error('some outer error', new ErrorWithContext(innerError, {'extra-context': 'extra-context'}));
+            await console.error('some outer error', new ErrorWithContext(innerError, {'extra-context': 'extra-context'}));
         } finally {
             restoreStdOut(originalWrite);
             LoggerRestoreConsole();
@@ -108,7 +129,7 @@ describe('logger', () => {
         expect(outputText[0]).contains('some outer error - this is the inner error 1234');
     });
 
-    it('FormatErrorObject works as expected', () => {
+    it('FormatErrorObject works as expected', async () => {
         // arrange
         const innerError = new ErrorWithContext('inner error 1234', {contextInner: 'dataInner'});
         const sut = new ErrorWithContext(innerError, {contextForOuterError: 'dataOuter'});
@@ -123,7 +144,7 @@ describe('logger', () => {
         expect(formatted).contains('inner error 1234');
     });
 
-    it('console.error has timestamp', () => {
+    it('console.error has timestamp', async () => {
         // arrange
         const innerError = new ErrorWithContext('this is the inner error 1234', {extraContextInner: 'blah inner context'});
         const {originalWrite, outputText} = overrideStdOut();
@@ -131,7 +152,7 @@ describe('logger', () => {
 
         try {
             // action
-            console.error('some outer error', new ErrorWithContext(innerError, {'extra-context': 'extra-context'}));
+            await console.error('some outer error', new ErrorWithContext(innerError, {'extra-context': 'extra-context'}));
         } finally {
             restoreStdOut(originalWrite);
             LoggerRestoreConsole();
@@ -141,13 +162,13 @@ describe('logger', () => {
         expect(outputText[0]).contains('"@timestamp"');
     });
 
-    it('console.debug works', () => {
+    it('console.debug works', async () => {
         const backupLevel = GetLogLevel();
         const {originalWrite, outputText} = overrideStdOut();
         LoggerAdaptToConsole({logLevel:LOG_LEVEL.debug});
 
         try {
-            console.debug('this is a message', {'extra-context': 'hello'});
+            await console.debug('this is a message', {'extra-context': 'hello'});
         } finally {
             SetLogLevel(backupLevel);
             restoreStdOut(originalWrite);
@@ -162,13 +183,13 @@ describe('logger', () => {
         expect(testObj["@filename"]).contain("/test/logger.test");
     });
 
-    it('console.silly works', () => {
+    it('console.silly works', async () => {
         const backupLevel = GetLogLevel();
         const {originalWrite, outputText} = overrideStdOut();
         LoggerAdaptToConsole({logLevel:LOG_LEVEL.silly});
 
         try {
-            console.silly('this is a message', {'extra-context': 'hello'});
+            await console.silly('this is a message', {'extra-context': 'hello'});
         } finally {
             SetLogLevel(backupLevel);
             restoreStdOut(originalWrite);
@@ -180,13 +201,13 @@ describe('logger', () => {
     });
 
 
-    it('console.warn works with log level info', () => {
+    it('console.warn works with log level info', async () => {
         const backupLevel = GetLogLevel();
         const {originalWrite, outputText} = overrideStdOut();
         LoggerAdaptToConsole({logLevel:LOG_LEVEL.info});
 
         try {
-            console.warn('this is a message', {'extra-context': 'hello'});
+            await console.warn('this is a message', {'extra-context': 'hello'});
         } finally {
             SetLogLevel(backupLevel);
             restoreStdOut(originalWrite);
@@ -224,7 +245,7 @@ describe('logger', () => {
             // noinspection ExceptionCaughtLocallyJS
             throw new ErrorWithContext(`error message 1`, extraContext as any);
         } catch (err) {
-            console.log(err);
+            await console.log(err);
         }
         restoreStdOut(originalWrite);
         LoggerRestoreConsole();
@@ -246,7 +267,7 @@ describe('logger', () => {
             // noinspection ExceptionCaughtLocallyJS
             throw new ErrorWithContext(mainError, extraContext as any);
         } catch (err) {
-            console.log(err);
+            await console.log(err);
         }
         restoreStdOut(originalWrite);
         LoggerRestoreConsole();
@@ -256,7 +277,12 @@ describe('logger', () => {
         delete testObj1["@filename"];
         delete testObj1.errCallStack;
         delete testObj1["@logCallStack"];
-        expect(testObj1).eql({"level":"error","@errorObjectName": "Error","message":"error message 2 - this is a test string"});
+        expect(testObj1).eql({
+            "@errorObjectName": "Error",
+            "@packageName": "console-log-json",
+            "level": "error",
+            "message": "error message 2 - this is a test string"
+        });
 
         const testObj2 = JSON.parse(outputText[0]);
         expect(testObj2["@filename"]).include("/test/logger.test");
@@ -267,7 +293,7 @@ describe('logger', () => {
         const {originalWrite, outputText} = overrideStdOut();
         LoggerAdaptToConsole();
 
-        console.info('this is a test', {a: 'stuff-a', b: 'stuff-b'}, 'more messages', {c: 'stuff-c'});
+        await console.info('this is a test', {a: 'stuff-a', b: 'stuff-b'}, 'more messages', {c: 'stuff-c'});
 
         restoreStdOut(originalWrite);
         LoggerRestoreConsole();
@@ -282,11 +308,12 @@ describe('logger', () => {
         outputText[0] = stripProperty(outputText[0],"@filename");
 
         expect(JSON.parse(outputText[0])).eql({
-            "level": "info",
-            "message": "this is a test - more messages",
+            "@packageName": "console-log-json",
             "a": "stuff-a",
             "b": "stuff-b",
-            "c": "stuff-c"
+            "c": "stuff-c",
+            "level": "info",
+            "message": "this is a test - more messages"
         });
     });
 
@@ -297,7 +324,7 @@ describe('logger', () => {
         const circObject: any = {bob:"bob"};
         circObject.circ = circObject;
 
-        console.log('circular reference test', circObject);
+        await console.log('circular reference test', circObject);
 
         restoreStdOut(originalWrite);
         LoggerRestoreConsole();
@@ -346,7 +373,7 @@ describe('logger', () => {
 }  
      `;
 
-        console.log(sampleStringJson);
+        await console.log(sampleStringJson);
 
         restoreStdOut(originalWrite);
         LoggerRestoreConsole();
@@ -362,7 +389,7 @@ describe('logger', () => {
         const {originalWrite, outputText} = overrideStdOut();
         LoggerAdaptToConsole();
 
-        console.log({level: "info"}, 'this is a test', {a: 'stuff-a', b: 'stuff-b'}, 'more messages', {c: 'stuff-c'});
+        await console.log({level: "info"}, 'this is a test', {a: 'stuff-a', b: 'stuff-b'}, 'more messages', {c: 'stuff-c'});
 
         restoreStdOut(originalWrite);
         LoggerRestoreConsole();
@@ -375,7 +402,7 @@ describe('logger', () => {
         const {originalWrite, outputText} = overrideStdOut();
         LoggerAdaptToConsole();
 
-        console.log({level: "error"}, 'this is a test', {a: 'stuff-a', b: 'stuff-b'}, 'more messages', {c: 'stuff-c'});
+        await console.log({level: "error"}, 'this is a test', {a: 'stuff-a', b: 'stuff-b'}, 'more messages', {c: 'stuff-c'});
 
         restoreStdOut(originalWrite);
         LoggerRestoreConsole();
@@ -389,7 +416,7 @@ describe('logger', () => {
         const {originalWrite, outputText} = overrideStdOut();
         LoggerAdaptToConsole();
 
-        console.log({level: "err"}, 'this is a test', {a: 'stuff-a', b: 'stuff-b'}, 'more messages', {c: 'stuff-c'});
+        await console.log({level: "err"}, 'this is a test', {a: 'stuff-a', b: 'stuff-b'}, 'more messages', {c: 'stuff-c'});
 
         restoreStdOut(originalWrite);
         LoggerRestoreConsole();
@@ -404,7 +431,7 @@ describe('logger', () => {
         const {originalWrite, outputText} = overrideStdOut();
         LoggerAdaptToConsole();
 
-        console.log({level: "warning"}, 'this is a test', {
+        await console.log({level: "warning"}, 'this is a test', {
             a: 'stuff-a',
             b: 'stuff-b'
         }, 'more messages', {c: 'stuff-c'});
@@ -421,7 +448,7 @@ describe('logger', () => {
         const {originalWrite, outputText} = overrideStdOut();
         LoggerAdaptToConsole();
 
-        console.log({}, 'this is a test', {a: 'stuff-a', b: 'stuff-b'}, 'more messages', {c: 'stuff-c'});
+        await console.log({}, 'this is a test', {a: 'stuff-a', b: 'stuff-b'}, 'more messages', {c: 'stuff-c'}, {});
 
         restoreStdOut(originalWrite);
         LoggerRestoreConsole();
@@ -430,14 +457,21 @@ describe('logger', () => {
         const testObj = JSON.parse(stripTimeStamp(outputText[0]));
         delete testObj["@filename"];
         delete testObj["@logCallStack"];
-        expect(testObj).eql({"level":"info","message":"this is a test - more messages","a":"stuff-a","b":"stuff-b","c":"stuff-c"});
+        expect(testObj).eql({
+            "@packageName": "console-log-json",
+            "a": "stuff-a",
+            "b": "stuff-b",
+            "c": "stuff-c",
+            "level": "info",
+            "message": "this is a test - more messages"
+        });
     });
 
     it('ignore null parameters among other parameters', async () => {
         const {originalWrite, outputText} = overrideStdOut();
         LoggerAdaptToConsole();
 
-        console.log(null, 'this is a test', null, {a: 'stuff-a', b: 'stuff-b'}, 'more messages', {c: 'stuff-c'});
+        await console.log(null, 'this is a test', null, {a: 'stuff-a', b: 'stuff-b'}, 'more messages', {c: 'stuff-c'});
 
         restoreStdOut(originalWrite);
         LoggerRestoreConsole();
@@ -456,7 +490,7 @@ describe('logger', () => {
         const {originalWrite, outputText} = overrideStdOut();
         LoggerAdaptToConsole();
 
-        console.log(null);
+        await console.log(null);
 
         restoreStdOut(originalWrite);
         LoggerRestoreConsole();
@@ -472,7 +506,7 @@ describe('logger', () => {
         const {originalWrite, outputText} = overrideStdOut();
         LoggerAdaptToConsole();
 
-        console.log();
+        await console.log();
 
         restoreStdOut(originalWrite);
         LoggerRestoreConsole();
@@ -488,7 +522,7 @@ describe('logger', () => {
         const {originalWrite, outputText} = overrideStdOut();
         LoggerAdaptToConsole();
 
-        console.error({durationInSeconds: 1,totalErrored:2, totalFlaggedAsSent: 4, totalPickedUp:5, totalSent: 3});
+        await console.error({durationInSeconds: 1,totalErrored:2, totalFlaggedAsSent: 4, totalPickedUp:5, totalSent: 3});
 
         restoreStdOut(originalWrite);
         LoggerRestoreConsole();
@@ -505,7 +539,7 @@ describe('logger', () => {
         const {originalWrite, outputText} = overrideStdOut();
         LoggerAdaptToConsole();
 
-        console.log(new Error('error-message'));
+        await console.log(new Error('error-message'));
 
         restoreStdOut(originalWrite);
         LoggerRestoreConsole();
@@ -525,13 +559,13 @@ describe('logger', () => {
         // action 1
         const err1 = new Error('Error1');
         (err1 as any).self = err1;
-        console.log(err1);
+        await console.log(err1);
 
         // action 2
         const objSelf:any = {"name": "objSelf"};
         objSelf.self = objSelf;
         const err2 = new ErrorWithContext('Error2', objSelf);
-        console.log(err2);
+        await console.log(err2);
 
 
         // cleanup
@@ -553,7 +587,7 @@ describe('logger', () => {
         const {originalWrite, outputText} = overrideStdOut();
         LoggerAdaptToConsole();
 
-        console.error("Encountered Fatal Error on startup of public-api",
+        await console.error("Encountered Fatal Error on startup of public-api",
             {
                 "name": "MongoTimeoutError",
                 "stack": "MongoTimeoutError: Server selection timed out after 30000 ms\n    at Timeout._onTimeout (/Users/roberto/dev/cnp/web/public-api/node_modules/mongodb/lib/core/sdam/server_selection.js:308:9)\n    at listOnTimeout (internal/timers.js:531:17)\n    at processTimers (internal/timers.js:475:7)",
@@ -576,7 +610,7 @@ describe('logger', () => {
         const {originalWrite, outputText} = overrideStdOut();
         LoggerAdaptToConsole({debugString:true});
 
-        console.log(new Error('error-message'), 'test string');
+        await console.log(new Error('error-message'), 'test string');
 
         restoreStdOut(originalWrite);
         LoggerRestoreConsole();
@@ -596,7 +630,7 @@ describe('logger', () => {
         (console as any).debugStringException = () => {
             throw new Error('error while building debugString')
         };
-        console.log('testing');
+        await console.log('testing');
 
         restoreStdOut(originalWrite);
         LoggerRestoreConsole();
@@ -614,7 +648,7 @@ describe('logger', () => {
         const {originalWrite, outputText} = overrideStdOut();
         LoggerAdaptToConsole();
 
-        console.log({level: "somethingElse"}, 'this is a test', {
+        await console.log({level: "somethingElse"}, 'this is a test', {
             a: 'stuff-a',
             b: 'stuff-b'
         }, 'more messages', {c: 'stuff-c'});
@@ -641,9 +675,9 @@ describe('logger', () => {
         const extraInfo2 = {age: 25, location: 'mars'};
 
         // action1
-        console.log(extraInfo1, 'hello world', extraInfo2);
+        await console.log(extraInfo1, 'hello world', extraInfo2);
         // action2
-        console.log('hello world', extraInfo2, extraInfo1);
+        await console.log('hello world', extraInfo2, extraInfo1);
 
         // cleanup
         restoreStdOut(originalWrite);
@@ -673,7 +707,7 @@ describe('logger', () => {
 
         // action
         try {
-            console.log('this is a test', {a: 'stuff-a', b: 'stuff-b'}, 'more messages', {c: 'stuff-c'});
+            await console.log('this is a test', {a: 'stuff-a', b: 'stuff-b'}, 'more messages', {c: 'stuff-c'});
         } catch (err) {
             caughtErr = err;
         }
@@ -687,12 +721,12 @@ describe('logger', () => {
         expect(caughtErr).equal(null);
     });
 
-    it('filters colors', () => {
+    it('filters colors', async () => {
         const messageWithColors = "\u001b[90m================================\u001b[39m\n \u001b[33mMissing\u001b[39m environment variables:\n    \u001b[34mCCE_MONGO_CONNECTION\u001b[39m: undefined\n\u001b[33m\u001b[39m\n\u001b[33m Exiting with error code 1\u001b[39m\n\u001b[90m================================\u001b[39m";
         const {originalWrite, outputText} = overrideStdOut();
         LoggerAdaptToConsole();
 
-        console.log(messageWithColors);
+        await console.log(messageWithColors);
 
         restoreStdOut(originalWrite);
         LoggerRestoreConsole();
@@ -718,7 +752,7 @@ describe('logger', () => {
             "message": "Error while querying DB2 database",
             "extraContext": "Timed out in 20000ms."
         };
-        console.log(err1);
+        await console.log(err1);
 
         restoreStdOut(originalWrite);
         LoggerRestoreConsole();

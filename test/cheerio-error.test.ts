@@ -17,7 +17,7 @@ describe('when cheerio error occurs', async function() {
          });
          console.log(cheerioAPI);
       } catch (err) {
-         console.log(err);
+         await console.log(err);
       }
 
       restoreStdOut(originalWrite);

@@ -1,5 +1,7 @@
 /* tslint:disable:object-literal-sort-keys */
+import appRootPath from 'app-root-path';
 import stringify from 'json-stringify-safe';
+import * as path from 'path';
 import * as w from 'winston';
 import { ErrorWithContext } from './error-with-context';
 import { FormatStackTrace } from './format-stack-trace';
@@ -238,6 +240,9 @@ export function LoggerAdaptToConsole(options?: { logLevel?: LOG_LEVEL; debugStri
   };
 
   logParams = { ...defaultOptions, ...options };
+
+  Logger.level = logParams.logLevel;
+
   if (consoleErrorBackup == null) {
     consoleErrorBackup = console.error;
   }
@@ -269,38 +274,36 @@ export function LoggerAdaptToConsole(options?: { logLevel?: LOG_LEVEL; debugStri
   }
 
   console.error = (...args: any[]) => {
-    void logUsingWinston(args, LOG_LEVEL.error);
+    return logUsingWinston(args, LOG_LEVEL.error);
   };
 
   console.warn = (...args: any[]) => {
-    void logUsingWinston(args, LOG_LEVEL.warn);
+    return logUsingWinston(args, LOG_LEVEL.warn);
   };
 
   console.info = (...args: any[]) => {
-    void logUsingWinston(args, LOG_LEVEL.info);
+    return logUsingWinston(args, LOG_LEVEL.info);
   };
 
   console.http = (...args: any[]) => {
-    void logUsingWinston(args, LOG_LEVEL.http);
+    return logUsingWinston(args, LOG_LEVEL.http);
   };
 
   console.verbose = (...args: any[]) => {
-    void logUsingWinston(args, LOG_LEVEL.verbose);
+    return logUsingWinston(args, LOG_LEVEL.verbose);
   };
 
   console.debug = (...args: any[]) => {
-    void logUsingWinston(args, LOG_LEVEL.debug);
+    return logUsingWinston(args, LOG_LEVEL.debug);
   };
 
   console.silly = (...args: any[]) => {
-    void logUsingWinston(args, LOG_LEVEL.silly);
+    return logUsingWinston(args, LOG_LEVEL.silly);
   };
 
   console.log = (...args: any[]) => {
-    void logUsingWinston(args, LOG_LEVEL.info);
+    return logUsingWinston(args, LOG_LEVEL.info);
   };
-
-  Logger.level = logParams.logLevel;
 }
 
 function filterNullOrUndefinedParameters(args: any): number {
@@ -349,36 +352,60 @@ function findExplicitLogLevelAndUseIt(args: any, level: LOG_LEVEL) {
   return level;
 }
 
+let packageName: string | null = null;
+
 export async function logUsingWinston(args: any[], level: LOG_LEVEL) {
-  // log debug logging if needed
+  // log package name
   try {
-    if (logParams.debugString) {
-      // this line is only for enabling testing
-      if ((console as any).debugStringException != null) {
-        (console as any).debugStringException();
+    const getPackageName = new Promise<string>(packageResolve => {
+      if (packageName == null) {
+        const readJson = require('read-package-json');
+        // tslint:disable-next-line:variable-name
+        readJson(path.join(appRootPath.toString(), 'package.json'), null, false, (_err: any, data: any) => {
+          packageResolve(data.name);
+        });
+      } else {
+        packageResolve(packageName);
       }
+    });
 
-      let argsStringArray = args.map(m => JSON.stringify(m, Object.getOwnPropertyNames(m)));
-      if (!argsStringArray) {
-        argsStringArray = [];
-      }
-      args.push({ _loggerDebug: argsStringArray });
-    }
+    packageName = await getPackageName;
+    args.push({ '@packageName': packageName });
   } catch (err) {
-    args.push({ _loggerDebug: `err ${err.message}` });
+    args.push({ '@packageName': `<error>:${err.message}` });
   }
 
-  // Discover calling filename
-  try {
-    const name = getCallingFilename();
-    if (name) {
-      args.push({ '@filename': name, '@logCallStack': getCallStack() });
-    }
-  } catch (err) {
-    // Don't do anything
-  }
+  return new Promise(resolve => {
+    // log debug logging if needed
+    try {
+      if (logParams.debugString) {
+        // this line is only for enabling testing
+        if ((console as any).debugStringException != null) {
+          (console as any).debugStringException();
+        }
 
-  const logPromise = new Promise(resolve => {
+        let argsStringArray = args.map(m => JSON.stringify(m, Object.getOwnPropertyNames(m)));
+        if (!argsStringArray) {
+          argsStringArray = [];
+        }
+        args.push({ _loggerDebug: argsStringArray });
+      }
+    } catch (err) {
+      args.push({ _loggerDebug: `err ${err.message}` });
+    }
+
+    // Discover calling filename
+    try {
+      const name = getCallingFilename();
+      if (name) {
+        args.push({ '@filename': name, '@logCallStack': getCallStack() });
+      } else {
+        args.push({ '@filename': '<unknown>', '@logCallStack': getCallStack() });
+      }
+    } catch (err) {
+      args.push({ '@filename': `<error>:${err.message}`, '@logCallStack': err.message });
+    }
+
     try {
       level = findExplicitLogLevelAndUseIt(args, level);
 
@@ -392,9 +419,9 @@ export async function logUsingWinston(args: any[], level: LOG_LEVEL) {
     } catch (err) {
       ifEverythingFailsLogger('console.log', err);
     }
+
     resolve();
   });
-  await logPromise;
 }
 
 /**
@@ -528,7 +555,7 @@ function extractParametersFromArguments(args: any[]) {
 
   // check if user defined extra context was passed
   if (extraContext) {
-    const knownExtraContextKeys: string[] = ['@filename', '@logCallStack'];
+    const knownExtraContextKeys: string[] = ['@filename', '@logCallStack', '@packageName'];
     const knownFiltered = Object.keys(extraContext).filter((f: string) => !knownExtraContextKeys.includes(f));
     if (knownFiltered.length > 0) {
       extraContextWasPassed = true;
