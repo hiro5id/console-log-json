@@ -233,7 +233,7 @@ function ifEverythingFailsLogger(functionName: string, err: Error) {
 
 let logParams!: { logLevel: LOG_LEVEL; debugString: boolean };
 
-export async function LoggerAdaptToConsole(options?: { logLevel?: LOG_LEVEL; debugString?: boolean }) {
+export function LoggerAdaptToConsole(options?: { logLevel?: LOG_LEVEL; debugString?: boolean }) {
   const defaultOptions = {
     logLevel: LOG_LEVEL.info,
     debugString: false,
@@ -242,17 +242,8 @@ export async function LoggerAdaptToConsole(options?: { logLevel?: LOG_LEVEL; deb
 
   // log package name
   packageName = '';
-  const getPackageName = new Promise<string>(packageResolve => {
-    const readJson = require('read-package-json');
-    // tslint:disable-next-line:variable-name
-    readJson(path.join(appRootPath.toString(), 'package.json'), null, false, (_err: any, data: any) => {
-      packageName = data.name;
-      packageResolve();
-    });
-  });
-  getPackageName.catch(reason => {
-    packageName = `<error>:${reason}`;
-  });
+  const jsonPackage = require(path.join(appRootPath.toString(), 'package.json'));
+  packageName = jsonPackage.name;
 
   Logger.level = logParams.logLevel;
 
@@ -317,8 +308,6 @@ export async function LoggerAdaptToConsole(options?: { logLevel?: LOG_LEVEL; deb
   console.log = (...args: any[]) => {
     return logUsingWinston(args, LOG_LEVEL.info);
   };
-
-  return getPackageName;
 }
 
 function filterNullOrUndefinedParameters(args: any): number {
