@@ -233,13 +233,26 @@ function ifEverythingFailsLogger(functionName: string, err: Error) {
 
 let logParams!: { logLevel: LOG_LEVEL; debugString: boolean };
 
-export function LoggerAdaptToConsole(options?: { logLevel?: LOG_LEVEL; debugString?: boolean }) {
+export async function LoggerAdaptToConsole(options?: { logLevel?: LOG_LEVEL; debugString?: boolean }) {
   const defaultOptions = {
     logLevel: LOG_LEVEL.info,
     debugString: false,
   };
-
   logParams = { ...defaultOptions, ...options };
+
+  // log package name
+  packageName = '';
+  const getPackageName = new Promise<string>(packageResolve => {
+    const readJson = require('read-package-json');
+    // tslint:disable-next-line:variable-name
+    readJson(path.join(appRootPath.toString(), 'package.json'), null, false, (_err: any, data: any) => {
+      packageName = data.name;
+      packageResolve();
+    });
+  });
+  getPackageName.catch(reason => {
+    packageName = `<error>:${reason}`;
+  });
 
   Logger.level = logParams.logLevel;
 
@@ -304,6 +317,8 @@ export function LoggerAdaptToConsole(options?: { logLevel?: LOG_LEVEL; debugStri
   console.log = (...args: any[]) => {
     return logUsingWinston(args, LOG_LEVEL.info);
   };
+
+  return getPackageName;
 }
 
 function filterNullOrUndefinedParameters(args: any): number {
@@ -352,76 +367,58 @@ function findExplicitLogLevelAndUseIt(args: any, level: LOG_LEVEL) {
   return level;
 }
 
-let packageName: string | null = null;
+let packageName: string = '';
 
-export async function logUsingWinston(args: any[], level: LOG_LEVEL) {
-  // log package name
-  try {
-    const getPackageName = new Promise<string>(packageResolve => {
-      if (packageName == null) {
-        const readJson = require('read-package-json');
-        // tslint:disable-next-line:variable-name
-        readJson(path.join(appRootPath.toString(), 'package.json'), null, false, (_err: any, data: any) => {
-          packageResolve(data.name);
-        });
-      } else {
-        packageResolve(packageName);
-      }
-    });
-
-    packageName = await getPackageName;
+export function logUsingWinston(args: any[], level: LOG_LEVEL) {
+  if (packageName.length === 0) {
+    args.push({ '@packageName': '<not-yet-set> Please await the call LoggerAdaptToConsole() on startup' });
+  } else {
     args.push({ '@packageName': packageName });
-  } catch (err) {
-    args.push({ '@packageName': `<error>:${err.message}` });
   }
 
-  return new Promise(resolve => {
-    // log debug logging if needed
-    try {
-      if (logParams.debugString) {
-        // this line is only for enabling testing
-        if ((console as any).debugStringException != null) {
-          (console as any).debugStringException();
-        }
-
-        let argsStringArray = args.map(m => JSON.stringify(m, Object.getOwnPropertyNames(m)));
-        if (!argsStringArray) {
-          argsStringArray = [];
-        }
-        args.push({ _loggerDebug: argsStringArray });
-      }
-    } catch (err) {
-      args.push({ _loggerDebug: `err ${err.message}` });
-    }
-
-    // Discover calling filename
-    try {
-      const name = getCallingFilename();
-      if (name) {
-        args.push({ '@filename': name, '@logCallStack': getCallStack() });
-      } else {
-        args.push({ '@filename': '<unknown>', '@logCallStack': getCallStack() });
-      }
-    } catch (err) {
-      args.push({ '@filename': `<error>:${err.message}`, '@logCallStack': err.message });
-    }
-
-    try {
-      level = findExplicitLogLevelAndUseIt(args, level);
-
+  // log debug logging if needed
+  try {
+    if (logParams.debugString) {
       // this line is only for enabling testing
-      if (console.exception != null) {
-        console.exception();
+      if ((console as any).debugStringException != null) {
+        (console as any).debugStringException();
       }
-      const { message, errorObject } = extractParametersFromArguments(args);
 
-      Logger.log(level, message, errorObject);
-    } catch (err) {
-      ifEverythingFailsLogger('console.log', err);
+      let argsStringArray = args.map(m => JSON.stringify(m, Object.getOwnPropertyNames(m)));
+      if (!argsStringArray) {
+        argsStringArray = [];
+      }
+      args.push({ _loggerDebug: argsStringArray });
     }
+  } catch (err) {
+    args.push({ _loggerDebug: `err ${err.message}` });
+  }
 
-    resolve();
-  });
+  // Discover calling filename
+  try {
+    const name = getCallingFilename();
+    if (name) {
+      args.push({ '@filename': name, '@logCallStack': getCallStack() });
+    } else {
+      args.push({ '@filename': '<unknown>', '@logCallStack': getCallStack() });
+    }
+  } catch (err) {
+    args.push({ '@filename': `<error>:${err.message}`, '@logCallStack': err.message });
+  }
+
+  try {
+    level = findExplicitLogLevelAndUseIt(args, level);
+
+    // this line is only for enabling testing
+    if (console.exception != null) {
+      console.exception();
+    }
+    const { message, errorObject } = extractParametersFromArguments(args);
+
+    Logger.log(level, message, errorObject);
+  } catch (err) {
+    ifEverythingFailsLogger('console.log', err);
+  }
 }
 
 /**

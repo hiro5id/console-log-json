@@ -11,7 +11,7 @@ import {
 describe('logger', () => {
     it('logs error in correct shape', async () => {
         const {originalWrite, outputText} = overrideStdOut();
-        LoggerAdaptToConsole();
+        await LoggerAdaptToConsole();
         try {
             // action
             NativeConsoleLog('testing native log');
@@ -44,7 +44,7 @@ describe('logger', () => {
 
     it('logs error in correct shape using console.log', async () => {
         const {originalWrite, outputText} = overrideStdOut();
-        LoggerAdaptToConsole();
+        await LoggerAdaptToConsole();
         try {
             // action
             await console.log('some string', new ErrorWithContext('error \r\nobject', {'extra-context': 'extra-context'}));
@@ -74,7 +74,7 @@ describe('logger', () => {
 
     it('console.log is correctly adapted when using a combination of types', async () => {
         const {originalWrite, outputText} = overrideStdOut();
-        LoggerAdaptToConsole();
+        await LoggerAdaptToConsole();
         try {
             // action
             await console.log(
@@ -165,7 +165,7 @@ describe('logger', () => {
     it('console.debug works', async () => {
         const backupLevel = GetLogLevel();
         const {originalWrite, outputText} = overrideStdOut();
-        LoggerAdaptToConsole({logLevel:LOG_LEVEL.debug});
+        await LoggerAdaptToConsole({logLevel:LOG_LEVEL.debug});
 
         try {
             await console.debug('this is a message', {'extra-context': 'hello'});
@@ -259,7 +259,7 @@ describe('logger', () => {
 
     it('logs error properly when extra context is a string and main error is an error object', async () => {
         const {originalWrite, outputText} = overrideStdOut();
-        LoggerAdaptToConsole();
+        await LoggerAdaptToConsole();
 
         const extraContext = 'this is a test string';
         const mainError = new Error('error message 2');
@@ -291,7 +291,7 @@ describe('logger', () => {
 
     it('console.info works', async () => {
         const {originalWrite, outputText} = overrideStdOut();
-        LoggerAdaptToConsole();
+        await LoggerAdaptToConsole();
 
         await console.info('this is a test', {a: 'stuff-a', b: 'stuff-b'}, 'more messages', {c: 'stuff-c'});
 
@@ -319,7 +319,7 @@ describe('logger', () => {
 
     it('handles object with circular reference', async () => {
         const {originalWrite, outputText} = overrideStdOut();
-        LoggerAdaptToConsole();
+        await LoggerAdaptToConsole();
 
         const circObject: any = {bob:"bob"};
         circObject.circ = circObject;
@@ -337,7 +337,7 @@ describe('logger', () => {
 
     it('Handle where a string is passed to the logger that happens to be JSON, with new lines in it', async () => {
         const {originalWrite, outputText} = overrideStdOut();
-        LoggerAdaptToConsole();
+        await LoggerAdaptToConsole();
 
         const circObject: any = {bob:"bob"};
         circObject.circ = circObject;
@@ -446,7 +446,7 @@ describe('logger', () => {
 
     it('handle empty object', async () => {
         const {originalWrite, outputText} = overrideStdOut();
-        LoggerAdaptToConsole();
+        await LoggerAdaptToConsole();
 
         await console.log({}, 'this is a test', {a: 'stuff-a', b: 'stuff-b'}, 'more messages', {c: 'stuff-c'}, {});
 
