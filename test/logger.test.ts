@@ -5,7 +5,11 @@ import {
     FormatErrorObject, GetLogLevel,
     LOG_LEVEL,
     LoggerAdaptToConsole,
-    LoggerRestoreConsole, NativeConsoleLog, overrideStdOut, restoreStdOut, SetLogLevel
+    LoggerRestoreConsole,
+    NativeConsoleLog,
+    overrideStdOut,
+    restoreStdOut,
+    SetLogLevel
 } from '../src';
 
 describe('logger', () => {
