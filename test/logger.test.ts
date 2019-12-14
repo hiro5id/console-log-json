@@ -799,6 +799,22 @@ describe('logger', () => {
         expect(testObj.message).eql("Timed out in 20000ms. - Error while querying DB2 database");
     });
 
+
+    it('extra context object is not flattened when nested', async () => {
+        const {originalWrite, outputText} = overrideStdOut();
+        LoggerAdaptToConsole();
+
+        console.log('not flattened', { obj: { subObj1:"subObj1", subObj2:"subObj2"}});
+
+        restoreStdOut(originalWrite);
+        LoggerRestoreConsole();
+
+        console.log(outputText[0]);
+        const testObj = JSON.parse(outputText[0]);
+        expect(testObj.level).eql("info");
+        expect(testObj.obj).eql({ subObj1:"subObj1", subObj2:"subObj2"});
+    });
+
     // Todo: test multiple nested ErrorWithContext objects to ensure proper stacktrace and error messages
 });
 
