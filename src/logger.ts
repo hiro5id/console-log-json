@@ -317,7 +317,7 @@ export function LoggerAdaptToConsole(options?: { logLevel?: LOG_LEVEL; debugStri
   };
 }
 
-function filterNullOrUndefinedParameters(args: any): number {
+function filterNullOrUndefinedParameters(args: any[]): number {
   let nullOrUndefinedCount = 0;
   args.forEach((f: any, index: number) => {
     // Remove null parameters
@@ -331,7 +331,7 @@ function filterNullOrUndefinedParameters(args: any): number {
   return nullOrUndefinedCount;
 }
 
-function findExplicitLogLevelAndUseIt(args: any, level: LOG_LEVEL) {
+function findExplicitLogLevelAndUseIt(args: any[], level: LOG_LEVEL) {
   let foundLevel = false;
   args.forEach((f: any) => {
     if (!foundLevel && f && typeof f === 'object' && Object.keys(f) && Object.keys(f).length > 0 && Object.keys(f)[0].toLowerCase() === 'level') {
