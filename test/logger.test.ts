@@ -819,6 +819,21 @@ describe('logger', () => {
         expect(testObj.obj).eql({ subObj1:"subObj1", subObj2:"subObj2"});
     });
 
+    it('concatenates string and numbers', async () => {
+        const {originalWrite, outputText} = overrideStdOut();
+        LoggerAdaptToConsole();
+
+        console.log('string merged', 400);
+
+        restoreStdOut(originalWrite);
+        LoggerRestoreConsole();
+
+        console.log(outputText[0]);
+        const testObj = JSON.parse(outputText[0]);
+        expect(testObj.level).eql("info");
+        expect(testObj.message).eql("string merged - 400");
+    });
+
     // Todo: test multiple nested ErrorWithContext objects to ensure proper stacktrace and error messages
 });
 
