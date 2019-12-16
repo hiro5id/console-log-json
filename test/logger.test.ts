@@ -834,6 +834,22 @@ describe('logger', () => {
         expect(testObj.message).eql("string merged - 400");
     });
 
+
+    it('concatenates string and error object', async () => {
+        const {originalWrite, outputText} = overrideStdOut();
+        LoggerAdaptToConsole();
+
+        console.log('string merged ' + new Error('this is inside the error'));
+
+        restoreStdOut(originalWrite);
+        LoggerRestoreConsole();
+
+        console.log(outputText[0]);
+        const testObj = JSON.parse(outputText[0]);
+        expect(testObj.level).eql("info");
+        expect(testObj.message).eql("string merged Error: this is inside the error");
+    });
+
     // Todo: test multiple nested ErrorWithContext objects to ensure proper stacktrace and error messages
 });
 
