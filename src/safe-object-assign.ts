@@ -38,7 +38,7 @@ export function safeObjectAssign(target: any, mergeStringProperties: string[], .
           // noinspection JSUnfilteredForInLoop
           mergeDeep(theTarget[key], source[key]);
         } else {
-          const targetMatchedKey = Object.keys(target).find(k => k.toLowerCase() === key);
+          const targetMatchedKey = Object.keys(target).find((k) => k.toLowerCase() === key);
           if (
             targetMatchedKey != null &&
             mergeStringProperties != null &&
@@ -73,7 +73,7 @@ function isObject(item: any) {
 }
 
 function findNonConflictingKeyInTarget(target: any, key: string): string {
-  const targetContainsKey = Object.keys(target).find(k => k.toLowerCase() === key);
+  const targetContainsKey = Object.keys(target).find((k) => k.toLowerCase() === key);
   if (targetContainsKey != null) {
     return findNonConflictingKeyInTarget(target, `${conflictResolutionPrefix}${key}`);
   } else {

@@ -22,7 +22,7 @@ require('source-map-support').install({
 // Console-polyfill. MIT license.
 // https://github.com/paulmillr/console-polyfill
 // Make it safe to do console.log() always.
-(global => {
+((global) => {
   'use strict';
   if (!global.console) {
     // @ts-ignore
@@ -32,7 +32,7 @@ require('source-map-support').install({
   let prop;
   let method;
   // tslint:disable-next-line:no-empty only-arrow-functions
-  const dummy = function() {};
+  const dummy = function () {};
   const properties = ['memory'];
   const methods = (
     'assert,clear,count,debug,dir,dirxml,error,exception,group,' +
@@ -380,7 +380,7 @@ export function logUsingWinston(args: any[], level: LOG_LEVEL) {
         (console as any).debugStringException();
       }
 
-      let argsStringArray = args.map(m => JSON.stringify(m, Object.getOwnPropertyNames(m)));
+      let argsStringArray = args.map((m) => JSON.stringify(m, Object.getOwnPropertyNames(m)));
       if (!argsStringArray) {
         argsStringArray = [];
       }

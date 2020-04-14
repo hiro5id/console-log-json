@@ -1,6 +1,6 @@
 export function sortObject(foo: any): object {
   const keys = Object.keys(foo);
-  const objectArray: Array<{ key: string; val: object }> = [];
+  const objectArray: { key: string; val: object }[] = [];
   keys.forEach((k: string) => {
     objectArray.push({ key: k, val: foo[k] });
   });
@@ -10,7 +10,7 @@ export function sortObject(foo: any): object {
   });
 
   const sortedObject: any = {};
-  sorted.forEach(p => {
+  sorted.forEach((p) => {
     sortedObject[p.key] = p.val;
   });
   return sortedObject;

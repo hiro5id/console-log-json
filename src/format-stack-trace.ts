@@ -13,9 +13,9 @@ export class FormatStackTrace {
     noNewLines = noNewLines.replace(/\r/gi, '');
     const lines = noNewLines.split(this.divider);
     // this filters out lines relating to this package when referenced from other projects
-    const linesWithoutLocalFiles = lines.filter(m => m.match(/node_modules\/.*console-log-json\/.*/gi) == null);
+    const linesWithoutLocalFiles = lines.filter((m) => m.match(/node_modules\/.*console-log-json\/.*/gi) == null);
     // noinspection UnnecessaryLocalVariableJS
-    const linesWithoutFullPath = linesWithoutLocalFiles.map(m => m.replace(path.join(appRootPath.toString(), '..'), ''));
+    const linesWithoutFullPath = linesWithoutLocalFiles.map((m) => m.replace(path.join(appRootPath.toString(), '..'), ''));
     return linesWithoutFullPath;
   }
 }
