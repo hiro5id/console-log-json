@@ -24,6 +24,9 @@ require('source-map-support').install({
 // Make it safe to do console.log() always.
 ((global) => {
   'use strict';
+  if (global == null) {
+    return;
+  }
   if (!global.console) {
     // @ts-ignore
     global.console = {} as any;

@@ -25,7 +25,7 @@ describe('when cheerio error occurs', async function() {
 
       console.log(outputText[0]);
       expect(JSON.parse(outputText[0]).level).eql("error");
-      expect(JSON.parse(outputText[0]).message).eql("Error: getaddrinfo ENOTFOUND 123.xynon-existante.com");
+      expect(JSON.parse(outputText[0]).message).eql("  - Error: getaddrinfo ENOTFOUND 123.xynon-existante.com");
       expect(JSON.parse(outputText[0]).errCallStack).contain("123.xynon-existante.com");
    })
 });

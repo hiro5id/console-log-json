@@ -37,7 +37,7 @@ describe('logger', () => {
 
         expect(testObj).eql({
             "level": "error",
-            "message": "some string - error object",
+            "message": "some string  - error object",
             "@errorObjectName": "Error",
             "@packageName": "console-log-json",
             "extra-context": "extra-context",
@@ -71,7 +71,7 @@ describe('logger', () => {
             "@packageName": "console-log-json",
             "extra-context": "extra-context",
             "level": "error",
-            "message": "some string - error object"
+            "message": "some string  - error object"
         });
 
     });
@@ -105,7 +105,7 @@ describe('logger', () => {
             "@packageName": "console-log-json",
             "extra-context": "extra-context",
             "level": "error",
-            "message": "some string1 - 123 - some string2 - error object",
+            "message": "some string1 - 123 - some string2  - error object",
             "property1": "proptery1",
             "property2": "property2"
         });
@@ -130,7 +130,7 @@ describe('logger', () => {
 
         // assert
         console.log(outputText[0]);
-        expect(outputText[0]).contains('some outer error - this is the inner error 1234');
+        expect(outputText[0]).contains('some outer error  - this is the inner error 1234');
     });
 
     it('FormatErrorObject works as expected', async () => {
@@ -257,7 +257,7 @@ describe('logger', () => {
         console.log(outputText[0]);
         const testObj = JSON.parse(outputText[0]);
         expect(testObj.level).eql("error");
-        expect(testObj.message).eql("error message 1 - this is a test string");
+        expect(testObj.message).eql("  - error message 1 - this is a test string");
         expect(testObj.errCallStack.startsWith("Error: error message 1 - this is a test string\n    at")).eql(true, "stack starts with specific message");
     });
 
@@ -285,7 +285,7 @@ describe('logger', () => {
             "@errorObjectName": "Error",
             "@packageName": "console-log-json",
             "level": "error",
-            "message": "error message 2 - this is a test string"
+            "message": "  - error message 2 - this is a test string"
         });
 
         const testObj2 = JSON.parse(outputText[0]);
@@ -585,7 +585,7 @@ describe('logger', () => {
         const testObj = JSON.parse(outputText[0]);
         expect(testObj.level).eql("error");
         expect(testObj["@filename"]).include("/test/logger.test");
-        expect(testObj.message).eql("error-message");
+        expect(testObj.message).eql("  - error-message");
     });
 
     it('log works with self referencing properties', async () => {
@@ -616,7 +616,7 @@ describe('logger', () => {
         const testObj = JSON.parse(outputText[1]);
         expect(testObj.level).eql("error");
         expect(testObj["@filename"]).include("/test/logger.test");
-        expect(testObj.message).eql("Error2");
+        expect(testObj.message).eql("  - Error2");
         expect(testObj.self.self).eql(undefined);
     });
 
@@ -639,7 +639,7 @@ describe('logger', () => {
         const testObj = JSON.parse(outputText[0]);
         expect(testObj.level).eql("error");
         expect(testObj["@filename"]).include("/test/logger.test");
-        expect(testObj.message).eql("Encountered Fatal Error on startup of public-api - Server selection timed out after 30000 ms");
+        expect(testObj.message).eql("Encountered Fatal Error on startup of public-api  - Server selection timed out after 30000 ms");
         expect(testObj["@errorObjectName"]).eql("MongoTimeoutError");
     });
 
@@ -656,7 +656,7 @@ describe('logger', () => {
         const testObj = JSON.parse(outputText[0]);
         expect(testObj.level).eql("error");
         expect(testObj["@filename"]).include("/test/logger.test");
-        expect(testObj.message).eql("test string - error-message");
+        expect(testObj.message).eql("test string  - error-message");
         expect(testObj._loggerDebug).contains("\"test string\"");
         expect(testObj._loggerDebug[0]).contains("\"stack\":\"Error: error-message");
     });
@@ -750,7 +750,7 @@ describe('logger', () => {
         }
 
         // reset
-        delete console.exception;
+        delete (console as any).exception;
         restoreStdOut(originalWrite);
         LoggerRestoreConsole();
 
@@ -800,7 +800,7 @@ describe('logger', () => {
         const testObj = JSON.parse(outputText[0]);
         expect(testObj.level).eql("error");
         expect(testObj["@filename"]).include("/test/logger.test");
-        expect(testObj.message).eql("Timed out in 20000ms. - Error while querying DB2 database");
+        expect(testObj.message).eql("  - Timed out in 20000ms. - Error while querying DB2 database");
     });
 
 
