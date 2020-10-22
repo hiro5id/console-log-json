@@ -156,7 +156,10 @@ export function FormatErrorObject(object: any) {
   }
 
   // Add timestamp
-  returnData['@timestamp'] = new Date().toISOString();
+  const { CONSOLE_LOG_JSON_NO_TIME_STAMP } = process.env;
+  if (CONSOLE_LOG_JSON_NO_TIME_STAMP?.toLowerCase() !== 'true') {
+    returnData['@timestamp'] = new Date().toISOString();
+  }
 
   // cleanup leading dash in message
   if (returnData.message && returnData.message.startsWith(' - ')) {
@@ -414,10 +417,34 @@ export function logUsingWinston(args: any[], level: LOG_LEVEL) {
     }
     const { message, errorObject } = extractParametersFromArguments(args);
 
-    Logger.log(level, message, errorObject);
+    Logger.log(level, message, supressDetailsIfSelected(errorObject));
   } catch (err) {
     ifEverythingFailsLogger('console.log', err);
   }
+}
+
+function supressDetailsIfSelected(errorObject: ErrorWithContext | undefined) {
+  const { CONSOLE_LOG_JSON_NO_STACK_FOR_NON_ERROR } = process.env;
+  const { CONSOLE_LOG_JSON_NO_FILE_NAME } = process.env;
+  const { CONSOLE_LOG_JSON_NO_PACKAGE_NAME } = process.env;
+
+  if (errorObject == undefined) {
+    return undefined;
+  }
+
+  if (CONSOLE_LOG_JSON_NO_STACK_FOR_NON_ERROR?.toLowerCase() === 'true') {
+    delete (errorObject as any)['@logCallStack'];
+  }
+
+  if (CONSOLE_LOG_JSON_NO_FILE_NAME?.toLowerCase() === 'true') {
+    delete (errorObject as any)['@filename'];
+  }
+
+  if (CONSOLE_LOG_JSON_NO_PACKAGE_NAME?.toLowerCase() === 'true') {
+    delete (errorObject as any)['@packageName'];
+  }
+
+  return errorObject;
 }
 
 /**

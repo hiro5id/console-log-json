@@ -40,6 +40,19 @@ so that it can be easily parsed by tool such as LogDNA.
     {"level":"warn","message":"this is a message","some-extra-data":"hello","@timestamp":"2019-11-29T21:44:40.463Z"}
     ```
 
+## Environment Variable Options
+
+To suppress some bits of the log to make it less noisy you can set these environment variables:
+
+* CONSOLE_LOG_JSON_NO_FILE_NAME = 'true'
+  * Omits `@filename` in log
+* CONSOLE_LOG_JSON_NO_PACKAGE_NAME = 'true'
+  * Omits `@packageName` in log
+* CONSOLE_LOG_JSON_NO_TIME_STAMP = 'true'
+  * Omits `@timestamp` in log
+* CONSOLE_LOG_JSON_NO_STACK_FOR_NON_ERROR = 'true'
+  * Omits `@logCallStack` in log
+
 ## Examples
 
 ### 1. Logging an error object

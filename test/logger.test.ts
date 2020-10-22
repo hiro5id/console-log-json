@@ -11,8 +11,21 @@ import {
     restoreStdOut,
     SetLogLevel
 } from '../src';
+import sinon from 'sinon'
 
 describe('logger', () => {
+    const sandbox = sinon.createSandbox();
+    process.env.CONSOLE_LOG_JSON_NO_STACK_FOR_NON_ERROR = ''
+    process.env.CONSOLE_LOG_JSON_NO_FILE_NAME = ''
+    process.env.CONSOLE_LOG_JSON_NO_PACKAGE_NAME = ''
+    process.env.CONSOLE_LOG_JSON_NO_TIME_STAMP = ''
+
+
+
+    afterEach(() => {
+        sandbox.restore();
+    })
+
     it('logs error in correct shape', async () => {
         const {originalWrite, outputText} = overrideStdOut();
         await LoggerAdaptToConsole();
@@ -45,6 +58,79 @@ describe('logger', () => {
 
         expect(JSON.parse(outputText[1]).errCallStack.startsWith("Error: error object\n    at ")).eql(true, "starts with specific text");
     });
+
+    it(`omits log call stack if configured in environment variable`, async () => {
+        sandbox.stub(process.env, 'CONSOLE_LOG_JSON_NO_STACK_FOR_NON_ERROR').value('TRUE');
+        const {originalWrite, outputText} = overrideStdOut();
+        await LoggerAdaptToConsole();
+        try {
+            // action
+            await console.log('some log string string');
+        } finally {
+            restoreStdOut(originalWrite);
+            LoggerRestoreConsole();
+        }
+
+        // assert
+        console.log(outputText[0]);
+
+        const testObj = JSON.parse(stripTimeStamp(outputText[0]));
+        delete testObj["@filename"];
+        delete testObj.errCallStack;
+
+        expect(testObj["@logCallStack"]).eql(undefined);
+    })
+
+    it(`does NOT omit log call stack if NOT configured in environment variable`, async () => {
+        const {originalWrite, outputText} = overrideStdOut();
+        await LoggerAdaptToConsole();
+        try {
+            // action
+            await console.log('some log string string');
+        } finally {
+            restoreStdOut(originalWrite);
+            LoggerRestoreConsole();
+        }
+
+        // assert
+        console.log(outputText[0]);
+
+        const testObj = JSON.parse(stripTimeStamp(outputText[0]));
+        delete testObj["@filename"];
+        delete testObj.errCallStack;
+
+        expect(testObj["@logCallStack"]).not.eql(undefined);
+    })
+
+
+    it(`omits multiple bits if configured in environment variable`, async () => {
+        sandbox.stub(process.env, 'CONSOLE_LOG_JSON_NO_FILE_NAME').value('TRUE');
+        sandbox.stub(process.env, 'CONSOLE_LOG_JSON_NO_PACKAGE_NAME').value('TRUE');
+        sandbox.stub(process.env, 'CONSOLE_LOG_JSON_NO_TIME_STAMP').value('TRUE');
+        sandbox.stub(process.env, 'CONSOLE_LOG_JSON_NO_STACK_FOR_NON_ERROR').value('TRUE');
+
+        const {originalWrite, outputText} = overrideStdOut();
+        await LoggerAdaptToConsole();
+        try {
+            // action
+            await console.log('some log string string');
+        } finally {
+            restoreStdOut(originalWrite);
+            LoggerRestoreConsole();
+        }
+
+        // assert
+        console.log(outputText[0]);
+
+        const testObj = JSON.parse(stripTimeStamp(outputText[0]));
+        delete testObj["@filename"];
+        delete testObj.errCallStack;
+
+        expect(testObj["@logCallStack"]).eql(undefined);
+    })
+
+
+
 
     it('logs error in correct shape using console.log', async () => {
         const {originalWrite, outputText} = overrideStdOut();
