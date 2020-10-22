@@ -59,7 +59,6 @@
     "@types/json-stringify-safe": "^5.0.0",
     "@types/mocha": "^7.0.2",
     "@types/node": "^14.10.1",
-    "@types/request": "^2.48.5",
     "@types/request-promise": "^4.1.46",
     "@types/rimraf": "^3.0.0",
     "chai": "^4.2.0",
