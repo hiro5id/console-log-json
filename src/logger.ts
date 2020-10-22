@@ -427,6 +427,7 @@ function supressDetailsIfSelected(errorObject: ErrorWithContext | undefined) {
   const { CONSOLE_LOG_JSON_NO_STACK_FOR_NON_ERROR } = process.env;
   const { CONSOLE_LOG_JSON_NO_FILE_NAME } = process.env;
   const { CONSOLE_LOG_JSON_NO_PACKAGE_NAME } = process.env;
+  const { CONSOLE_LOG_JSON_NO_LOGGER_DEBUG } = process.env;
 
   if (errorObject == undefined) {
     return undefined;
@@ -442,6 +443,10 @@ function supressDetailsIfSelected(errorObject: ErrorWithContext | undefined) {
 
   if (CONSOLE_LOG_JSON_NO_PACKAGE_NAME?.toLowerCase() === 'true') {
     delete (errorObject as any)['@packageName'];
+  }
+
+  if (CONSOLE_LOG_JSON_NO_LOGGER_DEBUG?.toLowerCase() === 'true') {
+    delete (errorObject as any)._loggerDebug;
   }
 
   return errorObject;
