@@ -27,7 +27,7 @@
     "stack-traces"
   ],
   "scripts": {
-    "prebuild": "cti create ./src && rimraf **/index.ts.bak",
+    "prebuild": "cti --withoutbackup create ./src && rimraf **/index.ts.bak",
     "build": "npm run format:prettier && npm run lint && tsc -sourcemap",
     "test": "mocha \"dist/test/**/*.js\"",
     "build:watch": "tsc -w",
@@ -48,6 +48,7 @@
   "dependencies": {
     "app-root-path": "^3.0.0",
     "callsites": "^3.1.0",
+    "dotenv": "^8.2.0",
     "json-stringify-safe": "^5.0.1",
     "source-map-support": "^0.5.19",
     "winston": "^3.3.3"

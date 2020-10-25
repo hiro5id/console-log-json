@@ -10,6 +10,7 @@ import { getCallingFilename } from './get-calling-filename';
 import { safeObjectAssign } from './safe-object-assign';
 import { sortObject } from './sort-object';
 import { ToOneLine } from './to-one-line';
+import { Env } from './env';
 
 // tslint:disable-next-line:no-var-requires
 require('source-map-support').install({
@@ -247,6 +248,9 @@ function ifEverythingFailsLogger(functionName: string, err: Error) {
 let logParams!: { logLevel: LOG_LEVEL; debugString: boolean };
 
 export function LoggerAdaptToConsole(options?: { logLevel?: LOG_LEVEL; debugString?: boolean }) {
+  const env = new Env();
+  env.loadDotEnv();
+
   const defaultOptions = {
     logLevel: LOG_LEVEL.info,
     debugString: false,
