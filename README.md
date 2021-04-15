@@ -1,5 +1,6 @@
 # console-log-json
-![title](docs/images/console-log-json-image.png)
+<a href="https://www.npmjs.com/package/console-log-json">![title](docs/images/console-log-json-image.png)</a>
+
 
 A universal JSON logger that plugs in to the existing `console.log` native function.
 
