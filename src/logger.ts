@@ -11,6 +11,7 @@ import { safeObjectAssign } from './safe-object-assign';
 import { sortObject } from './sort-object';
 import { ToOneLine } from './to-one-line';
 import { Env } from './env';
+import { NewLineCharacter } from './new-line-character';
 
 // tslint:disable-next-line:no-var-requires
 require('source-map-support').install({
@@ -105,6 +106,7 @@ declare global {
 
 export function FormatErrorObject(object: any) {
   let returnData: any = object;
+  const { CONSOLE_LOG_JSON_NO_NEW_LINE_CHARACTERS } = process.env;
 
   // Flatten message if it is an object
   if (typeof object.message === 'object') {
@@ -131,7 +133,7 @@ export function FormatErrorObject(object: any) {
 
     // Lets put a space into the message when stack message exists
     if (returnData.message) {
-      const stackRegex = /^Error:[ ](.*?)\n/im;
+      const stackRegex = new RegExp(`^Error:[ ](.*?)${NewLineCharacter()}`, 'im');
       const stackRegexMatch = stackOneLine.match(stackRegex);
       if (stackRegexMatch != null && stackRegexMatch.length >= 2) {
         const stackMessage = stackRegexMatch[1];
@@ -195,7 +197,11 @@ export function FormatErrorObject(object: any) {
   const colorStripped = jsonString.replace(/\\u001B\[\d*m/gim, '');
 
   // add new line at the end for better local readability
-  return `${colorStripped}\n`;
+  let endOfLogCharacter = '\n';
+  if (CONSOLE_LOG_JSON_NO_NEW_LINE_CHARACTERS) {
+    endOfLogCharacter = '';
+  }
+  return `${colorStripped}${endOfLogCharacter}`;
 }
 
 const print = w.format.printf((info: any) => {

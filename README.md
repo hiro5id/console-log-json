@@ -54,6 +54,8 @@ To suppress some bits of the log to make it less noisy you can set these environ
   * Omits `@logCallStack` in log
 * CONSOLE_LOG_JSON_NO_LOGGER_DEBUG="true"
   * Omits `_loggerDebug` in log
+* CONSOLE_LOG_JSON_NO_NEW_LINE_CHARACTERS="true"
+  * Omits `\n` new line characters in the log string.  -- the presence of these can help format the log for readability for some log analyzers.  But it can cause problems for others.  You can turn them off with this.
 
 ## Examples
 

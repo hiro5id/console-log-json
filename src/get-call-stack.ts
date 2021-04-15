@@ -1,6 +1,7 @@
 // import callsites from 'callsites';
 
 import { FormatStackTrace } from './format-stack-trace';
+import { NewLineCharacter } from './new-line-character';
 
 export function getCallStack(): string {
   const callStack = FormatStackTrace.toArray(new Error().stack ?? '');
@@ -8,7 +9,7 @@ export function getCallStack(): string {
   if (callStack && callStack.length >= 1 && callStack[0].startsWith('Error:')) {
     callStack.splice(0, 1);
   }
-  return callStack.join(`\n${FormatStackTrace.divider}`);
+  return callStack.join(`${NewLineCharacter()}${FormatStackTrace.divider}`);
 
   /*
   const callsiteArray: callsites.CallSite[] = callsites();

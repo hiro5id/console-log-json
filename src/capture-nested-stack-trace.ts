@@ -26,10 +26,12 @@
  FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
  OTHER DEALINGS IN THE SOFTWARE.
  */
+import { NewLineCharacter } from './new-line-character';
+
 export class CaptureNestedStackTrace {
   private static buildCombinedStacks(stack: any, nested: Error) {
     if (nested != null) {
-      stack += '\nCaused By: ' + nested.stack;
+      stack += `${NewLineCharacter()}Caused By: ` + nested.stack;
     }
     return stack;
   }

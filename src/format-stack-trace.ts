@@ -1,11 +1,12 @@
 import appRootPath from 'app-root-path';
 import * as path from 'path';
+import { NewLineCharacter } from './new-line-character';
 
 export class FormatStackTrace {
   public static readonly divider = '    at';
   public static toNewLines(stack: string): string {
     const lines = this.toArray(stack);
-    return lines.join(`\n${this.divider}`);
+    return lines.join(`${NewLineCharacter()}${this.divider}`);
   }
 
   public static toArray(stack: string): string[] {
