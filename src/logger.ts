@@ -160,7 +160,7 @@ export function FormatErrorObject(object: any) {
 
   // Add timestamp
   const { CONSOLE_LOG_JSON_NO_TIME_STAMP } = process.env;
-  if (CONSOLE_LOG_JSON_NO_TIME_STAMP?.toLowerCase() !== 'true') {
+  if (!CONSOLE_LOG_JSON_NO_TIME_STAMP) {
     returnData['@timestamp'] = new Date().toISOString();
   }
 
@@ -443,19 +443,19 @@ function supressDetailsIfSelected(errorObject: ErrorWithContext | undefined) {
     return undefined;
   }
 
-  if (CONSOLE_LOG_JSON_NO_STACK_FOR_NON_ERROR?.toLowerCase() === 'true') {
+  if (CONSOLE_LOG_JSON_NO_STACK_FOR_NON_ERROR) {
     delete (errorObject as any)['@logCallStack'];
   }
 
-  if (CONSOLE_LOG_JSON_NO_FILE_NAME?.toLowerCase() === 'true') {
+  if (CONSOLE_LOG_JSON_NO_FILE_NAME) {
     delete (errorObject as any)['@filename'];
   }
 
-  if (CONSOLE_LOG_JSON_NO_PACKAGE_NAME?.toLowerCase() === 'true') {
+  if (CONSOLE_LOG_JSON_NO_PACKAGE_NAME) {
     delete (errorObject as any)['@packageName'];
   }
 
-  if (CONSOLE_LOG_JSON_NO_LOGGER_DEBUG?.toLowerCase() === 'true') {
+  if (CONSOLE_LOG_JSON_NO_LOGGER_DEBUG) {
     delete (errorObject as any)._loggerDebug;
   }
 
