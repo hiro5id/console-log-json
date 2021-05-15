@@ -18,11 +18,14 @@ export class Env {
         }
       }
     }
-    return this.findOptionalEnvFile(path.resolve(startPath, '../'));
+    // Disable recursive searching for .env file due to issue: https://github.com/hiro5id/console-log-json/issues/24
+    // return this.findOptionalEnvFile(path.resolve(startPath, '../'));
+    return null;
   }
 
   public loadDotEnv() {
-    const optionalEnvFile = this.findOptionalEnvFile(__dirname);
+    const searchForEnvFileStartingInDirectory = process.cwd();
+    const optionalEnvFile = this.findOptionalEnvFile(searchForEnvFileStartingInDirectory);
     if (optionalEnvFile != null && optionalEnvFile.length < 0) {
       require('dotenv').config({ path: optionalEnvFile });
     } else {
