@@ -8,7 +8,7 @@ export class ErrorWithContext extends Error {
         error.message += ` - ${extraContext}`;
       } else {
         if (error == null) {
-          error = (extraContext as any) as string;
+          error = extraContext as any as string;
         } else {
           error += ` - ${extraContext}`;
         }
