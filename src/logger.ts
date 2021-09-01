@@ -60,7 +60,7 @@ require('source-map-support').install({
 declare global {
   // tslint:disable-next-line:interface-name
   interface Console {
-    Console: NodeJS.ConsoleConstructor;
+    // Console: NodeJS.ConsoleConstructor;
 
     /**
      * Priority 0
@@ -402,7 +402,7 @@ export function logUsingWinston(args: any[], level: LOG_LEVEL) {
       }
       args.push({ _loggerDebug: argsStringArray });
     }
-  } catch (err) {
+  } catch (err: any) {
     args.push({ _loggerDebug: `err ${err.message}` });
   }
 
@@ -414,7 +414,7 @@ export function logUsingWinston(args: any[], level: LOG_LEVEL) {
     } else {
       args.push({ '@filename': '<unknown>', '@logCallStack': getCallStack() });
     }
-  } catch (err) {
+  } catch (err: any) {
     args.push({ '@filename': `<error>:${err.message}`, '@logCallStack': err.message });
   }
 
@@ -422,13 +422,13 @@ export function logUsingWinston(args: any[], level: LOG_LEVEL) {
     level = findExplicitLogLevelAndUseIt(args, level);
 
     // this line is only for enabling testing
-    if (console.exception != null) {
-      console.exception();
+    if ((console as any).exception != null) {
+      (console as any).exception();
     }
     const { message, errorObject } = extractParametersFromArguments(args);
 
     Logger.log(level, message, supressDetailsIfSelected(errorObject));
-  } catch (err) {
+  } catch (err: any) {
     ifEverythingFailsLogger('console.log', err);
   }
 }

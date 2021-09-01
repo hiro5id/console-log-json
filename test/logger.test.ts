@@ -905,7 +905,7 @@ describe('logger', () => {
         // arrange
         const {originalWrite} = overrideStdOut();
         LoggerAdaptToConsole();
-        console.exception = () => {
+        (console as any).exception = () => {
             throw new Error('this is a test')
         };
         let caughtErr = null;
