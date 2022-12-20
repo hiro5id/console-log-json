@@ -23,6 +23,7 @@ describe('logger', () => {
   process.env.CONSOLE_LOG_JSON_NO_PACKAGE_NAME = '';
   process.env.CONSOLE_LOG_JSON_NO_TIME_STAMP = '';
   process.env.CONSOLE_LOG_JSON_NO_NEW_LINE_CHARACTERS = '';
+  process.env.CONSOLE_LOG_JSON_DISABLE_AUTO_PARSE = '';
 
   afterEach(() => {
     sandbox.restore();
@@ -557,6 +558,57 @@ describe('logger', () => {
         { color: '#DA1E28', fields: [{ title: '# of SDs failed to update state', value: '0' }], author_name: 'DSP Conversion Runner' },
       ],
     });
+  });
+
+  it('If the CONSOLE_LOG_JSON_DISABLE_AUTO_PARSE definition is enabled, the automatic JSON parser will not run.', async () => {
+    sandbox.stub(process.env, 'CONSOLE_LOG_JSON_DISABLE_AUTO_PARSE').value('TRUE');
+    const { originalWrite, outputText } = overrideStdOut();
+    await LoggerAdaptToConsole();
+
+    const circObject: any = { bob: 'bob' };
+    circObject.circ = circObject;
+
+    const sampleStringJson = `
+    {
+      "attachments": [
+        {
+          "color": "#0062FF",
+          "fields": [
+            {
+              "title": "# of SDs for READY state update",
+              "value": "56"
+            },
+            {
+              "title": "PDF_VERIFIED => READY",
+              "value": "56"
+            }
+          ],
+          "author_name": "DSP Conversion Runner"
+        },
+        {
+          "color": "#DA1E28",
+          "fields": [
+            {
+              "title": "# of SDs failed to update state",
+              "value": "0"
+            }
+          ],
+          "author_name": "DSP Conversion Runner"
+        }
+      ]
+    }
+`;
+
+    await console.log(sampleStringJson);
+
+    restoreStdOut(originalWrite);
+    LoggerRestoreConsole();
+
+    console.log(outputText[0]);
+
+    expect(JSON.parse(outputText[0]).level).eql('info');
+    expect(typeof JSON.parse(outputText[0]) === 'object').eql(true);
+    expect(JSON.parse(outputText[0])['@autoParsedJson']).eql(undefined);
   });
 
   it('console.log logs as info when explicitly provided with level:info parameter', async () => {

@@ -172,14 +172,25 @@ export function FormatErrorObject(object: any) {
   // interpret JSON if it is inside the error message
   if (returnData.message && returnData.message.length > 0) {
     let parsedObject = null;
+    const { CONSOLE_LOG_JSON_DISABLE_AUTO_PARSE } = process.env;
     try {
-      parsedObject = JSON.parse(returnData.message);
+      // if defined CONSOLE_LOG_JSON_DISABLE_AUTO_PARSE=TRUE, disable auto parsing.
+      if (!CONSOLE_LOG_JSON_DISABLE_AUTO_PARSE) {
+        parsedObject = JSON.parse(returnData.message);
+      } else {
+        parsedObject = JSON.parse(returnData.message); // trim & remove new lines
+        parsedObject = JSON.stringify(parsedObject);
+      }
     } catch (err) {
       // do nothing
     }
     if (parsedObject != null) {
-      returnData.message = '<auto-parsed-json-string-see-@autoParsedJson-property>';
-      returnData['@autoParsedJson'] = parsedObject;
+      if (!CONSOLE_LOG_JSON_DISABLE_AUTO_PARSE) {
+        returnData.message = '<auto-parsed-json-string-see-@autoParsedJson-property>';
+        returnData['@autoParsedJson'] = parsedObject;
+      } else {
+        returnData.message = parsedObject;
+      }
     }
   }
 
