@@ -175,11 +175,11 @@ export function FormatErrorObject(object: any) {
     const { CONSOLE_LOG_JSON_DISABLE_AUTO_PARSE } = process.env;
     try {
       // if defined CONSOLE_LOG_JSON_DISABLE_AUTO_PARSE=TRUE, disable auto parsing.
-      if (!CONSOLE_LOG_JSON_DISABLE_AUTO_PARSE) {
-        parsedObject = JSON.parse(returnData.message);
-      } else {
+      if (CONSOLE_LOG_JSON_DISABLE_AUTO_PARSE) {
         parsedObject = JSON.parse(returnData.message); // trim & remove new lines
         parsedObject = JSON.stringify(parsedObject);
+      } else {
+        parsedObject = JSON.parse(returnData.message);
       }
     } catch (err) {
       // do nothing
