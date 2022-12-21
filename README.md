@@ -1,8 +1,13 @@
 # console-log-json
+
 <!-- markdownlint-disable -->
+
 <!--suppress HtmlDeprecatedAttribute -->
+
 <!-- ALL-CONTRIBUTORS-BADGE:START - Do not remove or modify this section -->
+
 [![All Contributors](https://img.shields.io/badge/all_contributors-1-orange.svg?style=flat-square)](#contributors-)
+
 <!-- ALL-CONTRIBUTORS-BADGE:END -->
 
 <a href="https://www.npmjs.com/package/console-log-json">![title](docs/images/console-log-json-image.png)</a>
@@ -12,7 +17,9 @@ A universal JSON logger that plugs in to the existing `console.log` native funct
 ## Contributors
 
 <!-- ALL-CONTRIBUTORS-LIST:START - Do not remove or modify this section -->
+
 <!-- prettier-ignore-start -->
+
 <table>
   <tbody>
     <tr>
@@ -24,6 +31,7 @@ A universal JSON logger that plugs in to the existing `console.log` native funct
 <!-- prettier-ignore-end -->
 
 <!-- ALL-CONTRIBUTORS-LIST:END -->
+
 <!-- prettier-ignore-start -->
 
 <!-- prettier-ignore-end -->
@@ -31,6 +39,9 @@ A universal JSON logger that plugs in to the existing `console.log` native funct
 <!-- ALL-CONTRIBUTORS-LIST:END -->
 
 <!-- markdownlint-restore -->
+
+* *[contributing...](CONTRIBUTING.md)*
+
 ## Pupose and Description
 
 A no fuss simple drop-in replacement for `console.log()`, `console.info()`, 
@@ -56,6 +67,7 @@ so that it can be easily parsed by tool such as LogDNA.
    ```
    npm install console-log-json
    ```
+
 2. At the entry point of the application include the package and run *LoggerAdaptToConsole()*
    
    ```
