@@ -38,7 +38,7 @@ please add @<username> for <contributions>.
 
 The bot will then create a Pull Request to add the contributor, then reply with the pull request details.
 
-![](CONTRIBUTING-assets/2022-12-21-15-22-48-image.png)
+![](images/contributing.png)
 
 > Your request to the bot doesn't need to be perfect. The bot will use [basic Natural Language Parsing](https://github.com/all-contributors/app/blob/master/lib/parse-comment.js) to determine your intent.
 > For example, this will work too:
