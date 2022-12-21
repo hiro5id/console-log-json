@@ -4,6 +4,17 @@
 
 A universal JSON logger that plugs in to the existing `console.log` native function.
 
+## Contributors
+
+<!-- ALL-CONTRIBUTORS-LIST:START - Do not remove or modify this section -->
+<!-- prettier-ignore-start -->
+<!-- markdownlint-disable -->
+
+<!-- markdownlint-restore -->
+<!-- prettier-ignore-end -->
+
+<!-- ALL-CONTRIBUTORS-LIST:END -->
+
 ## Pupose and Description
 
 A no fuss simple drop-in replacement for `console.log()`, `console.info()`, 
