@@ -185,11 +185,11 @@ export function FormatErrorObject(object: any) {
       // do nothing
     }
     if (parsedObject != null) {
-      if (!CONSOLE_LOG_JSON_DISABLE_AUTO_PARSE) {
+      if (CONSOLE_LOG_JSON_DISABLE_AUTO_PARSE) {
+        returnData.message = parsedObject;
+      } else {
         returnData.message = '<auto-parsed-json-string-see-@autoParsedJson-property>';
         returnData['@autoParsedJson'] = parsedObject;
-      } else {
-        returnData.message = parsedObject;
       }
     }
   }
