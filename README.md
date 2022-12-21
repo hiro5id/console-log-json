@@ -1,4 +1,6 @@
 # console-log-json
+<!-- markdownlint-disable -->
+<!--suppress HtmlDeprecatedAttribute -->
 <!-- ALL-CONTRIBUTORS-BADGE:START - Do not remove or modify this section -->
 [![All Contributors](https://img.shields.io/badge/all_contributors-1-orange.svg?style=flat-square)](#contributors-)
 <!-- ALL-CONTRIBUTORS-BADGE:END -->
@@ -11,7 +13,6 @@ A universal JSON logger that plugs in to the existing `console.log` native funct
 
 <!-- ALL-CONTRIBUTORS-LIST:START - Do not remove or modify this section -->
 <!-- prettier-ignore-start -->
-<!-- markdownlint-disable -->
 <table>
   <tbody>
     <tr>
@@ -20,18 +21,16 @@ A universal JSON logger that plugs in to the existing `console.log` native funct
   </tbody>
 </table>
 
-<!-- markdownlint-restore -->
 <!-- prettier-ignore-end -->
 
 <!-- ALL-CONTRIBUTORS-LIST:END -->
 <!-- prettier-ignore-start -->
-<!-- markdownlint-disable -->
 
-<!-- markdownlint-restore -->
 <!-- prettier-ignore-end -->
 
 <!-- ALL-CONTRIBUTORS-LIST:END -->
 
+<!-- markdownlint-restore -->
 ## Pupose and Description
 
 A no fuss simple drop-in replacement for `console.log()`, `console.info()`, 
