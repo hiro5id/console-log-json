@@ -40,7 +40,7 @@ A universal JSON logger that plugs in to the existing `console.log` native funct
 
 <!-- markdownlint-restore -->
 
-* *[contributing...](docs/CONTRIBUTING.md)*
+* *[Adding Contributors...](docs/CONTRIBUTING.md)*
 
 ## Pupose and Description
 
