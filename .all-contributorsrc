@@ -14,6 +14,19 @@
       "contributions": [
         "code"
       ]
+    },
+    {
+      "login": "hiro5id",
+      "name": "Roberto Sebestyen",
+      "avatar_url": "https://avatars.githubusercontent.com/u/3152718?v=4",
+      "profile": "https://github.com/hiro5id",
+      "contributions": [
+        "code",
+        "doc",
+        "projectManagement",
+        "security",
+        "review"
+      ]
     }
   ],
   "contributorsPerLine": 7,
