@@ -106,7 +106,7 @@ declare global {
 
 export function FormatErrorObject(object: any) {
   let returnData: any = object;
-  const { CONSOLE_LOG_JSON_NO_NEW_LINE_CHARACTERS } = process.env;
+  const { CONSOLE_LOG_JSON_NO_NEW_LINE_CHARACTERS, CONSOLE_LOG_JSON_NO_NEW_LINE_CHARACTERS_EXCEPT_STACK } = process.env;
 
   // Flatten message if it is an object
   if (typeof object.message === 'object') {
@@ -209,7 +209,7 @@ export function FormatErrorObject(object: any) {
 
   // add new line at the end for better local readability
   let endOfLogCharacter = '\n';
-  if (CONSOLE_LOG_JSON_NO_NEW_LINE_CHARACTERS) {
+  if (CONSOLE_LOG_JSON_NO_NEW_LINE_CHARACTERS || CONSOLE_LOG_JSON_NO_NEW_LINE_CHARACTERS_EXCEPT_STACK) {
     endOfLogCharacter = '';
   }
   return `${colorStripped}${endOfLogCharacter}`;
