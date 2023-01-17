@@ -2,7 +2,7 @@
 
 In lnav it is possible to give it a format file to have it parse and hilight bits.
 
-here is an example that can be loaded with the command `lnavl -i console_log_json.json`
+here is an example that can be loaded with the command `lnavl -i console_log_json.json` which gets installed into the path `~/.lnav/formats/installed/console_log_json.json`
 
 Filename: `console_log_json.json`
 ```json
