@@ -1,0 +1,89 @@
+// For format details, see https://aka.ms/devcontainer.json. For config options, see the
+// README at: https://github.com/devcontainers/templates/tree/main/src/typescript-node
+{
+	"name": "console-log-json",
+	"dockerComposeFile": [
+		"docker-compose.yml"
+	],
+	// The name of the following service has to match one of the services in docker-compose.yml
+	"service": "devcontainer",
+	"workspaceFolder": "/workspace",
+	"shutdownAction": "stopCompose",
+	"remoteUser": "node",
+	"customizations": {
+		"vscode": {
+			"extensions": [
+				"VisualStudioExptTeam.vscodeintellicode",
+				"VisualStudioExptTeam.intellicode-api-usage-examples",
+				"VisualStudioExptTeam.vscodeintellicode-completions",
+				"mintlify.document",
+				"mgmcdermott.vscode-language-babel",
+				"shakram02.bash-beautify",
+				"vikas.code-navigation",
+				"ezforo.copy-relative-path-and-line-numbers",
+				"RandomFractalsInc.vscode-data-preview",
+				"ms-azuretools.vscode-docker",
+				"p1c2u.docker-compose",
+				"formulahendry.docker-explorer",
+				"QuentinGruber.dockerfiletemplate",
+				"codeandstuff.vscode-navigate-edit-history",
+				"dbaeumer.vscode-eslint",
+				"GrapeCity.gc-excelviewer",
+				"sleistner.vscode-fileutils",
+				"mhutchie.git-graph",
+				"donjayamanne.githistory",
+				"huizhou.githd",
+				"letmaik.git-tree-compare",
+				"bierner.github-markdown-preview",
+				"eamodio.gitlens",
+				"NikolaosGeorgiou.html-fmt-vscode",
+				"P-de-Jong.vscode-html-scss",
+				"sburg.vscode-javascript-booster",
+				"redhat.vscode-yaml",
+				"DotJoshJohnson.xml",
+				"redhat.vscode-xml",
+				"hogashi.vscode-copy-github-permalink",
+				"henrynguyen5-vsc.vsc-nvm",
+				"Retsam19.typescript-types-view",
+				"pmneo.tsimporter",
+				"rbbit.typescript-hero",
+				"loiane.ts-extension-pack",
+				"kakumei.ts-debug",
+				"hbenl.vscode-test-explorer",
+				"mechatroner.rainbow-csv",
+				"kahnpro.quick-browser",
+				"gencer.html-slim-scss-css-class-completion",
+				"kbysiec.vscode-search-everywhere",
+				"mlewand.select-part-of-word",
+				"jack89ita.open-file-from-path",
+				"sysoev.vscode-open-in-github",
+				"mushan.vscode-paste-image",
+				"ionutvmi.path-autocomplete",
+				"mskelton.npm-outdated",
+				"idered.npm",
+				"raynigon.nginx-formatter",
+				"ahmadalli.vscode-nginx-conf",
+				"shd101wyy.markdown-preview-enhanced",
+				"yzhang.markdown-all-in-one",
+				"jiejie.Lua-Nginx-Snippets",
+				"ritwickdey.LiveServer",
+				"kavod-io.vscode-jest-test-adapter"
+			]
+		}
+	}
+
+	// Features to add to the dev container. More info: https://containers.dev/features.
+	// "features": {},
+
+	// Use 'forwardPorts' to make a list of ports inside the container available locally.
+	// "forwardPorts": [],
+
+	// Use 'postCreateCommand' to run commands after the container is created.
+	// "postCreateCommand": "yarn install",
+
+	// Configure tool-specific properties.
+	// "customizations": {},
+
+	// Uncomment to connect as root instead. More info: https://aka.ms/dev-containers-non-root.
+	// "remoteUser": "root"
+}

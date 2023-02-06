@@ -1,0 +1,15 @@
+version: '3.7'
+
+services:
+  devcontainer:
+    image: sebestyen/console-log-json-dev-container:0.1
+    build: .
+    container_name: console-log-json-dev-container
+    hostname: console-log-json-dev.local
+    working_dir: /workspace
+    volumes:
+       # mount the source code into the container
+       - ..:/workspace
+       # mount any other folders into the container
+       #- ~/.aws:/home/node/.aws
+    command: sleep infinity
