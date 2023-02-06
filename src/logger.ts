@@ -392,6 +392,11 @@ function findExplicitLogLevelAndUseIt(args: any[], level: LOG_LEVEL) {
 
 let packageName: string = '';
 
+/**
+ * It takes the arguments passed to the console.log function and logs them using Winston
+ * @param {any[]} args - any[] - the arguments passed to the console.log function
+ * @param {LOG_LEVEL} level - LOG_LEVEL
+ */
 export function logUsingWinston(args: any[], level: LOG_LEVEL) {
   if (packageName.length === 0) {
     args.push({ '@packageName': '<not-yet-set> Please await the call LoggerAdaptToConsole() on startup' });

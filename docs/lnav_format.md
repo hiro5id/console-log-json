@@ -15,7 +15,7 @@ Filename: `console_log_json.json`
                 "pattern": "^{((\\\"level\\\"\\:\\\")(?<level>.*?)(?<!\\\\)\").?(?:(\\\"message\\\"\\:\\\")(?<message>.*?)(?<!\\\\)\")?.?(?:(\\\"\\@filename\\\"\\:\\\")(?<filename>.*?)(?<!\\\\)\")?.?(?:(\\\"\\@logCallStack\\\"\\:\\\")(?<logCallStack>.*?)(?<!\\\\)\")?.?(?:(\\\"errCallStack\\\"\\:\\\")(?<errCallStack>.*?)(?<!\\\\)\")?.?((\\\"\\@timestamp\\\"\\:\\\")(?<timestamp>.*?)(?<!\\\\)\")}$"
             }
         },
-        "body-field": "message",``
+        "body-field": "message",
         "level-field": "level",
         "timestamp-field": "timestamp",
         "level": {
@@ -37,12 +37,12 @@ Filename: `console_log_json.json`
         },
         "highlights" : {
             "message": {
-               "pattern": "((?<=\\\"message\\\"\\:\\\")(?<message>.*?)(?=(?<!\\\\)\"))",
+               "pattern": "((?<=\"message\":\")(?<message>.*?)(?=(?<!\\\\)\"))",
                "color" : "#000000",
                "background-color": "#ffff00"
             },
            "filename" : {
-               "pattern" : "((?<=\\\"\\@filename\\\"\\:\\\")(?<filename>.*?)(?=(?<!\\\\)\"))",
+               "pattern" : "((?<=\"@filename\":\")(?<filename>.*?)(?=(?<!\\\\)\"))",
                "color" : "#0000d7"
            }
         },
@@ -54,4 +54,20 @@ Filename: `console_log_json.json`
         ]
     }
 }
+```
+
+### Helper commands for lnav
+
+To push a config named `console_log_json` to regex101 for editing:
+`lnav -m format console_log_json regex base regex101 push`
+
+### lnav format documentation
+https://docs.lnav.org/en/latest/formats.html#defining-a-new-format
+
+
+### Experimental
+
+To match only certain requried fields and not everything
+```regexp
+^{((\"level\"\:\")(?<level>.*?)(?<!\\)")|(?:(\"message\"\:\")(?<message>.*?)(?<!\\)")|(?:(\"\@filename\"\:\")(?<filename>.*?)(?<!\\)")|(?:(\"\@logCallStack\"\:\")(?<logCallStack>.*?)(?<!\\)")|(?:(\"errCallStack\"\:\")(?<errCallStack>.*?)(?<!\\)")|((\"\@timestamp\"\:\")(?<timestamp>.*?)(?<!\\)")}$
 ```
