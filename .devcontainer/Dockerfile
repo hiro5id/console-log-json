@@ -12,7 +12,8 @@ FROM node:14-bullseye
 RUN apt update
 RUN apt install -y \
     curl \
-    git
+    git \
+    xdg-utils
 
 
 
@@ -40,4 +41,10 @@ USER $USERNAME
 ###### Install NVM ################################################################################
 # Install nvm
 RUN curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.37.0/install.sh | bash
+ENV NVM_DIR /home/node/.nvm
+RUN . $NVM_DIR/nvm.sh \
+    && nvm install 14 \
+    && nvm use 14 \
+    && nvm install-latest-npm
+
 ###### Finished install  NVM ################################################################################
