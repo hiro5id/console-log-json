@@ -1,6 +1,6 @@
 {
   "name": "console-log-json",
-  "version": "2.11.1",
+  "version": "2.11.2",
   "description": "A universal JSON logger that plugs in to the existing `console.log` native function.  console.log() anything and have the output be formatted to single line JSON, including stack traces, so that it can be easily parsed by tool such as LogDNA or other log ingestion service that reads JSON.",
   "private": false,
   "types": "dist/index.d.ts",
