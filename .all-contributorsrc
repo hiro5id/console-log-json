@@ -27,6 +27,15 @@
         "security",
         "review"
       ]
+    },
+    {
+      "login": "igordreher",
+      "name": "Igor Dreher",
+      "avatar_url": "https://avatars.githubusercontent.com/u/62728088?v=4",
+      "profile": "https://github.com/igordreher",
+      "contributions": [
+        "code"
+      ]
     }
   ],
   "contributorsPerLine": 7,
