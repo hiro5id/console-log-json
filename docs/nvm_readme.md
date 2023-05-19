@@ -19,4 +19,6 @@ Restart the container on the remote host:
     sudo docker restart <container name ex: nodejs_dev>
 ```
 
-1. Reconnect VS Code via `Remote-SSH: Connect To Host...`
+4. Reconnect VS Code via `Remote-SSH: Connect To Host...`
+
+5. Don't forget to install appropriate npm version with either using `npm install -g npm@9` or `nvm install-latest-npm`
