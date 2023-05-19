@@ -40,7 +40,7 @@
     "prune:prod": "npm prune --production",
     "refresh-package-locks": "npm run clean && find . -iname package-lock.json -delete && npm install",
     "interactive-publish": "npm run build && np",
-    "install-latest-npm": "nvm install-latest-npm"
+    "install-latest-npm": "npm install -g npm@9"
   },
   "repository": {
     "type": "git",
@@ -68,7 +68,7 @@
     "cheerio": "^1.0.0-rc.10",
     "create-ts-index": "^1.14.0",
     "mocha": "^10.2.0",
-    "np": "^7.5.0",
+    "np": "^7.7.0",
     "prettier": "^2.3.1",
     "request": "^2.88.2",
     "request-promise": "^4.2.6",
