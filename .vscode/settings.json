@@ -1,3 +1,7 @@
 {
-    "docwriter.style": "Auto-detect"
+    "docwriter.style": "Auto-detect",
+    "markdown-todo.sortByCount": false,
+    "todo-tree.tree.showBadges": true,
+    "todo-tree.tree.disableCompactFolders": false,
+    "todo-tree.tree.showCountsInTree": true    
 }

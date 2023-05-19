@@ -5,9 +5,10 @@ import {LoggerAdaptToConsole, LoggerRestoreConsole, overrideStdOut, restoreStdOu
 
 
 describe('when cheerio error occurs', async function() {
+   this.timeout(10000)
 
    // TODO: had to disable this for some reason, will need to look into why it fails
-   xit('catches error properly', async function () {
+   it('catches error properly', async function () {
       const {originalWrite, outputText} = overrideStdOut();
       LoggerAdaptToConsole();
       const rp = require('request-promise');
