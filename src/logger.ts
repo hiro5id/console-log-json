@@ -175,7 +175,7 @@ export function FormatErrorObject(object: any) {
     const { CONSOLE_LOG_JSON_DISABLE_AUTO_PARSE } = process.env;
     try {
       // if defined CONSOLE_LOG_JSON_DISABLE_AUTO_PARSE=TRUE, disable auto parsing.
-      if (CONSOLE_LOG_JSON_DISABLE_AUTO_PARSE) {
+      if (CONSOLE_LOG_JSON_DISABLE_AUTO_PARSE && CONSOLE_LOG_JSON_DISABLE_AUTO_PARSE.toLowerCase() === 'true') {
         parsedObject = JSON.parse(returnData.message); // trim & remove new lines
         parsedObject = JSON.stringify(parsedObject);
       } else {
@@ -185,7 +185,7 @@ export function FormatErrorObject(object: any) {
       // do nothing
     }
     if (parsedObject != null) {
-      if (CONSOLE_LOG_JSON_DISABLE_AUTO_PARSE) {
+      if (CONSOLE_LOG_JSON_DISABLE_AUTO_PARSE && CONSOLE_LOG_JSON_DISABLE_AUTO_PARSE.toLowerCase() === 'true') {
         returnData.message = parsedObject;
       } else {
         returnData.message = '<auto-parsed-json-string-see-@autoParsedJson-property>';
