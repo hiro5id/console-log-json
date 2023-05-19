@@ -74,7 +74,8 @@
     "firsttris.vscode-jest-runner",
     "emilylilylime.vscode-test-explorer-diagnostics",
     "DanielSanMedium.dscodegpt",
-    "GitHub.vscode-github-actions"
+    "GitHub.vscode-github-actions",
+    "alexeynobody.javascript-test-runner-reloaded"
   ],
   // List of extensions recommended by VS Code that should not be recommended for users of this workspace.
   "unwantedRecommendations": []
