@@ -59,6 +59,9 @@ so that it can be easily parsed by tool such as LogDNA.
 - Won't crash out and cause the application to stop, if there is a problem with logger, instead try to fall back to original console.log, output what is possible and continue. 
 - Logging is done in a non awaiting promise so that we yield to other processing while logging
 - Logs via error level when message contains the word "error" to properly flag errors even if a mistake is made using the wrong console.info instead of console.error.
+- Optional support for colored JSON output. Example:
+![colorized example](docs/images/colors_example.png)
+
 
 ## Usage
 
