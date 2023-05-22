@@ -1,5 +1,6 @@
 // created from 'create-ts-index'
 
+export * from './colors';
 export * from './env';
 export * from './capture-nested-stack-trace';
 export * from './error-with-context';

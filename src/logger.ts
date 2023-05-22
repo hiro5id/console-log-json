@@ -1,6 +1,6 @@
 /* tslint:disable:object-literal-sort-keys */
 import appRootPath from 'app-root-path';
-import stringify from 'json-stringify-safe';
+// import stringify from 'json-stringify-safe';
 import * as path from 'path';
 import * as w from 'winston';
 import { ErrorWithContext } from './error-with-context';
@@ -12,6 +12,8 @@ import { sortObject } from './sort-object';
 import { ToOneLine } from './to-one-line';
 import { Env } from './env';
 import { NewLineCharacter } from './new-line-character';
+import { colorJson } from './colors/colorize';
+import stringify from 'json-stringify-safe';
 
 // tslint:disable-next-line:no-var-requires
 require('source-map-support').install({
@@ -160,7 +162,7 @@ export function FormatErrorObject(object: any) {
 
   // Add timestamp
   const { CONSOLE_LOG_JSON_NO_TIME_STAMP } = process.env;
-  if (!CONSOLE_LOG_JSON_NO_TIME_STAMP) {
+  if (!(CONSOLE_LOG_JSON_NO_TIME_STAMP && CONSOLE_LOG_JSON_NO_TIME_STAMP.toLowerCase() === 'true')) {
     returnData['@timestamp'] = new Date().toISOString();
   }
 
@@ -202,17 +204,25 @@ export function FormatErrorObject(object: any) {
     }
   }
 
-  const jsonString = stringify(returnData);
-
-  // strip ansi colors
-  const colorStripped = jsonString.replace(/\\u001B\[\d*m/gim, '');
-
   // add new line at the end for better local readability
   let endOfLogCharacter = '\n';
-  if (CONSOLE_LOG_JSON_NO_NEW_LINE_CHARACTERS || CONSOLE_LOG_JSON_NO_NEW_LINE_CHARACTERS_EXCEPT_STACK) {
+  if (
+    (CONSOLE_LOG_JSON_NO_NEW_LINE_CHARACTERS && CONSOLE_LOG_JSON_NO_NEW_LINE_CHARACTERS.toLowerCase() === 'true') ||
+    (CONSOLE_LOG_JSON_NO_NEW_LINE_CHARACTERS_EXCEPT_STACK && CONSOLE_LOG_JSON_NO_NEW_LINE_CHARACTERS_EXCEPT_STACK.toLowerCase() === 'true')
+  ) {
     endOfLogCharacter = '';
   }
-  return `${colorStripped}${endOfLogCharacter}`;
+
+  const { CONSOLE_LOG_COLORIZE } = process.env;
+
+  // Return string to be logged on the command line
+  // TODO: This is where the post processing happens
+  if (CONSOLE_LOG_COLORIZE && CONSOLE_LOG_COLORIZE.toLowerCase() === 'true') {
+    return `${colorJson(returnData)}${endOfLogCharacter}`;
+  } else {
+    const jsonString = stringify(returnData);
+    return `${jsonString}${endOfLogCharacter}`;
+  }
 }
 
 const print = w.format.printf((info: any) => {
@@ -459,19 +469,19 @@ function supressDetailsIfSelected(errorObject: ErrorWithContext | undefined) {
     return undefined;
   }
 
-  if (CONSOLE_LOG_JSON_NO_STACK_FOR_NON_ERROR) {
+  if (CONSOLE_LOG_JSON_NO_STACK_FOR_NON_ERROR && CONSOLE_LOG_JSON_NO_STACK_FOR_NON_ERROR.toLowerCase() === 'true') {
     delete (errorObject as any)['@logCallStack'];
   }
 
-  if (CONSOLE_LOG_JSON_NO_FILE_NAME) {
+  if (CONSOLE_LOG_JSON_NO_FILE_NAME && CONSOLE_LOG_JSON_NO_FILE_NAME.toLowerCase() === 'true') {
     delete (errorObject as any)['@filename'];
   }
 
-  if (CONSOLE_LOG_JSON_NO_PACKAGE_NAME) {
+  if (CONSOLE_LOG_JSON_NO_PACKAGE_NAME && CONSOLE_LOG_JSON_NO_PACKAGE_NAME.toLowerCase() === 'true') {
     delete (errorObject as any)['@packageName'];
   }
 
-  if (CONSOLE_LOG_JSON_NO_LOGGER_DEBUG) {
+  if (CONSOLE_LOG_JSON_NO_LOGGER_DEBUG && CONSOLE_LOG_JSON_NO_LOGGER_DEBUG.toLowerCase() === 'true') {
     delete (errorObject as any)._loggerDebug;
   }
 

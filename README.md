@@ -92,6 +92,8 @@ so that it can be easily parsed by tool such as LogDNA.
 
 To suppress some bits of the log to make it less noisy you can set these environment variables:
 
+* CONSOLE_LOG_COLORIZE="true"
+  * ***This is dasbled by default*** because some logging services such as LogDNA don't understand ANSI color escape codes, so it just introduces noise.  But this can make logs easier to read when running locally or in a system that supports ANSI colors.
 * CONSOLE_LOG_JSON_DISABLE_AUTO_PARSE="true"
   * Disable JSON auto parsing in `@autoParsedJson` and outputs a stringified version of data in the `message` field
 * CONSOLE_LOG_JSON_NO_FILE_NAME="true"

@@ -24,6 +24,7 @@ describe('logger', () => {
   process.env.CONSOLE_LOG_JSON_NO_TIME_STAMP = '';
   process.env.CONSOLE_LOG_JSON_NO_NEW_LINE_CHARACTERS = '';
   process.env.CONSOLE_LOG_JSON_DISABLE_AUTO_PARSE = '';
+  process.env.CONSOLE_LOG_COLORIZE = '';
 
   afterEach(() => {
     sandbox.restore();
@@ -652,6 +653,22 @@ describe('logger', () => {
     expect(testObj.level).eql('error');
   });
 
+  it('color console.log logs as error when explicitly provided with level:err parameter', async () => {
+    sandbox.stub(process.env, 'CONSOLE_LOG_COLORIZE').value('TRUE');
+    const { originalWrite, outputText } = overrideStdOut();
+    LoggerAdaptToConsole();
+
+    await console.log({ level: 'err' }, 'this is a test', { a: 'stuff-a', b: 'stuff-b' }, 'more messages', { c: 1234 });
+
+    restoreStdOut(originalWrite);
+    LoggerRestoreConsole();
+
+    console.log(outputText[0]);
+    
+    // const testObj = JSON.parse(outputText[0]);
+    expect(outputText[0].startsWith("\u001b[30m{\u001b[0m\u001b[38;2;26;175;192m\"level\":\u001b[30m\u001b[0m\u001b[31m\"error\"\u001b[30m,\u001b[0m\u001b[38;2;36;119;36m\"message\":\u001b[30m\u001b[0m\u001b[31m\"this is a test - more messages\"\u001b[30m,\u001b[0m\u001b[38;2;159;147;45m\"@filename\":\u001b[30m\u001b[0m\u001b[33m\"")).eql(true);
+  });
+
   it('console.log logs as warn when explicitly provided with level:warning parameter', async () => {
     const { originalWrite, outputText } = overrideStdOut();
     LoggerAdaptToConsole();
@@ -986,23 +1003,6 @@ describe('logger', () => {
 
     // assert
     expect(caughtErr).equal(null);
-  });
-
-  it('filters colors', async () => {
-    const messageWithColors =
-      '\u001b[90m================================\u001b[39m\n \u001b[33mMissing\u001b[39m environment variables:\n    \u001b[34mCCE_MONGO_CONNECTION\u001b[39m: undefined\n\u001b[33m\u001b[39m\n\u001b[33m Exiting with error code 1\u001b[39m\n\u001b[90m================================\u001b[39m';
-    const { originalWrite, outputText } = overrideStdOut();
-    LoggerAdaptToConsole();
-
-    await console.log(messageWithColors);
-
-    restoreStdOut(originalWrite);
-    LoggerRestoreConsole();
-
-    expect((outputText[0] as string).indexOf('\\u001b[90m') === 27).equals(false, 'the color string should not be in the output');
-    expect(outputText[0]).contain(
-      '"================================\\n Missing environment variables:\\n    CCE_MONGO_CONNECTION: undefined\\n\\n Exiting with error code 1\\n================================"',
-    );
   });
 
   it('throws an error with additional context', () => {

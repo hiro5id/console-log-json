@@ -10,6 +10,18 @@
             "request": "launch",
             "name": "Launch",
             "program": "${workspaceFolder}/dist/index.js",
-        }
+        },
+        {
+            "name": "Debug Node.js programs from command line",
+            "type": "node",
+            "request": "launch",
+            "cwd": "${workspaceFolder}",
+            "runtimeExecutable": "bash",
+            "console": "integratedTerminal",
+            "internalConsoleOptions": "neverOpen",
+            "skipFiles": [
+              "<node_internals>/**"
+            ]
+          }        
     ]
 }
