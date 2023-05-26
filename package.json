@@ -47,11 +47,10 @@
     "url": "git@github.com:hiro5id/console-log-json.git"
   },
   "//#### dependencies-documentation": {
-    "callsites": "this has to stay below v4 because the new one is using ES Module, which would force this package to be changed to an ES module as well"
+    "": ""
   },
   "dependencies": {
     "app-root-path": "^3.1.0",
-    "callsites": "^3.1.0",
     "dotenv": "^16.0.3",
     "json-stringify-safe": "^5.0.1",
     "source-map-support": "^0.5.21",

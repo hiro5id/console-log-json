@@ -1,6 +1,6 @@
 import appRootPath from 'app-root-path';
-import callsites from 'callsites';
 import * as path from 'path';
+import callsites from './callsites/get-callsites';
 
 export function getCallingFilename(): string | null {
   const callsitesList = callsites();
