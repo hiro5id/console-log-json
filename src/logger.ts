@@ -1,6 +1,5 @@
 /* tslint:disable:object-literal-sort-keys */
 import appRootPath from 'app-root-path';
-// import stringify from 'json-stringify-safe';
 import * as path from 'path';
 import * as w from 'winston';
 import { ErrorWithContext } from './error-with-context';
@@ -13,7 +12,7 @@ import { ToOneLine } from './to-one-line';
 import { Env } from './env';
 import { NewLineCharacter } from './new-line-character';
 import { colorJson } from './colors/colorize';
-import stringify from 'json-stringify-safe';
+import { stringify } from './json-stringify-safe/stringify-safe';
 
 // tslint:disable-next-line:no-var-requires
 require('source-map-support').install({

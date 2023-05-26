@@ -1,4 +1,4 @@
-import stringify from 'json-stringify-safe';
+import { stringify } from './json-stringify-safe/stringify-safe';
 import { sortObject } from './sort-object';
 // tslint:disable-next-line:no-var-requires
 /* tslint:disable:only-arrow-functions */

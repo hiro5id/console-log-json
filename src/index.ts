@@ -3,6 +3,7 @@
 export * from './callsites';
 export * from './colors';
 export * from './env';
+export * from './json-stringify-safe';
 export * from './capture-nested-stack-trace';
 export * from './error-with-context';
 export * from './format-stack-trace';

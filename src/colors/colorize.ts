@@ -1,4 +1,4 @@
-import stringify from 'json-stringify-safe';
+import { stringify } from '../json-stringify-safe/stringify-safe';
 
 export interface IDefaultColorMap {
   black: string;
@@ -127,8 +127,8 @@ export function colorJson(jsonInput: any, colorsInput: Partial<IColorConfigurati
   let isWarnLevel = false;
   let json: string;
   if (supportsColor()) {
-    if (typeof jsonInput !== 'string') json = stringify(jsonInput, null, spacing);
-    else json = stringify(JSON.parse(jsonInput), null, spacing);
+    if (typeof jsonInput !== 'string') json = stringify(jsonInput, undefined, spacing);
+    else json = stringify(JSON.parse(jsonInput), undefined, spacing);
     return (
       (colorMap as any)[colors.separator] +
       json.replace(/("(\\u[a-zA-Z0-9]{4}|\\[^u]|[^\\"])*"(\s*:)?|\b(true|false|null)\b|-?\d+(?:\.\d*)?(?:[eE][+\-]?\d+)?)/g, (match: string) => {
@@ -205,8 +205,8 @@ export function colorJson(jsonInput: any, colorsInput: Partial<IColorConfigurati
       '\x1b[0m'
     );
   } else {
-    if (typeof jsonInput !== 'string') json = stringify(jsonInput, null, spacing);
-    else json = stringify(JSON.parse(jsonInput), null, spacing);
+    if (typeof jsonInput !== 'string') json = stringify(jsonInput, undefined, spacing);
+    else json = stringify(JSON.parse(jsonInput), undefined, spacing);
     return json;
   }
 }
