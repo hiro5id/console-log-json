@@ -76,7 +76,9 @@
     "DanielSanMedium.dscodegpt",
     "GitHub.vscode-github-actions",
     "alexeynobody.javascript-test-runner-reloaded",
-    "yoavbls.pretty-ts-errors"
+    "yoavbls.pretty-ts-errors",
+    "usernamehw.errorlens",
+    "p42ai.refactor"
   ],
   // List of extensions recommended by VS Code that should not be recommended for users of this workspace.
   "unwantedRecommendations": []
