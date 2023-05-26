@@ -1,4 +1,4 @@
-// import callsites from 'callsites';
+// TODO: we should use getCallsites to get more comprehensive call stack here:
 
 import { FormatStackTrace } from './format-stack-trace';
 import { NewLineCharacter } from './new-line-character';
