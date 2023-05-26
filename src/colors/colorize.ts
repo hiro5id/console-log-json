@@ -87,7 +87,7 @@ export const defaultColors: IColorConfiguration = {
   fileNameKey: 'darkYellow',
   fileName: 'yellow',
   logCallStackKey: 'blue',
-  logCallStack: 'lightBlue',
+  logCallStack: 'black',
   packageNameKey: 'darkYellow',
   packageName: 'yellow',
   timestampKey: 'pink',
