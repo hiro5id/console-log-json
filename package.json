@@ -54,7 +54,7 @@
     "dotenv": "^16.0.3",
     "json-stringify-safe": "^5.0.1",
     "source-map-support": "^0.5.21",
-    "winston": "^3.8.2"
+    "winston": "^3.9.0"
   },
   "devDependencies": {
     "@types/app-root-path": "^1.2.4",
