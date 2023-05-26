@@ -1099,6 +1099,23 @@ describe('logger', () => {
     expect(outputText[0].startsWith("\u001b[30m{\u001b[0m\u001b[38;2;26;175;192m\"level\":\u001b[30m\u001b[0m\u001b[38;2;31;230;255m\"info\"\u001b[30m,\u001b[0m\u001b[38;2;36;119;36m\"message\":\u001b[30m\u001b[0m\u001b[38;2;0;255;127m\"this is a test - more messages\"\u001b[30m,\u001b[0m\u001b[38;2;159;147;45m\"@filename\":\u001b[30m\u001b[0m\u001b[33m\"")).eql(true);
   });  
 
+  it('color console.log logs with error object', async () => {
+    sandbox.stub(process.env, 'CONSOLE_LOG_COLORIZE').value('TRUE');
+    const { originalWrite, outputText } = overrideStdOut();
+    LoggerAdaptToConsole();
+
+    const err = new Error("HEY MAN THIS IS AN ERROR!");
+    await console.log('this is a test', { a: 'stuff-a', b: 'stuff-b' }, 'more messages', err,{ c: 1234 });
+
+    restoreStdOut(originalWrite);
+    LoggerRestoreConsole();
+
+    console.log(outputText[0]);
+    
+    // const testObj = JSON.parse(outputText[0]);
+    expect(outputText[0].startsWith("\u001b[30m{\u001b[0m\u001b[38;2;26;175;192m\"level\":\u001b[30m\u001b[0m\u001b[31m\"error\"\u001b[30m,\u001b[0m\u001b[38;2;36;119;36m\"message\":\u001b[30m\u001b[0m\u001b[31m\"this is a test - more messages  - HEY MAN THIS IS AN ERROR!\"\u001b[30m,\u001b[0m\u001b[38;2;135;38;162m\"@errorObjectName\":\u001b[30m\u001b[0m\u001b[37m\"Error\"\u001b[30m,\u001b[0m\u001b[38;2;159;147;45m\"@filename\":\u001b[30m\u001b[0m\u001b[33m\"")).eql(true);
+  });    
+
   // Todo: test multiple nested ErrorWithContext objects to ensure proper stacktrace and error messages
 });
 

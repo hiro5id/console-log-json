@@ -3,6 +3,8 @@ import { jsonStringifySafe } from '../json-stringify-safe/stringify-safe';
 export interface IDefaultColorMap {
   black: string;
   red: string;
+  darkRed: string;
+  lightRed: string;
   green: string;
   darkGreen: string;
   lightGreen: string;
@@ -24,6 +26,8 @@ export interface IDefaultColorMap {
 export const defaultColorMap: IDefaultColorMap = {
   black: '\x1b[30m',
   red: '\x1b[31m',
+  darkRed: '\x1b[38;2;179;5;15m',
+  lightRed: '\x1b[38;2;255;137;149m',
   green: '\x1b[32m',
   darkGreen: '\x1b[38;2;36;119;36m',
   lightGreen: '\x1b[38;2;0;255;127m',
@@ -66,6 +70,8 @@ export interface IColorConfiguration {
   packageName: ColorValue;
   timestampKey: ColorValue;
   timestamp: ColorValue;
+  errCallStackKey: ColorValue;
+  errCallStack: ColorValue;
 }
 
 export type ColorItemName = keyof IColorConfiguration;
@@ -92,6 +98,8 @@ export const defaultColors: IColorConfiguration = {
   packageName: 'yellow',
   timestampKey: 'pink',
   timestamp: 'lightPink',
+  errCallStackKey: 'darkRed',
+  errCallStack: 'lightRed',
 };
 
 // TODO: this is super beta, consider using Sindre's supports-colors
@@ -156,6 +164,9 @@ export function colorJson(jsonInput: any, colorsInput: Partial<IColorConfigurati
             if (/\"@timestamp\"/i.test(match)) {
               colorCode = 'timestampKey';
             }
+            if (/\"errCallStack\"/i.test(match)) {
+              colorCode = 'errCallStackKey';
+            }
           } else {
             colorCode = 'string';
             // If the key is "level" then handle value with special color
@@ -191,6 +202,9 @@ export function colorJson(jsonInput: any, colorsInput: Partial<IColorConfigurati
             }
             if (/\"@timestamp\"/i.test(previousMatchedValue)) {
               colorCode = 'timestamp';
+            }
+            if (/\"errCallStack\"/i.test(previousMatchedValue)) {
+              colorCode = 'errCallStack';
             }
           }
         } else if (/true|false/.test(match)) {
