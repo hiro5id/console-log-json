@@ -1,6 +1,15 @@
 export type EntryProcessor = (key: string, value: any) => any;
 
-export function stringify(obj: any, serializer?: EntryProcessor, indent?: string | number, decycler?: EntryProcessor): string {
+/**
+ *  Stringifies JSON objects into strings in a safe way so that it can handle recursion and cyclical references
+ *
+ * @param obj the object to serialize
+ * @param serializer custom serializer
+ * @param indent indent for JSON formatting
+ * @param decycler a function to use when a cyclical refernce is found
+ * @returns the JSON string represantation
+ */
+export function jsonStringifySafe(obj: any, serializer?: EntryProcessor, indent?: string | number, decycler?: EntryProcessor): string {
   const foo = getSerialize(serializer, decycler);
   return JSON.stringify(obj, foo as any, indent);
 }

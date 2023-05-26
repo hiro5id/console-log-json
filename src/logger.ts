@@ -12,7 +12,7 @@ import { ToOneLine } from './to-one-line';
 import { Env } from './env';
 import { NewLineCharacter } from './new-line-character';
 import { colorJson } from './colors/colorize';
-import { stringify } from './json-stringify-safe/stringify-safe';
+import { jsonStringifySafe } from './json-stringify-safe/stringify-safe';
 
 // tslint:disable-next-line:no-var-requires
 require('source-map-support').install({
@@ -219,7 +219,7 @@ export function FormatErrorObject(object: any) {
   if (CONSOLE_LOG_COLORIZE && CONSOLE_LOG_COLORIZE.toLowerCase() === 'true') {
     return `${colorJson(returnData)}${endOfLogCharacter}`;
   } else {
-    const jsonString = stringify(returnData);
+    const jsonString = jsonStringifySafe(returnData);
     return `${jsonString}${endOfLogCharacter}`;
   }
 }

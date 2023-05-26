@@ -1,4 +1,4 @@
-import { stringify } from './json-stringify-safe/stringify-safe';
+import { jsonStringifySafe } from './json-stringify-safe/stringify-safe';
 import { sortObject } from './sort-object';
 // tslint:disable-next-line:no-var-requires
 /* tslint:disable:only-arrow-functions */
@@ -62,8 +62,8 @@ export function safeObjectAssign(target: any, mergeStringProperties: string[], .
     return mergeDeep(theTarget, ...theSources);
   }
 
-  const targetCopy = JSON.parse(stringify(target));
-  const sourcesCopy = JSON.parse(stringify(sources));
+  const targetCopy = JSON.parse(jsonStringifySafe(target));
+  const sourcesCopy = JSON.parse(jsonStringifySafe(sources));
 
   return mergeDeep(targetCopy, ...sourcesCopy);
 }
