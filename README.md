@@ -52,13 +52,16 @@ so that it can be easily parsed by tool such as LogDNA.
 ## Features
 
 - The order of parameters or number of parameters don't matter, it figures out how to log it.
-- Handles circular references
-- Automatically add a date stamp in UTC to every log.
+- Handles circular references when encountering JSON objects that contain such references.
+- Automatically include informative details in every log entry such as:
+  - `@timestamp` - date stamp in UTC of when the log was generated.
+  - `@logCallStack` - show the precise location of console.log execution, eliminating the need to manually search for the source of the log in the code.
+  - `@filename` - show what file the console.log is generated in
+  - `@packageName` - show what package the console.log happened in, for example in a situation when a project is made up of multiple packages.
 - Automatically parse stack traces and format them into a single line for for easy parsing in log management software such as LogDNA.
-- Log extra context if passed in.
-- Won't crash out and cause the application to stop, if there is a problem with logger, instead try to fall back to original console.log, output what is possible and continue. 
-- Logging is done in a non awaiting promise so that we yield to other processing while logging
-- Logs via error level when message contains the word "error" to properly flag errors even if a mistake is made using the wrong console.info instead of console.error.
+- Hanldes logging extra content if passed in.
+- This system gracefully handles logger issues, seamlessly falling back to the original console.log function to prevent application crashes. It prioritizes outputting as much relevant information as possible while ensuring uninterrupted execution.
+- Logging is done in a non awaiting promise so that we yield to other processing while logging.
 - Optional support for colored JSON output. Example:
 ![colorized example](docs/images/colors_example.png)
 
