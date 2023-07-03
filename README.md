@@ -170,3 +170,4 @@ console.log(extraInfo1, 'hello world', extraInfo2);
 - Again notice that we are not picky about the order in which the parameters are passed in to *console.log()*
 - Notice that properties fo `extraInfo1` and `extraInfo2` are extracted and all logged on one line at the top level for easy parsing and filtering in logging tools such as LogDNA.
 - Notice that properties such as `firstName` and `age` etc are sorted alphabetically for consistent appearance of logs in JSON no matter what order they are passed in.
+
