@@ -342,31 +342,31 @@ export function LoggerAdaptToConsole(options?: { logLevel?: LOG_LEVEL; debugStri
   };
 
   console.warn = (...args: any[]) => {
-    return logUsingWinston(args, LOG_LEVEL.warn);
+    return logUsingWinston(args, LOG_LEVEL.warn, options?.customOptions);
   };
 
   console.info = (...args: any[]) => {
-    return logUsingWinston(args, LOG_LEVEL.info);
+    return logUsingWinston(args, LOG_LEVEL.info, options?.customOptions);
   };
 
   console.http = (...args: any[]) => {
-    return logUsingWinston(args, LOG_LEVEL.http);
+    return logUsingWinston(args, LOG_LEVEL.http, options?.customOptions);
   };
 
   console.verbose = (...args: any[]) => {
-    return logUsingWinston(args, LOG_LEVEL.verbose);
+    return logUsingWinston(args, LOG_LEVEL.verbose, options?.customOptions);
   };
 
   console.debug = (...args: any[]) => {
-    return logUsingWinston(args, LOG_LEVEL.debug);
+    return logUsingWinston(args, LOG_LEVEL.debug, options?.customOptions);
   };
 
   console.silly = (...args: any[]) => {
-    return logUsingWinston(args, LOG_LEVEL.silly);
+    return logUsingWinston(args, LOG_LEVEL.silly, options?.customOptions);
   };
 
   console.log = (...args: any[]) => {
-    return logUsingWinston(args, LOG_LEVEL.info);
+    return logUsingWinston(args, LOG_LEVEL.info, options?.customOptions);
   };
 }
 
