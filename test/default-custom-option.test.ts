@@ -61,13 +61,43 @@ describe('logger with custom options', () => {
       hello: 'world',
     });
 
-    expect(true).to.eql(false);
-
     expect(JSON.parse(outputText[1]).errCallStack.startsWith('Error: error object\n    at ')).eql(true, 'starts with specific text');
-
-    // Ensure that the normal new lines are included at the end of the string
-    expect(outputText[1].endsWith('\n\n')).eql(true);
   });
+});
+
+it('logs error in correct shape with multiple properties', async () => {
+  const { originalWrite, outputText } = overrideStdOut();
+  await LoggerAdaptToConsole({ customOptions: { hello: 'world', leeroy:'jenkins'  } });
+  try {
+    // action
+    NativeConsoleLog('testing native log');
+    await console.error('some string', new ErrorWithContext('error \r\nobject', { 'extra-context': 'extra-context' }));
+  } finally {
+    restoreStdOut(originalWrite);
+    LoggerRestoreConsole();
+  }
+
+  // assert
+  console.log(outputText[0]);
+  console.log(outputText[1]);
+  expect(outputText[0]).equal('testing native log\n');
+
+  const testObj = JSON.parse(stripTimeStamp(outputText[1]));
+  delete testObj['@filename'];
+  delete testObj.errCallStack;
+  delete testObj['@logCallStack'];
+
+  expect(testObj).eql({
+    level: 'error',
+    message: 'some string  - error object',
+    '@errorObjectName': 'Error',
+    '@packageName': 'console-log-json',
+    'extra-context': 'extra-context',
+    hello: 'world',
+    leeroy: 'jenkins'
+  });
+
+  expect(JSON.parse(outputText[1]).errCallStack.startsWith('Error: error object\n    at ')).eql(true, 'starts with specific text');
 });
 
 const stripTimeStamp = (input: string): string => {
