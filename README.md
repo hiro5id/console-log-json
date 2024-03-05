@@ -171,3 +171,34 @@ console.log(extraInfo1, 'hello world', extraInfo2);
 - Notice that properties fo `extraInfo1` and `extraInfo2` are extracted and all logged on one line at the top level for easy parsing and filtering in logging tools such as LogDNA.
 - Notice that properties such as `firstName` and `age` etc are sorted alphabetically for consistent appearance of logs in JSON no matter what order they are passed in.
 
+### 4. Include Static Properties on Bootstrapping
+
+For use cases such as integrating with OpenSearch, it's beneficial to include static properties during the logger's bootstrapping phase. This feature enhances log details by adding consistent, context-relevant information across all log messages, improving the logs' usefulness for debugging and analysis.
+
+#### Example: Bootstrapping Logger with Custom Static Properties
+
+Here's how to configure your logger to include custom static properties such as `hello: 'world'` and `greeting: 'universe'`:
+
+```javascript
+// Bootstrapping the logger with custom static properties
+LoggerAdaptToConsole({
+  customOptions: {
+    hello: 'world',
+    greeting: 'universe'
+  }
+});
+
+// When logging a message, the defined properties will persistently appear in all subsequent console log outputs.
+console.log('Example log message');
+```
+Given this configuration, any log message produced will automatically include the hello and greeting properties. For instance, a log output might look like this:
+
+```json
+{
+  "level": "info",
+  "message": "Example log message",
+  "hello": "world",
+  "greeting": "universe",
+  "@timestamp": "YYYY-MM-DDTHH:mm:ss.sssZ"
+}
+```
