@@ -36,6 +36,15 @@
       "contributions": [
         "code"
       ]
+    },
+    {
+      "login": "rkristelijn",
+      "name": "Remi Kristelijn",
+      "avatar_url": "https://avatars.githubusercontent.com/u/21142148?v=4",
+      "profile": "https://github.com/rkristelijn",
+      "contributions": [
+        "code"
+      ]
     }
   ],
   "contributorsPerLine": 7,
@@ -43,5 +52,6 @@
   "repoType": "github",
   "repoHost": "https://github.com",
   "projectName": "console-log-json",
-  "projectOwner": "hiro5id"
+  "projectOwner": "hiro5id",
+  "commitType": "docs"
 }
