@@ -46,6 +46,15 @@
         "doc",
         "test"
       ]
+    },
+    {
+      "login": "rkristelijn",
+      "name": "Remi Kristelijn",
+      "avatar_url": "https://avatars.githubusercontent.com/u/21142148?v=4",
+      "profile": "https://github.com/rkristelijn",
+      "contributions": [
+        "code"
+      ]
     }
   ],
   "contributorsPerLine": 7,
