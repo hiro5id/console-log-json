@@ -1,4 +1,4 @@
-FROM node:14-bullseye
+FROM node:16-bullseye
 
 # node may come with an older version of npm. Ensure we have a specific npm.
 #RUN npm install -g npm@6.14.14
@@ -35,16 +35,10 @@ RUN apt update \
 
 ## Make sure to reflect new user in PATH
 #ENV PATH="/home/${USERNAME}/.local/bin:${PATH}"
+
+# Install Zscaler root CA so curl/SSL works behind the corporate proxy
+COPY ZscalerRootCA.crt /usr/local/share/ca-certificates/ZscalerRootCA.crt
+RUN update-ca-certificates
+
 USER $USERNAME
 
-
-###### Install NVM ################################################################################
-# Install nvm
-RUN curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.37.0/install.sh | bash
-ENV NVM_DIR /home/node/.nvm
-RUN . $NVM_DIR/nvm.sh \
-    && nvm install 14 \
-    && nvm use 14 \
-    && nvm install-latest-npm
-
-###### Finished install  NVM ################################################################################
