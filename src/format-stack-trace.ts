@@ -1,5 +1,4 @@
-import appRootPath from 'app-root-path';
-import * as path from 'path';
+import { getAppRoot } from './get-app-root';
 import { NewLineCharacter } from './new-line-character';
 
 export class FormatStackTrace {
@@ -15,8 +14,17 @@ export class FormatStackTrace {
     const lines = noNewLines.split(this.divider);
     // this filters out lines relating to this package when referenced from other projects
     const linesWithoutLocalFiles = lines.filter((m) => m.match(/node_modules\/.*console-log-json\/.*/gi) == null);
-    // noinspection UnnecessaryLocalVariableJS
-    const linesWithoutFullPath = linesWithoutLocalFiles.map((m) => m.replace(path.join(appRootPath.toString(), '..'), ''));
-    return linesWithoutFullPath;
+
+    const root = getAppRoot();
+    if (root) {
+      try {
+        const path = require('path');
+        const parentPath = path.join(root, '..');
+        return linesWithoutLocalFiles.map((m) => m.replace(parentPath, ''));
+      } catch (_) {
+        /* path module not available */
+      }
+    }
+    return linesWithoutLocalFiles;
   }
 }

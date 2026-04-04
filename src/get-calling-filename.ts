@@ -1,5 +1,4 @@
-import appRootPath from 'app-root-path';
-import * as path from 'path';
+import { getAppRoot } from './get-app-root';
 import callsites from './callsites/get-callsites';
 
 export function getCallingFilename(): string | null {
@@ -7,7 +6,15 @@ export function getCallingFilename(): string | null {
   const callsite = callsitesList[3];
   let name: string | null = callsite.getFileName();
   if (name) {
-    name = name.replace(path.join(appRootPath.toString(), '..'), '');
+    const root = getAppRoot();
+    if (root) {
+      try {
+        const path = require('path');
+        name = name.replace(path.join(root, '..'), '');
+      } catch (_) {
+        /* path module not available */
+      }
+    }
   }
   return name;
 }

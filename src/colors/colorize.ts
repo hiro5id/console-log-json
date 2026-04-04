@@ -1,3 +1,4 @@
+import { getEnv } from '../get-env';
 import { jsonStringifySafe } from '../json-stringify-safe/stringify-safe';
 
 export interface IDefaultColorMap {
@@ -104,9 +105,9 @@ export const defaultColors: IColorConfiguration = {
 
 // TODO: this is super beta, consider using Sindre's supports-colors
 export function supportsColor() {
-  const onHeroku = truth(process.env.DYNO) ? true : false;
-  const forceNoColor = truth(process.env.FORCE_NO_COLOR) ? true : false;
-  const forceColor = truth(process.env.FORCE_COLOR) ? true : false;
+  const onHeroku = truth(getEnv('DYNO')) ? true : false;
+  const forceNoColor = truth(getEnv('FORCE_NO_COLOR')) ? true : false;
+  const forceColor = truth(getEnv('FORCE_COLOR')) ? true : false;
   return (!onHeroku && !forceNoColor) || forceColor;
 }
 

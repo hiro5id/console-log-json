@@ -37,7 +37,9 @@ export class CaptureNestedStackTrace {
   }
 
   public capture(err: Error, nestedError: Error) {
-    Error.captureStackTrace(err, err.constructor);
+    if (typeof Error.captureStackTrace === 'function') {
+      Error.captureStackTrace(err, err.constructor);
+    }
     const oldStackDescriptor = Object.getOwnPropertyDescriptor(err, 'stack');
     const stackDescriptor = this.buildStackDescriptor(oldStackDescriptor!, err, nestedError);
     Object.defineProperty(err, 'stack', stackDescriptor);

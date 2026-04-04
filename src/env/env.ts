@@ -1,8 +1,5 @@
-import fs from 'fs';
-import path from 'path';
-
 export class Env {
-  private findOptionalEnvFile(startPath: string): string | null {
+  private findOptionalEnvFile(fs: any, path: any, startPath: string): string | null {
     if (!fs.existsSync(startPath) || startPath === '/') {
       return null;
     }
@@ -19,17 +16,26 @@ export class Env {
       }
     }
     // Disable recursive searching for .env file due to issue: https://github.com/hiro5id/console-log-json/issues/24
-    // return this.findOptionalEnvFile(path.resolve(startPath, '../'));
+    // return this.findOptionalEnvFile(fs, path, path.resolve(startPath, '../'));
     return null;
   }
 
   public loadDotEnv() {
-    const searchForEnvFileStartingInDirectory = process.cwd();
-    const optionalEnvFile = this.findOptionalEnvFile(searchForEnvFileStartingInDirectory);
-    if (optionalEnvFile != null && optionalEnvFile.length > 0) {
-      require('dotenv').config({ path: optionalEnvFile });
-    } else {
-      require('dotenv').config();
+    try {
+      if (typeof require === 'undefined' || typeof process === 'undefined') {
+        return; // Browser: no .env loading
+      }
+      const fs = require('fs');
+      const path = require('path');
+      const searchForEnvFileStartingInDirectory = process.cwd();
+      const optionalEnvFile = this.findOptionalEnvFile(fs, path, searchForEnvFileStartingInDirectory);
+      if (optionalEnvFile != null && optionalEnvFile.length > 0) {
+        require('dotenv').config({ path: optionalEnvFile });
+      } else {
+        require('dotenv').config();
+      }
+    } catch (_) {
+      /* dotenv, fs, or path not available */
     }
   }
 }
