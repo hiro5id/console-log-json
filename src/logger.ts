@@ -111,9 +111,9 @@ export function FormatErrorObject(object: any) {
 
   // Flatten message if it is an object
   if (typeof object.message === 'object') {
-    // const messageObj = object.message;
-    // delete returnData.message;
-    returnData = safeObjectAssign(returnData, ['message'], object.message);
+    const messageObj = object.message;
+    delete returnData.message;
+    returnData = safeObjectAssign(returnData, ['message'], messageObj);
   }
 
   // Combine extra context from ErrorWithContext
@@ -166,12 +166,12 @@ export function FormatErrorObject(object: any) {
   }
 
   // cleanup leading dash in message
-  if (returnData.message && returnData.message.startsWith(' - ')) {
+  if (typeof returnData.message === 'string' && returnData.message.startsWith(' - ')) {
     returnData.message = returnData.message.substring(3);
   }
 
   // interpret JSON if it is inside the error message
-  if (returnData.message && returnData.message.length > 0) {
+  if (typeof returnData.message === 'string' && returnData.message.length > 0) {
     let parsedObject = null;
     const { CONSOLE_LOG_JSON_DISABLE_AUTO_PARSE } = process.env;
     try {
@@ -195,7 +195,7 @@ export function FormatErrorObject(object: any) {
     }
   }
 
-  if (returnData.message != null && returnData.message.length === 0) {
+  if (returnData.message != null && typeof returnData.message === 'string' && returnData.message.length === 0) {
     if (returnData.level === 'error') {
       returnData.message = '<no-error-message-was-passed-to-console-log>';
     } else {
@@ -372,15 +372,12 @@ export function LoggerAdaptToConsole(options?: { logLevel?: LOG_LEVEL; debugStri
 
 function filterNullOrUndefinedParameters(args: any[]): number {
   let nullOrUndefinedCount = 0;
-  args.forEach((f: any, index: number) => {
-    // Remove null parameters
-    if (f == null) {
+  for (let index = args.length - 1; index >= 0; index--) {
+    if (args[index] == null) {
       nullOrUndefinedCount += 1;
       args.splice(index, 1);
-      return;
     }
-  });
-
+  }
   return nullOrUndefinedCount;
 }
 
@@ -600,8 +597,8 @@ function extractParametersFromArguments(args: any[]) {
   const nullOrUndefinedCount = filterNullOrUndefinedParameters(args);
 
   args.forEach((f: any) => {
-    // String parameter or number parameter
-    if (typeof f === 'string' || typeof f === 'number') {
+    // String, number, or boolean parameter
+    if (typeof f === 'string' || typeof f === 'number' || typeof f === 'boolean') {
       message = `${message}${message.length > 0 ? ' - ' : ''}${f}`;
     }
     // Error Object parameter

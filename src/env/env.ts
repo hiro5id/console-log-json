@@ -26,7 +26,7 @@ export class Env {
   public loadDotEnv() {
     const searchForEnvFileStartingInDirectory = process.cwd();
     const optionalEnvFile = this.findOptionalEnvFile(searchForEnvFileStartingInDirectory);
-    if (optionalEnvFile != null && optionalEnvFile.length < 0) {
+    if (optionalEnvFile != null && optionalEnvFile.length > 0) {
       require('dotenv').config({ path: optionalEnvFile });
     } else {
       require('dotenv').config();

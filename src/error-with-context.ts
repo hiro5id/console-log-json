@@ -4,7 +4,7 @@ import { safeObjectAssign } from './safe-object-assign';
 export class ErrorWithContext extends Error {
   constructor(error: Error | string, extraContext: { [_: string]: any } = {}) {
     if (typeof (extraContext as any) === 'string') {
-      if (typeof error === 'object') {
+      if (error != null && typeof error === 'object') {
         error.message += ` - ${extraContext}`;
       } else {
         if (error == null) {
