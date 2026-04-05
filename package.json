@@ -1,6 +1,6 @@
 {
   "name": "console-log-json",
-  "version": "4.1.1",
+  "version": "4.3.0",
   "description": "Drop-in structured JSON logging for Node.js and the browser. Zero dependencies. Replaces console.log() with single-line JSON output including stack traces, timestamps, and source file tracking. Works with DataDog, Splunk, LogDNA, OpenSearch, CloudWatch, and ELK.",
   "private": false,
   "types": "dist/index.d.ts",
