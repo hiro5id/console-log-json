@@ -1,4 +1,4 @@
-FROM node:18-bullseye
+FROM node:20-bullseye
 
 # node may come with an older version of npm. Ensure we have a specific npm.
 #RUN npm install -g npm@6.14.14
