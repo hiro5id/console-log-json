@@ -281,6 +281,153 @@ describe('Real browser tests (headless Chrome)', function () {
     expect(parsed['@filename']).to.be.a('string');
   });
 
+  // ============================================================
+  // envOptions in browser
+  // ============================================================
+
+  it('envOptions: CONSOLE_LOG_JSON_NO_TIME_STAMP suppresses timestamp in browser', async () => {
+    const logs = await runInBrowser(`
+      ConsoleLogJson.LoggerAdaptToConsole({
+        envOptions: { CONSOLE_LOG_JSON_NO_TIME_STAMP: 'true' }
+      });
+      console.log('no timestamp');
+      ConsoleLogJson.LoggerRestoreConsole();
+    `);
+
+    const jsonLogs = logs.filter((l) => l.startsWith('{'));
+    const parsed = JSON.parse(jsonLogs[0]);
+    expect(parsed.message).to.equal('no timestamp');
+    expect(parsed['@timestamp']).to.equal(undefined);
+  });
+
+  it('envOptions: CONSOLE_LOG_JSON_NO_FILE_NAME suppresses filename in browser', async () => {
+    const logs = await runInBrowser(`
+      ConsoleLogJson.LoggerAdaptToConsole({
+        envOptions: { CONSOLE_LOG_JSON_NO_FILE_NAME: 'true' }
+      });
+      console.log('no filename');
+      ConsoleLogJson.LoggerRestoreConsole();
+    `);
+
+    const jsonLogs = logs.filter((l) => l.startsWith('{'));
+    const parsed = JSON.parse(jsonLogs[0]);
+    expect(parsed['@filename']).to.equal(undefined);
+  });
+
+  it('envOptions: CONSOLE_LOG_JSON_NO_STACK_FOR_NON_ERROR suppresses call stack in browser', async () => {
+    const logs = await runInBrowser(`
+      ConsoleLogJson.LoggerAdaptToConsole({
+        envOptions: { CONSOLE_LOG_JSON_NO_STACK_FOR_NON_ERROR: 'true' }
+      });
+      console.log('no stack');
+      ConsoleLogJson.LoggerRestoreConsole();
+    `);
+
+    const jsonLogs = logs.filter((l) => l.startsWith('{'));
+    const parsed = JSON.parse(jsonLogs[0]);
+    expect(parsed['@logCallStack']).to.equal(undefined);
+  });
+
+  it('envOptions: CONSOLE_LOG_JSON_NO_PACKAGE_NAME suppresses package name in browser', async () => {
+    const logs = await runInBrowser(`
+      ConsoleLogJson.LoggerAdaptToConsole({
+        envOptions: { CONSOLE_LOG_JSON_NO_PACKAGE_NAME: 'true' }
+      });
+      console.log('no package');
+      ConsoleLogJson.LoggerRestoreConsole();
+    `);
+
+    const jsonLogs = logs.filter((l) => l.startsWith('{'));
+    const parsed = JSON.parse(jsonLogs[0]);
+    expect(parsed['@packageName']).to.equal(undefined);
+  });
+
+  it('envOptions: CONSOLE_LOG_JSON_CONTEXT_KEY nests context in browser', async () => {
+    const logs = await runInBrowser(`
+      ConsoleLogJson.LoggerAdaptToConsole({
+        envOptions: {
+          CONSOLE_LOG_JSON_CONTEXT_KEY: 'data',
+          CONSOLE_LOG_JSON_NO_TIME_STAMP: 'true',
+          CONSOLE_LOG_JSON_NO_FILE_NAME: 'true',
+          CONSOLE_LOG_JSON_NO_PACKAGE_NAME: 'true',
+          CONSOLE_LOG_JSON_NO_STACK_FOR_NON_ERROR: 'true'
+        }
+      });
+      console.log('nested', { key: 'value', num: 42 });
+      ConsoleLogJson.LoggerRestoreConsole();
+    `);
+
+    const jsonLogs = logs.filter((l) => l.startsWith('{'));
+    const parsed = JSON.parse(jsonLogs[0]);
+    expect(parsed.message).to.equal('nested');
+    expect(parsed.data).to.eql({ key: 'value', num: 42 });
+    expect(parsed.key).to.equal(undefined);
+  });
+
+  it('envOptions: multiple flags produce minimal output in browser', async () => {
+    const logs = await runInBrowser(`
+      ConsoleLogJson.LoggerAdaptToConsole({
+        envOptions: {
+          CONSOLE_LOG_JSON_NO_TIME_STAMP: 'true',
+          CONSOLE_LOG_JSON_NO_FILE_NAME: 'true',
+          CONSOLE_LOG_JSON_NO_PACKAGE_NAME: 'true',
+          CONSOLE_LOG_JSON_NO_STACK_FOR_NON_ERROR: 'true'
+        }
+      });
+      console.log('minimal');
+      ConsoleLogJson.LoggerRestoreConsole();
+    `);
+
+    const jsonLogs = logs.filter((l) => l.startsWith('{'));
+    const parsed = JSON.parse(jsonLogs[0]);
+    expect(parsed).to.eql({ level: 'info', message: 'minimal' });
+  });
+
+  it('envOptions: works with customOptions in browser', async () => {
+    const logs = await runInBrowser(`
+      ConsoleLogJson.LoggerAdaptToConsole({
+        customOptions: { app: 'my-frontend', version: '2.0' },
+        envOptions: {
+          CONSOLE_LOG_JSON_NO_TIME_STAMP: 'true',
+          CONSOLE_LOG_JSON_NO_FILE_NAME: 'true',
+          CONSOLE_LOG_JSON_NO_PACKAGE_NAME: 'true',
+          CONSOLE_LOG_JSON_NO_STACK_FOR_NON_ERROR: 'true'
+        }
+      });
+      console.log('with options', { action: 'click' });
+      ConsoleLogJson.LoggerRestoreConsole();
+    `);
+
+    const jsonLogs = logs.filter((l) => l.startsWith('{'));
+    const parsed = JSON.parse(jsonLogs[0]);
+    expect(parsed.level).to.equal('info');
+    expect(parsed.message).to.equal('with options');
+    expect(parsed.app).to.equal('my-frontend');
+    expect(parsed.version).to.equal('2.0');
+    expect(parsed.action).to.equal('click');
+  });
+
+  it('envOptions: CONSOLE_LOG_JSON_DISABLE_AUTO_PARSE disables JSON parsing in browser', async () => {
+    const logs = await runInBrowser(`
+      ConsoleLogJson.LoggerAdaptToConsole({
+        envOptions: {
+          CONSOLE_LOG_JSON_DISABLE_AUTO_PARSE: 'true',
+          CONSOLE_LOG_JSON_NO_TIME_STAMP: 'true',
+          CONSOLE_LOG_JSON_NO_FILE_NAME: 'true',
+          CONSOLE_LOG_JSON_NO_PACKAGE_NAME: 'true',
+          CONSOLE_LOG_JSON_NO_STACK_FOR_NON_ERROR: 'true'
+        }
+      });
+      console.log('{"event":"click"}');
+      ConsoleLogJson.LoggerRestoreConsole();
+    `);
+
+    const jsonLogs = logs.filter((l) => l.startsWith('{'));
+    const parsed = JSON.parse(jsonLogs[0]);
+    // With auto-parse disabled, the JSON string stays as-is in message (re-stringified)
+    expect(parsed['@autoParsedJson']).to.equal(undefined);
+  });
+
   it('output structure matches between Node and browser', async () => {
     // Run the same log in Node
     const {

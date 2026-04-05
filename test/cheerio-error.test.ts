@@ -1,33 +1,26 @@
 /* tslint:disable:only-arrow-functions */
-import {expect} from "chai";
-import * as cheerio from 'cheerio';
-import {LoggerAdaptToConsole, LoggerRestoreConsole, overrideStdOut, restoreStdOut} from "../src";
+import { expect } from 'chai';
+import { LoggerAdaptToConsole, LoggerRestoreConsole, overrideStdOut, restoreStdOut } from '../src';
 
+describe('when a request-like error occurs', function () {
+  it('catches error properly and logs it as JSON', async function () {
+    const { originalWrite, outputText } = overrideStdOut();
+    LoggerAdaptToConsole();
 
-describe('when cheerio error occurs', async function() {
-   this.timeout(10000)
-
-   // TODO: had to disable this for some reason, will need to look into why it fails
-   it('catches error properly', async function () {
-      const {originalWrite, outputText} = overrideStdOut();
-      LoggerAdaptToConsole();
-      const rp = require('request-promise');
-      try {
-         const cheerioAPI = await rp({
-            transform: (body: any) => cheerio.load(body),
-            uri: 'https://123.xynon-existante.com',
-         });
-         console.log(cheerioAPI);
-      } catch (err) {
-         await console.log(err);
-      }
-
+    try {
+      // Simulate the kind of error that request-promise / cheerio would produce
+      // (a RequestError with name, message, stack, and extra properties)
+      const simulatedError: any = new Error('Error: getaddrinfo ENOTFOUND 123.xynon-existante.com');
+      simulatedError.name = 'RequestError';
+      simulatedError.options = { uri: 'https://123.xynon-existante.com' };
+      await console.log(simulatedError);
+    } finally {
       restoreStdOut(originalWrite);
       LoggerRestoreConsole();
+    }
 
-      console.log(outputText[0]);
-      expect(JSON.parse(outputText[0]).level).eql("error");
-      expect(JSON.parse(outputText[0]).message).eql("  - Error: getaddrinfo ENOTFOUND 123.xynon-existante.com");
-      expect(JSON.parse(outputText[0]).errCallStack).contain("123.xynon-existante.com");
-   })
+    expect(JSON.parse(outputText[0]).level).eql('error');
+    expect(JSON.parse(outputText[0]).message).eql('  - Error: getaddrinfo ENOTFOUND 123.xynon-existante.com');
+    expect(JSON.parse(outputText[0]).errCallStack).contain('123.xynon-existante.com');
+  });
 });

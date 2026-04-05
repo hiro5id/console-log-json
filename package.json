@@ -5,6 +5,19 @@
   "private": false,
   "types": "dist/index.d.ts",
   "main": "dist/index.js",
+  "module": "dist/esm/index.mjs",
+  "exports": {
+    ".": {
+      "import": {
+        "types": "./dist/esm/index.d.ts",
+        "default": "./dist/esm/index.mjs"
+      },
+      "require": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      }
+    }
+  },
   "license": "MIT",
   "browser": {
     "fs": false,
@@ -15,8 +28,15 @@
   "engines": {
     "node": ">=10"
   },
+  "sideEffects": true,
   "files": [
-    "dist/**/*"
+    "dist/src/**/*",
+    "dist/esm/index.mjs",
+    "dist/esm/index.mjs.map",
+    "dist/esm/index.d.ts",
+    "dist/index.js",
+    "dist/index.d.ts",
+    "dist/index.js.map"
   ],
   "keywords": [
     "logging",
@@ -40,8 +60,9 @@
     "universal"
   ],
   "scripts": {
-    "prebuild": "cti --withoutbackup create ./src && rimraf **/index.ts.bak",
-    "build": "npm run format:prettier && npm run lint && tsc -sourcemap",
+    "prebuild": "",
+    "build": "npm run format:prettier && npm run lint && tsc -sourcemap && npm run build:esm",
+    "build:esm": "node -e \"require('esbuild').buildSync({entryPoints:['src/index.ts'],outfile:'dist/esm/index.mjs',bundle:true,format:'esm',platform:'node',sourcemap:true,target:'es2017'})\" && tsc -p tsconfig.esm.json --emitDeclarationOnly",
     "test": "mocha \"dist/test/**/*.js\"",
     "build:watch": "tsc -w",
     "clean": "rimraf dist && rimraf node_modules",

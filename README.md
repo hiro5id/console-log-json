@@ -385,11 +385,20 @@ Initialize the logger. Call once at application startup.
 
 ```ts
 LoggerAdaptToConsole({
-  logLevel?: LOG_LEVEL,      // Minimum log level (default: LOG_LEVEL.info)
-  debugString?: boolean,     // Include raw debug string in output (default: false)
-  customOptions?: object     // Static key-value pairs added to every log entry
+  logLevel?: LOG_LEVEL,                  // Minimum log level (default: LOG_LEVEL.info)
+  debugString?: boolean,                 // Include raw debug string in output (default: false)
+  customOptions?: object,                // Static key-value pairs added to every log entry
+  envOptions?: Record<string, string>,   // Configuration flags (same names as env vars, takes precedence)
+  onLog?: (jsonString: string, parsedObject: any) => void,  // Interceptor callback (after write)
+  onLogTimeout?: number,                 // Max time in ms for onLog callback (default: 5000)
+  transformOutput?: (parsedObject: any) => any  // Modify log object before it's written
 });
 ```
+
+- **`envOptions`** accepts the same variable names as the environment variables listed in the [Configuration](#environment-variable-configuration) section. Values passed here override `process.env`. This is the recommended way to configure the logger in browser environments where `process.env` is not available.
+- **`transformOutput`** runs synchronously before each log is written. Receives the parsed log object, returns a modified object. Falls back to original output if the callback throws or returns null. See [Transforming log output](#transforming-log-output-with-transformoutput) for details.
+- **`onLog`** runs asynchronously after each log is written. Receives the formatted JSON string and a parsed copy of the log object. If `transformOutput` is also set, `onLog` sees the transformed result. See [Intercepting logs](#intercepting-logs-with-onlog) for details.
+- **`onLogTimeout`** sets the maximum time in milliseconds that the `onLog` callback is allowed to run before being abandoned. Defaults to 5000ms.
 
 ### `LoggerRestoreConsole()`
 
@@ -439,6 +448,8 @@ import { LOG_LEVEL } from "console-log-json";
 
 ## Browser Usage
 
+### Basic setup
+
 ```js
 import { LoggerAdaptToConsole } from "console-log-json";
 LoggerAdaptToConsole();
@@ -447,14 +458,226 @@ LoggerAdaptToConsole();
 console.log("button clicked", { component: "Header", action: "menu-toggle" });
 ```
 
-In the browser:
-- `@filename` shows `<unknown>` (no filesystem access)
-- `@packageName` is empty (no `package.json`)
-- `.env` loading is skipped
-- Stack traces use the browser's native format (source maps work automatically)
-- Output goes to the browser's `console.log` (visible in DevTools)
+Output in the browser DevTools console:
+```json
+{"level":"info","message":"button clicked","component":"Header","action":"menu-toggle","@filename":"<unknown>","@logCallStack":"at handleClick (src/components/Header.tsx:15:3)","@timestamp":"..."}
+```
 
-The `browser` field in `package.json` tells bundlers (webpack, vite, etc.) to stub out Node-specific modules automatically.
+The `browser` field in `package.json` tells bundlers (webpack, vite, esbuild, etc.) to stub out Node-specific modules automatically. No extra configuration needed.
+
+### Configuration in the browser
+
+In Node.js, configuration is done through environment variables. In the browser, there's no `process.env` -- so you configure through the `customOptions` parameter and by setting `window.process` before initializing the logger.
+
+**Option 1: Set configuration before import (recommended for bundlers)**
+
+Most bundlers (webpack, vite) support `define` to replace `process.env` at build time:
+
+```js
+// vite.config.js
+export default {
+  define: {
+    'process.env.CONSOLE_LOG_JSON_DISABLE_AUTO_PARSE': '"true"',
+    'process.env.CONSOLE_LOG_JSON_NO_STACK_FOR_NON_ERROR': '"true"',
+    'process.env.CONSOLE_LOG_JSON_NO_FILE_NAME': '"true"',
+  }
+}
+```
+
+```js
+// webpack.config.js
+const webpack = require('webpack');
+module.exports = {
+  plugins: [
+    new webpack.DefinePlugin({
+      'process.env.CONSOLE_LOG_JSON_DISABLE_AUTO_PARSE': '"true"',
+      'process.env.CONSOLE_LOG_JSON_NO_STACK_FOR_NON_ERROR': '"true"',
+      'process.env.CONSOLE_LOG_JSON_NO_FILE_NAME': '"true"',
+    })
+  ]
+}
+```
+
+**Option 2: Set `process.env` at runtime before initializing**
+
+If your bundler doesn't support `define`, you can set up a minimal `process.env` before importing the logger:
+
+```js
+// Set up process.env for the browser (before importing console-log-json)
+if (typeof process === 'undefined') {
+  window.process = { env: {} };
+} else if (!process.env) {
+  process.env = {};
+}
+
+// Now configure
+process.env.CONSOLE_LOG_JSON_DISABLE_AUTO_PARSE = 'true';
+process.env.CONSOLE_LOG_JSON_NO_STACK_FOR_NON_ERROR = 'true';
+process.env.CONSOLE_LOG_JSON_NO_FILE_NAME = 'true';
+process.env.CONSOLE_LOG_JSON_CONTEXT_KEY = 'context';
+
+// Then initialize
+import { LoggerAdaptToConsole } from "console-log-json";
+LoggerAdaptToConsole();
+```
+
+**Option 3: Use `envOptions` parameter (recommended -- no process.env needed)**
+
+Pass configuration flags directly to `LoggerAdaptToConsole()` using the same env var names. This works identically in Node and browser without any environment or bundler setup:
+
+```js
+import { LoggerAdaptToConsole, LOG_LEVEL } from "console-log-json";
+
+LoggerAdaptToConsole({
+  logLevel: LOG_LEVEL.warn,
+  customOptions: {
+    app: "my-frontend",
+    version: "2.1.0"
+  },
+  envOptions: {
+    CONSOLE_LOG_JSON_NO_STACK_FOR_NON_ERROR: 'true',  // Skip stack capture for non-errors
+    CONSOLE_LOG_JSON_NO_FILE_NAME: 'true',             // @filename is <unknown> in browser anyway
+    CONSOLE_LOG_JSON_NO_PACKAGE_NAME: 'true',          // No package.json in browser
+  }
+});
+```
+
+The `envOptions` parameter accepts the same variable names as the environment variables. Values passed here take precedence over `process.env`.
+
+### Recommended browser configuration
+
+For most frontend applications, you'll want to reduce noise by disabling features that don't add value in the browser:
+
+```js
+import { LoggerAdaptToConsole } from "console-log-json";
+
+LoggerAdaptToConsole({
+  customOptions: { app: "my-frontend" },
+  envOptions: {
+    CONSOLE_LOG_JSON_NO_FILE_NAME: 'true',             // @filename is <unknown> in browser anyway
+    CONSOLE_LOG_JSON_NO_STACK_FOR_NON_ERROR: 'true',   // Skip stack capture for non-errors (performance)
+    CONSOLE_LOG_JSON_NO_PACKAGE_NAME: 'true',          // No package.json in browser
+  }
+});
+
+console.log("page loaded", { route: "/dashboard", loadTime: 1.2 });
+```
+
+```json
+{"level":"info","message":"page loaded","app":"my-frontend","loadTime":1.2,"route":"/dashboard","@timestamp":"..."}
+```
+
+### What works differently in the browser
+
+| Feature | Node.js | Browser |
+|---|---|---|
+| `@filename` | Source file path (e.g. `src/index.ts`) | `<unknown>` (no filesystem) |
+| `@packageName` | From `package.json` | Empty (no `package.json`) |
+| `.env` loading | Automatic via `dotenv` | Skipped (no filesystem) |
+| Stack traces | V8 format with source maps | Browser-native format (source maps work in DevTools) |
+| Output destination | `process.stdout` (JSON string) | Browser `console.log` (visible in DevTools) |
+| Environment variables | `process.env` | Set via bundler `define` or manual `process.env` setup |
+| Colors (`CONSOLE_LOG_COLORIZE`) | ANSI codes for terminal | ANSI codes (visible in Node-based tools, not in browser DevTools) |
+
+### Intercepting logs with `onLog`
+
+The `onLog` callback lets you intercept every log entry — for example, to send browser logs to a backend, forward to an analytics service, or apply custom transformations. The callback receives the formatted JSON string and the parsed object.
+
+```js
+import { LoggerAdaptToConsole } from "console-log-json";
+
+LoggerAdaptToConsole({
+  customOptions: { app: "frontend", sessionId: getSessionId() },
+  onLog: (jsonString, parsedObject) => {
+    // Send to your logging backend
+    navigator.sendBeacon('/api/logs', jsonString);
+
+    // Or forward errors to an error tracking service
+    if (parsedObject.level === 'error') {
+      errorTracker.report(parsedObject);
+    }
+  }
+});
+
+// Logs appear in DevTools as normal AND get sent to your backend
+console.log("checkout started", { cartId: "ABC-123", items: 3 });
+console.error("payment failed", new Error("card declined"), { cartId: "ABC-123" });
+```
+
+The `onLog` callback is designed to be safe and non-blocking:
+
+- **Runs asynchronously** — the `console.log()` call returns immediately. The callback runs in the next microtask so it never blocks your application.
+- **Crash-safe** — if your callback throws an error, it's silently caught. The logger continues working normally and your application is unaffected.
+- **Timeout protected** — callbacks that hang are abandoned after 5 seconds (configurable via `onLogTimeout` in milliseconds).
+- **Does not affect output** — the log is written to the console before the callback runs. Your callback receives a copy of the parsed data, so modifications don't affect the logged output.
+
+```js
+// Customize the timeout (default: 5000ms)
+LoggerAdaptToConsole({
+  onLog: async (jsonString, parsedObject) => {
+    await fetch('/api/logs', { method: 'POST', body: jsonString });
+  },
+  onLogTimeout: 10000  // 10 seconds
+});
+```
+
+This works identically in Node.js and the browser.
+
+### Transforming log output with `transformOutput`
+
+Use `transformOutput` to modify the log object before it's written. This lets you rename fields, add properties, remove fields, or completely reshape the output to match your log aggregator's expected schema.
+
+```js
+LoggerAdaptToConsole({
+  transformOutput: (obj) => {
+    // Rename fields to match DataDog's conventions
+    obj.status = obj.level;
+    obj.timestamp = obj['@timestamp'];
+    delete obj.level;
+    delete obj['@timestamp'];
+
+    // Add deployment metadata
+    obj.version = '2.1.0';
+    obj.environment = 'production';
+
+    return obj;
+  }
+});
+
+console.log("deploy complete", { service: "payment-api" });
+```
+
+```json
+{"status":"info","message":"deploy complete","service":"payment-api","version":"2.1.0","environment":"production","timestamp":"..."}
+```
+
+The transform is crash-safe: if your callback throws an error or returns `null`/non-object, the original unmodified log output is used as a fallback. Your logs never break, even with a buggy transform.
+
+```js
+LoggerAdaptToConsole({
+  transformOutput: () => {
+    throw new Error('oops');
+  }
+});
+
+console.log("still works");
+// Output: {"level":"info","message":"still works","@timestamp":"..."} (original, unmodified)
+```
+
+`transformOutput` and `onLog` can be used together. The transform runs first (modifying what gets written), then `onLog` receives the transformed result:
+
+```js
+LoggerAdaptToConsole({
+  transformOutput: (obj) => {
+    obj.region = 'us-east-1';
+    return obj;
+  },
+  onLog: (jsonString, parsedObject) => {
+    // parsedObject.region === 'us-east-1' — it sees the transformed output
+    navigator.sendBeacon('/api/logs', jsonString);
+  }
+});
+```
 
 ---
 

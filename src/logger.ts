@@ -294,8 +294,41 @@ const Logger = {
       }
     }
 
-    const formatted = FormatErrorObject(info);
+    let formatted = FormatErrorObject(info);
+
+    // Apply user's transform if provided — falls back to original on error
+    if (transformOutputCallback) {
+      try {
+        const parsed = JSON.parse(formatted.trim());
+        const transformed = transformOutputCallback(parsed);
+        if (transformed != null && typeof transformed === 'object') {
+          formatted = jsonStringifySafe(transformed) + '\n';
+        }
+      } catch (_) {
+        /* transform error — use original formatted output */
+      }
+    }
+
     writeOutput(formatted);
+
+    // Call user's log interceptor safely and asynchronously
+    if (onLogCallback) {
+      const callback = onLogCallback;
+      const timeout = onLogTimeoutMs;
+      try {
+        const parsedCopy = JSON.parse(formatted.trim());
+        // Run async so it doesn't block the caller
+        const timeoutId = setTimeout(() => {
+          /* interceptor timed out — silently ignore */
+        }, timeout);
+        Promise.resolve()
+          .then(() => callback(formatted.trim(), parsedCopy))
+          .then(() => clearTimeout(timeoutId))
+          .catch(() => clearTimeout(timeoutId));
+      } catch (_) {
+        /* interceptor error — silently ignore */
+      }
+    }
   },
 };
 
@@ -353,19 +386,36 @@ let envConfig = {
   contextKey: '' as string,
 };
 
+/** Programmatic overrides passed via LoggerAdaptToConsole({ envOptions }) */
+let envOptionOverrides: Record<string, string> = {};
+
+/** User-provided log interceptor callback */
+let onLogCallback: ((jsonString: string, parsedObject: any) => void) | null = null;
+let onLogTimeoutMs: number = 5000;
+
+/** User-provided synchronous transform — runs before output, can modify the log object */
+let transformOutputCallback: ((parsedObject: any) => any) | null = null;
+
 export function loadEnvConfig() {
+  const resolve = (envVarName: string): string | undefined => {
+    // Programmatic overrides take precedence over environment variables
+    if (envVarName in envOptionOverrides) {
+      return envOptionOverrides[envVarName];
+    }
+    return getEnv(envVarName);
+  };
   const isTrue = (val: string | undefined) => val != null && val.toLowerCase() === 'true';
   envConfig = {
-    noNewLineCharacters: isTrue(getEnv('CONSOLE_LOG_JSON_NO_NEW_LINE_CHARACTERS')),
-    noNewLineCharactersExceptStack: isTrue(getEnv('CONSOLE_LOG_JSON_NO_NEW_LINE_CHARACTERS_EXCEPT_STACK')),
-    noTimeStamp: isTrue(getEnv('CONSOLE_LOG_JSON_NO_TIME_STAMP')),
-    disableAutoParse: isTrue(getEnv('CONSOLE_LOG_JSON_DISABLE_AUTO_PARSE')),
-    colorize: isTrue(getEnv('CONSOLE_LOG_COLORIZE')),
-    noStackForNonError: isTrue(getEnv('CONSOLE_LOG_JSON_NO_STACK_FOR_NON_ERROR')),
-    noFileName: isTrue(getEnv('CONSOLE_LOG_JSON_NO_FILE_NAME')),
-    noPackageName: isTrue(getEnv('CONSOLE_LOG_JSON_NO_PACKAGE_NAME')),
-    noLoggerDebug: isTrue(getEnv('CONSOLE_LOG_JSON_NO_LOGGER_DEBUG')),
-    contextKey: getEnv('CONSOLE_LOG_JSON_CONTEXT_KEY') || '',
+    noNewLineCharacters: isTrue(resolve('CONSOLE_LOG_JSON_NO_NEW_LINE_CHARACTERS')),
+    noNewLineCharactersExceptStack: isTrue(resolve('CONSOLE_LOG_JSON_NO_NEW_LINE_CHARACTERS_EXCEPT_STACK')),
+    noTimeStamp: isTrue(resolve('CONSOLE_LOG_JSON_NO_TIME_STAMP')),
+    disableAutoParse: isTrue(resolve('CONSOLE_LOG_JSON_DISABLE_AUTO_PARSE')),
+    colorize: isTrue(resolve('CONSOLE_LOG_COLORIZE')),
+    noStackForNonError: isTrue(resolve('CONSOLE_LOG_JSON_NO_STACK_FOR_NON_ERROR')),
+    noFileName: isTrue(resolve('CONSOLE_LOG_JSON_NO_FILE_NAME')),
+    noPackageName: isTrue(resolve('CONSOLE_LOG_JSON_NO_PACKAGE_NAME')),
+    noLoggerDebug: isTrue(resolve('CONSOLE_LOG_JSON_NO_LOGGER_DEBUG')),
+    contextKey: resolve('CONSOLE_LOG_JSON_CONTEXT_KEY') || '',
   };
   resetNewLineCharacterCache();
   stackMessageRegex = new RegExp(`^Error:[ ](.*?)${NewLineCharacter()}`, 'im');
@@ -388,9 +438,21 @@ export function loadEnvConfig() {
  * // Override default options and add customOptions
  * LoggerAdaptToConsole({ logLevel: LOG_LEVEL.ERROR, debugString: false, customOptions: { applicationName: 'my-app' } });
  */
-export function LoggerAdaptToConsole(options?: { logLevel?: LOG_LEVEL; debugString?: boolean; customOptions?: object }) {
+export function LoggerAdaptToConsole(options?: {
+  logLevel?: LOG_LEVEL;
+  debugString?: boolean;
+  customOptions?: object;
+  envOptions?: Record<string, string>;
+  onLog?: (jsonString: string, parsedObject: any) => void;
+  onLogTimeout?: number;
+  transformOutput?: (parsedObject: any) => any;
+}) {
   const env = new Env();
   env.loadDotEnv();
+  envOptionOverrides = options?.envOptions || {};
+  onLogCallback = options?.onLog || null;
+  onLogTimeoutMs = options?.onLogTimeout || 5000;
+  transformOutputCallback = options?.transformOutput || null;
   loadEnvConfig();
 
   const defaultOptions = {

@@ -1,6 +1,6 @@
 /* tslint:disable:only-arrow-functions */
 import {expect} from 'chai'
-import {safeObjectAssign} from "../src";
+import {safeObjectAssign} from "../src/safe-object-assign";
 
 describe('merge objects', function () {
 
