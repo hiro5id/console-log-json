@@ -1,5 +1,5 @@
 /* tslint:disable:only-arrow-functions */
-import {FormatStackTrace} from "../src";
+import {FormatStackTrace} from "../src/format-stack-trace";
 
 describe('helpers', function () {
     it('formats stack trace', function () {

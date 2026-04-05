@@ -1,33 +1,68 @@
 {
   "name": "console-log-json",
-  "version": "3.1.1",
-  "description": "A universal JSON logger that plugs in to the existing `console.log` native function.  console.log() anything and have the output be formatted to single line JSON, including stack traces, so that it can be easily parsed by tool such as LogDNA or other log ingestion service that reads JSON.",
+  "version": "4.1.1",
+  "description": "Drop-in structured JSON logging for Node.js and the browser. Zero dependencies. Replaces console.log() with single-line JSON output including stack traces, timestamps, and source file tracking. Works with DataDog, Splunk, LogDNA, OpenSearch, CloudWatch, and ELK.",
   "private": false,
   "types": "dist/index.d.ts",
   "main": "dist/index.js",
+  "module": "dist/esm/index.mjs",
+  "exports": {
+    ".": {
+      "import": {
+        "types": "./dist/esm/index.d.ts",
+        "default": "./dist/esm/index.mjs"
+      },
+      "require": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      }
+    }
+  },
   "license": "MIT",
+  "browser": {
+    "fs": false,
+    "path": false,
+    "dotenv": false,
+    "source-map-support": false
+  },
   "engines": {
     "node": ">=10"
   },
+  "sideEffects": true,
   "files": [
-    "dist/**/*"
+    "dist/src/**/*",
+    "dist/esm/index.mjs",
+    "dist/esm/index.mjs.map",
+    "dist/esm/index.d.ts",
+    "dist/index.js",
+    "dist/index.d.ts",
+    "dist/index.js.map"
   ],
   "keywords": [
     "logging",
-    "LogDNA",
+    "json-logging",
+    "structured-logging",
     "console",
+    "console.log",
     "log",
     "json",
-    "console.log",
-    "console.debug",
-    "replacement",
-    "console log json",
-    "universal",
-    "stack-traces"
+    "browser",
+    "frontend",
+    "zero-dependencies",
+    "DataDog",
+    "Splunk",
+    "LogDNA",
+    "OpenSearch",
+    "CloudWatch",
+    "ELK",
+    "stack-traces",
+    "drop-in",
+    "universal"
   ],
   "scripts": {
-    "prebuild": "cti --withoutbackup create ./src && rimraf **/index.ts.bak",
-    "build": "npm run format:prettier && npm run lint && tsc -sourcemap",
+    "prebuild": "",
+    "build": "npm run format:prettier && npm run lint && tsc -sourcemap && npm run build:esm",
+    "build:esm": "node -e \"require('esbuild').buildSync({entryPoints:['src/index.ts'],outfile:'dist/esm/index.mjs',bundle:true,format:'esm',platform:'node',sourcemap:true,target:'es2017'})\" && tsc -p tsconfig.esm.json --emitDeclarationOnly",
     "test": "mocha \"dist/test/**/*.js\"",
     "build:watch": "tsc -w",
     "clean": "rimraf dist && rimraf node_modules",
@@ -49,14 +84,11 @@
   "//#### dependencies-documentation": {
     "": ""
   },
-  "dependencies": {
-    "app-root-path": "3.1.0",
+  "optionalDependencies": {
     "dotenv": "16.4.5",
-    "source-map-support": "^0.5.21",
-    "winston": "3.12.0"
+    "source-map-support": "^0.5.21"
   },
   "devDependencies": {
-    "@types/app-root-path": "^1.2.4",
     "@types/chai": "^4.2.19",
     "@types/cheerio": "^0.22.29",
     "@types/mocha": "^8.2.2",
@@ -65,11 +97,13 @@
     "@types/rimraf": "^3.0.0",
     "@types/sinon": "17.0.3",
     "chai": "^4.3.4",
-    "cheerio": "^1.0.0-rc.10",
+    "cheerio": "1.0.0-rc.10",
     "create-ts-index": "^1.14.0",
+    "esbuild": "^0.28.0",
     "mocha": "^10.2.0",
     "np": "^7.7.0",
     "prettier": "^2.3.1",
+    "puppeteer-core": "^24.40.0",
     "request": "^2.88.2",
     "request-promise": "^4.2.6",
     "rimraf": "^3.0.2",

@@ -1,16 +1,16 @@
-// created from 'create-ts-index'
+// Public API — only export what consumers should depend on
 
-export * from './callsites';
-export * from './colors';
-export * from './env';
-export * from './json-stringify-safe';
-export * from './capture-nested-stack-trace';
-export * from './error-with-context';
-export * from './format-stack-trace';
-export * from './get-call-stack';
-export * from './get-calling-filename';
-export * from './logger';
-export * from './new-line-character';
-export * from './safe-object-assign';
-export * from './sort-object';
-export * from './to-one-line';
+export { ErrorWithContext } from './error-with-context';
+export {
+  FormatErrorObject,
+  GetLogLevel,
+  SetLogLevel,
+  LOG_LEVEL,
+  LoggerAdaptToConsole,
+  LoggerRestoreConsole,
+  NativeConsoleLog,
+  loadEnvConfig,
+  logUsingWinston,
+  overrideStdOut,
+  restoreStdOut,
+} from './logger';

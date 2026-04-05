@@ -1,23 +1,26 @@
 /* tslint:disable:object-literal-sort-keys */
-import appRootPath from 'app-root-path';
-import * as path from 'path';
-import * as w from 'winston';
+import { getAppRoot } from './get-app-root';
+import { getEnv } from './get-env';
 import { ErrorWithContext } from './error-with-context';
 import { FormatStackTrace } from './format-stack-trace';
-import { getCallStack } from './get-call-stack';
-import { getCallingFilename } from './get-calling-filename';
+import { getCallStackFromString } from './get-call-stack';
+import { getCallingFilenameFromStack } from './get-calling-filename';
 import { safeObjectAssign } from './safe-object-assign';
 import { sortObject } from './sort-object';
 import { ToOneLine } from './to-one-line';
 import { Env } from './env';
-import { NewLineCharacter } from './new-line-character';
+import { NewLineCharacter, resetNewLineCharacterCache } from './new-line-character';
 import { colorJson } from './colors/colorize';
 import { jsonStringifySafe } from './json-stringify-safe/stringify-safe';
 
 // tslint:disable-next-line:no-var-requires
-require('source-map-support').install({
-  hookRequire: true,
-});
+try {
+  if (typeof require !== 'undefined') {
+    require('source-map-support').install({ hookRequire: true }); // tslint:disable-line:no-var-requires
+  }
+} catch (_) {
+  /* source-map-support not available */
+}
 
 // tslint:disable-next-line:no-var-requires
 /* tslint:disable:no-conditional-assignment */
@@ -25,7 +28,7 @@ require('source-map-support').install({
 // Console-polyfill. MIT license.
 // https://github.com/paulmillr/console-polyfill
 // Make it safe to do console.log() always.
-((global) => {
+((global: any) => {
   'use strict';
   if (global == null) {
     return;
@@ -55,8 +58,8 @@ require('source-map-support').install({
       (con as any)[method] = dummy;
     }
   }
-  // Using `this` for web workers & supports Browserify / Webpack.
-})(typeof window === 'undefined' ? this : window);
+  // Using `globalThis` for universal support (Node, browsers, web workers).
+})(typeof globalThis !== 'undefined' ? globalThis : typeof window !== 'undefined' ? window : typeof global !== 'undefined' ? global : {});
 
 declare global {
   // tslint:disable-next-line:interface-name
@@ -107,13 +110,12 @@ declare global {
 
 export function FormatErrorObject(object: any) {
   let returnData: any = object;
-  const { CONSOLE_LOG_JSON_NO_NEW_LINE_CHARACTERS, CONSOLE_LOG_JSON_NO_NEW_LINE_CHARACTERS_EXCEPT_STACK } = process.env;
 
   // Flatten message if it is an object
   if (typeof object.message === 'object') {
-    // const messageObj = object.message;
-    // delete returnData.message;
-    returnData = safeObjectAssign(returnData, ['message'], object.message);
+    const messageObj = object.message;
+    delete returnData.message;
+    returnData = safeObjectAssign(returnData, ['message'], messageObj);
   }
 
   // Combine extra context from ErrorWithContext
@@ -134,8 +136,10 @@ export function FormatErrorObject(object: any) {
 
     // Lets put a space into the message when stack message exists
     if (returnData.message) {
-      const stackRegex = new RegExp(`^Error:[ ](.*?)${NewLineCharacter()}`, 'im');
-      const stackRegexMatch = stackOneLine.match(stackRegex);
+      if (!stackMessageRegex) {
+        stackMessageRegex = new RegExp(`^Error:[ ](.*?)${NewLineCharacter()}`, 'im');
+      }
+      const stackRegexMatch = stackOneLine.match(stackMessageRegex);
       if (stackRegexMatch != null && stackRegexMatch.length >= 2) {
         const stackMessage = stackRegexMatch[1];
         returnData.message = `${ToOneLine(returnData.message).replace(stackMessage, '')} - ${stackMessage}`;
@@ -160,33 +164,45 @@ export function FormatErrorObject(object: any) {
   }
 
   // Add timestamp
-  const { CONSOLE_LOG_JSON_NO_TIME_STAMP } = process.env;
-  if (!(CONSOLE_LOG_JSON_NO_TIME_STAMP && CONSOLE_LOG_JSON_NO_TIME_STAMP.toLowerCase() === 'true')) {
+  if (!envConfig.noTimeStamp) {
     returnData['@timestamp'] = new Date().toISOString();
   }
 
   // cleanup leading dash in message
-  if (returnData.message && returnData.message.startsWith(' - ')) {
+  if (typeof returnData.message === 'string' && returnData.message.startsWith(' - ')) {
     returnData.message = returnData.message.substring(3);
   }
 
   // interpret JSON if it is inside the error message
-  if (returnData.message && returnData.message.length > 0) {
+  if (typeof returnData.message === 'string' && returnData.message.length > 0) {
     let parsedObject = null;
-    const { CONSOLE_LOG_JSON_DISABLE_AUTO_PARSE } = process.env;
-    try {
-      // if defined CONSOLE_LOG_JSON_DISABLE_AUTO_PARSE=TRUE, disable auto parsing.
-      if (CONSOLE_LOG_JSON_DISABLE_AUTO_PARSE && CONSOLE_LOG_JSON_DISABLE_AUTO_PARSE.toLowerCase() === 'true') {
-        parsedObject = JSON.parse(returnData.message); // trim & remove new lines
-        parsedObject = JSON.stringify(parsedObject);
-      } else {
-        parsedObject = JSON.parse(returnData.message);
+    // Quick check: only attempt JSON.parse if the message looks like it could be JSON
+    const trimmedMsg = returnData.message.trim();
+    const firstChar = trimmedMsg.charAt(0);
+    if (
+      firstChar === '{' ||
+      firstChar === '[' ||
+      firstChar === '"' ||
+      firstChar === '-' ||
+      (firstChar >= '0' && firstChar <= '9') ||
+      trimmedMsg === 'true' ||
+      trimmedMsg === 'false' ||
+      trimmedMsg === 'null'
+    ) {
+      try {
+        // if defined CONSOLE_LOG_JSON_DISABLE_AUTO_PARSE=TRUE, disable auto parsing.
+        if (envConfig.disableAutoParse) {
+          parsedObject = JSON.parse(returnData.message); // trim & remove new lines
+          parsedObject = JSON.stringify(parsedObject);
+        } else {
+          parsedObject = JSON.parse(returnData.message);
+        }
+      } catch (err) {
+        // do nothing
       }
-    } catch (err) {
-      // do nothing
     }
     if (parsedObject != null) {
-      if (CONSOLE_LOG_JSON_DISABLE_AUTO_PARSE && CONSOLE_LOG_JSON_DISABLE_AUTO_PARSE.toLowerCase() === 'true') {
+      if (envConfig.disableAutoParse) {
         returnData.message = parsedObject;
       } else {
         returnData.message = '<auto-parsed-json-string-see-@autoParsedJson-property>';
@@ -195,7 +211,7 @@ export function FormatErrorObject(object: any) {
     }
   }
 
-  if (returnData.message != null && returnData.message.length === 0) {
+  if (returnData.message != null && typeof returnData.message === 'string' && returnData.message.length === 0) {
     if (returnData.level === 'error') {
       returnData.message = '<no-error-message-was-passed-to-console-log>';
     } else {
@@ -205,18 +221,12 @@ export function FormatErrorObject(object: any) {
 
   // add new line at the end for better local readability
   let endOfLogCharacter = '\n';
-  if (
-    (CONSOLE_LOG_JSON_NO_NEW_LINE_CHARACTERS && CONSOLE_LOG_JSON_NO_NEW_LINE_CHARACTERS.toLowerCase() === 'true') ||
-    (CONSOLE_LOG_JSON_NO_NEW_LINE_CHARACTERS_EXCEPT_STACK && CONSOLE_LOG_JSON_NO_NEW_LINE_CHARACTERS_EXCEPT_STACK.toLowerCase() === 'true')
-  ) {
+  if (envConfig.noNewLineCharacters || envConfig.noNewLineCharactersExceptStack) {
     endOfLogCharacter = '';
   }
 
-  const { CONSOLE_LOG_COLORIZE } = process.env;
-
   // Return string to be logged on the command line
-  // TODO: This is where the post processing happens
-  if (CONSOLE_LOG_COLORIZE && CONSOLE_LOG_COLORIZE.toLowerCase() === 'true') {
+  if (envConfig.colorize) {
     return `${colorJson(returnData)}${endOfLogCharacter}`;
   } else {
     const jsonString = jsonStringifySafe(returnData);
@@ -224,15 +234,103 @@ export function FormatErrorObject(object: any) {
   }
 }
 
-const print = w.format.printf((info: any) => {
-  return FormatErrorObject(info);
-});
+const LOG_LEVEL_PRIORITY: Record<string, number> = {
+  error: 0,
+  warn: 1,
+  info: 2,
+  http: 3,
+  verbose: 4,
+  debug: 5,
+  silly: 6,
+};
 
-const Logger = w.createLogger({
-  level: 'info',
-  format: w.format.combine(w.format.errors({ stack: true }), print),
-  transports: [new w.transports.Console()],
-});
+function writeOutput(text: string): void {
+  if (typeof process !== 'undefined' && process.stdout && typeof process.stdout.write === 'function') {
+    process.stdout.write(text + '\n');
+  } else if (consoleLogBackup) {
+    consoleLogBackup(text);
+  }
+}
+
+const Logger = {
+  _level: 'info',
+  get level(): string {
+    return this._level;
+  },
+  set level(l: string) {
+    this._level = l;
+  },
+  log(level: string, message: string, errorObject?: any): void {
+    const msgPriority = LOG_LEVEL_PRIORITY[level] ?? 2;
+    const configPriority = LOG_LEVEL_PRIORITY[this._level] ?? 2;
+    if (msgPriority > configPriority) {
+      return;
+    }
+
+    const info: any = { level, message };
+
+    if (errorObject != null) {
+      // Copy enumerable properties
+      Object.assign(info, errorObject);
+      // Restore level — meta properties must not override the log level
+      info.level = level;
+
+      // Copy non-enumerable Error properties (stack, message, name)
+      if (errorObject instanceof Error) {
+        for (const key of Object.getOwnPropertyNames(errorObject)) {
+          if (key === 'message') {
+            // Replicate Winston behavior: concatenate error.message onto info.message
+            if (errorObject.message && errorObject.message !== message) {
+              info.message = `${message} ${errorObject.message}`;
+            }
+          } else if (!(key in info)) {
+            info[key] = (errorObject as any)[key];
+          }
+        }
+        // Ensure stack is always on info (replicates w.format.errors({ stack: true }))
+        if (errorObject.stack) {
+          info.stack = errorObject.stack;
+        }
+      }
+    }
+
+    let formatted = FormatErrorObject(info);
+
+    // Apply user's transform if provided — falls back to original on error
+    if (transformOutputCallback) {
+      try {
+        const parsed = JSON.parse(formatted.trim());
+        const transformed = transformOutputCallback(parsed);
+        if (transformed != null && typeof transformed === 'object') {
+          formatted = jsonStringifySafe(transformed) + '\n';
+        }
+      } catch (_) {
+        /* transform error — use original formatted output */
+      }
+    }
+
+    writeOutput(formatted);
+
+    // Call user's log interceptor safely and asynchronously
+    if (onLogCallback) {
+      const callback = onLogCallback;
+      const timeout = onLogTimeoutMs;
+      try {
+        const parsedCopy = JSON.parse(formatted.trim());
+        // Run async so it doesn't block the caller
+        const timeoutId = setTimeout(() => {
+          /* interceptor timed out — silently ignore */
+        }, timeout);
+        Promise.resolve()
+          .then(() => callback(formatted.trim(), parsedCopy))
+          .then(() => clearTimeout(timeoutId))
+          .catch(() => clearTimeout(timeoutId));
+      } catch (_) {
+        /* interceptor error — silently ignore */
+      }
+    }
+  },
+};
 
 export function GetLogLevel() {
   return Logger.level;
@@ -260,18 +358,68 @@ export function NativeConsoleLog(...args: any[]) {
 }
 
 function ifEverythingFailsLogger(functionName: string, err: Error) {
-  if (consoleErrorBackup != null) {
-    try {
+  try {
+    if (consoleErrorBackup != null) {
       consoleErrorBackup(`{"level":"error","message":"Error: console-log-json: error while trying to process ${functionName} : ${err.message}"}`);
-    } catch (err) {
-      throw new Error(`Failed to call ${functionName} and failed to fall back to native function`);
     }
-  } else {
-    throw new Error('Error: console-log-json: This is unexpected, there is no where to call console.log, this should never happen');
+  } catch (err) {
+    // fail silently, we don't want to throw from here since this is the last resort logger when everything else has failed
   }
 }
 
 let logParams!: { logLevel: LOG_LEVEL; debugString: boolean };
+
+// Pre-compiled regex for stack message extraction — compiled once at init time
+let stackMessageRegex: RegExp;
+
+// Cached environment configuration — populated once at LoggerAdaptToConsole() time
+let envConfig = {
+  noNewLineCharacters: false,
+  noNewLineCharactersExceptStack: false,
+  noTimeStamp: false,
+  disableAutoParse: false,
+  colorize: false,
+  noStackForNonError: false,
+  noFileName: false,
+  noPackageName: false,
+  noLoggerDebug: false,
+  contextKey: '' as string,
+};
+
+/** Programmatic overrides passed via LoggerAdaptToConsole({ envOptions }) */
+let envOptionOverrides: Record<string, string> = {};
+
+/** User-provided log interceptor callback */
+let onLogCallback: ((jsonString: string, parsedObject: any) => void) | null = null;
+let onLogTimeoutMs: number = 5000;
+
+/** User-provided synchronous transform — runs before output, can modify the log object */
+let transformOutputCallback: ((parsedObject: any) => any) | null = null;
+
+export function loadEnvConfig() {
+  const resolve = (envVarName: string): string | undefined => {
+    // Programmatic overrides take precedence over environment variables
+    if (envVarName in envOptionOverrides) {
+      return envOptionOverrides[envVarName];
+    }
+    return getEnv(envVarName);
+  };
+  const isTrue = (val: string | undefined) => val != null && val.toLowerCase() === 'true';
+  envConfig = {
+    noNewLineCharacters: isTrue(resolve('CONSOLE_LOG_JSON_NO_NEW_LINE_CHARACTERS')),
+    noNewLineCharactersExceptStack: isTrue(resolve('CONSOLE_LOG_JSON_NO_NEW_LINE_CHARACTERS_EXCEPT_STACK')),
+    noTimeStamp: isTrue(resolve('CONSOLE_LOG_JSON_NO_TIME_STAMP')),
+    disableAutoParse: isTrue(resolve('CONSOLE_LOG_JSON_DISABLE_AUTO_PARSE')),
+    colorize: isTrue(resolve('CONSOLE_LOG_COLORIZE')),
+    noStackForNonError: isTrue(resolve('CONSOLE_LOG_JSON_NO_STACK_FOR_NON_ERROR')),
+    noFileName: isTrue(resolve('CONSOLE_LOG_JSON_NO_FILE_NAME')),
+    noPackageName: isTrue(resolve('CONSOLE_LOG_JSON_NO_PACKAGE_NAME')),
+    noLoggerDebug: isTrue(resolve('CONSOLE_LOG_JSON_NO_LOGGER_DEBUG')),
+    contextKey: resolve('CONSOLE_LOG_JSON_CONTEXT_KEY') || '',
+  };
+  resetNewLineCharacterCache();
+  stackMessageRegex = new RegExp(`^Error:[ ](.*?)${NewLineCharacter()}`, 'im');
+}
 
 /**
  * This function adapts a logger to the console.
@@ -290,9 +438,22 @@ let logParams!: { logLevel: LOG_LEVEL; debugString: boolean };
  * // Override default options and add customOptions
  * LoggerAdaptToConsole({ logLevel: LOG_LEVEL.ERROR, debugString: false, customOptions: { applicationName: 'my-app' } });
  */
-export function LoggerAdaptToConsole(options?: { logLevel?: LOG_LEVEL; debugString?: boolean; customOptions?: object }) {
+export function LoggerAdaptToConsole(options?: {
+  logLevel?: LOG_LEVEL;
+  debugString?: boolean;
+  customOptions?: object;
+  envOptions?: Record<string, string>;
+  onLog?: (jsonString: string, parsedObject: any) => void;
+  onLogTimeout?: number;
+  transformOutput?: (parsedObject: any) => any;
+}) {
   const env = new Env();
   env.loadDotEnv();
+  envOptionOverrides = options?.envOptions || {};
+  onLogCallback = options?.onLog || null;
+  onLogTimeoutMs = options?.onLogTimeout || 5000;
+  transformOutputCallback = options?.transformOutput || null;
+  loadEnvConfig();
 
   const defaultOptions = {
     logLevel: LOG_LEVEL.info,
@@ -302,8 +463,18 @@ export function LoggerAdaptToConsole(options?: { logLevel?: LOG_LEVEL; debugStri
 
   // log package name
   packageName = '';
-  const jsonPackage = require(path.join(appRootPath.toString(), 'package.json'));
-  packageName = jsonPackage.name || '';
+  try {
+    if (typeof require !== 'undefined') {
+      const root = getAppRoot();
+      if (root) {
+        const p = require('path');
+        const jsonPackage = require(p.join(root, 'package.json'));
+        packageName = jsonPackage.name || '';
+      }
+    }
+  } catch (_) {
+    /* package.json not available */
+  }
 
   Logger.level = logParams.logLevel;
 
@@ -372,15 +543,12 @@ export function LoggerAdaptToConsole(options?: { logLevel?: LOG_LEVEL; debugStri
 
 function filterNullOrUndefinedParameters(args: any[]): number {
   let nullOrUndefinedCount = 0;
-  args.forEach((f: any, index: number) => {
-    // Remove null parameters
-    if (f == null) {
+  for (let index = args.length - 1; index >= 0; index--) {
+    if (args[index] == null) {
       nullOrUndefinedCount += 1;
       args.splice(index, 1);
-      return;
     }
-  });
-
+  }
   return nullOrUndefinedCount;
 }
 
@@ -449,16 +617,24 @@ export function logUsingWinston(args: any[], level: LOG_LEVEL, customOptions?: o
     args.push({ _loggerDebug: `err ${err.message}` });
   }
 
-  // Discover calling filename
-  try {
-    const name = getCallingFilename();
-    if (name) {
-      args.push({ '@filename': name, '@logCallStack': getCallStack() });
-    } else {
-      args.push({ '@filename': '<unknown>', '@logCallStack': getCallStack() });
+  // Discover calling filename and call stack from a single Error object
+  // Skip entirely when both features are suppressed — avoids the expensive new Error() call
+  if (!envConfig.noFileName || !envConfig.noStackForNonError) {
+    try {
+      const sharedStack = new Error().stack ?? '';
+      const name = !envConfig.noFileName ? getCallingFilenameFromStack(sharedStack) : null;
+      const callStack = !envConfig.noStackForNonError ? getCallStackFromString(sharedStack) : undefined;
+      const fileInfo: any = {};
+      if (!envConfig.noFileName) {
+        fileInfo['@filename'] = name || '<unknown>';
+      }
+      if (!envConfig.noStackForNonError) {
+        fileInfo['@logCallStack'] = callStack;
+      }
+      args.push(fileInfo);
+    } catch (err: any) {
+      args.push({ '@filename': `<error>:${err.message}`, '@logCallStack': err.message });
     }
-  } catch (err: any) {
-    args.push({ '@filename': `<error>:${err.message}`, '@logCallStack': err.message });
   }
 
   // Custom options
@@ -492,28 +668,23 @@ export function logUsingWinston(args: any[], level: LOG_LEVEL, customOptions?: o
 }
 
 function supressDetailsIfSelected(errorObject: ErrorWithContext | undefined) {
-  const { CONSOLE_LOG_JSON_NO_STACK_FOR_NON_ERROR } = process.env;
-  const { CONSOLE_LOG_JSON_NO_FILE_NAME } = process.env;
-  const { CONSOLE_LOG_JSON_NO_PACKAGE_NAME } = process.env;
-  const { CONSOLE_LOG_JSON_NO_LOGGER_DEBUG } = process.env;
-
   if (errorObject == undefined) {
     return undefined;
   }
 
-  if (CONSOLE_LOG_JSON_NO_STACK_FOR_NON_ERROR && CONSOLE_LOG_JSON_NO_STACK_FOR_NON_ERROR.toLowerCase() === 'true') {
+  if (envConfig.noStackForNonError) {
     delete (errorObject as any)['@logCallStack'];
   }
 
-  if (CONSOLE_LOG_JSON_NO_FILE_NAME && CONSOLE_LOG_JSON_NO_FILE_NAME.toLowerCase() === 'true') {
+  if (envConfig.noFileName) {
     delete (errorObject as any)['@filename'];
   }
 
-  if (CONSOLE_LOG_JSON_NO_PACKAGE_NAME && CONSOLE_LOG_JSON_NO_PACKAGE_NAME.toLowerCase() === 'true') {
+  if (envConfig.noPackageName) {
     delete (errorObject as any)['@packageName'];
   }
 
-  if (CONSOLE_LOG_JSON_NO_LOGGER_DEBUG && CONSOLE_LOG_JSON_NO_LOGGER_DEBUG.toLowerCase() === 'true') {
+  if (envConfig.noLoggerDebug) {
     delete (errorObject as any)._loggerDebug;
   }
 
@@ -600,8 +771,8 @@ function extractParametersFromArguments(args: any[]) {
   const nullOrUndefinedCount = filterNullOrUndefinedParameters(args);
 
   args.forEach((f: any) => {
-    // String parameter or number parameter
-    if (typeof f === 'string' || typeof f === 'number') {
+    // String, number, or boolean parameter
+    if (typeof f === 'string' || typeof f === 'number' || typeof f === 'boolean') {
       message = `${message}${message.length > 0 ? ' - ' : ''}${f}`;
     }
     // Error Object parameter
@@ -628,6 +799,24 @@ function extractParametersFromArguments(args: any[]) {
   if (extraContext != undefined) {
     // noinspection JSUnusedAssignment
     extraContext = sortObject(extraContext);
+
+    // When contextKey is set, wrap user context under that key to keep the top level clean
+    if (envConfig.contextKey) {
+      const userContextKeys = Object.keys(extraContext).filter((k: string) => !['@filename', '@logCallStack', '@packageName'].includes(k));
+      if (userContextKeys.length > 0) {
+        const userContext: any = {};
+        const metadataContext: any = {};
+        for (const k of Object.keys(extraContext)) {
+          if (['@filename', '@logCallStack', '@packageName'].includes(k)) {
+            metadataContext[k] = (extraContext as any)[k];
+          } else {
+            userContext[k] = (extraContext as any)[k];
+          }
+        }
+        extraContext = { ...metadataContext, [envConfig.contextKey]: userContext };
+      }
+    }
+
     if (errorObject == undefined) {
       errorObjectWasPassed = false;
       // pass it dry
@@ -666,14 +855,20 @@ function extractParametersFromArguments(args: any[]) {
 }
 
 export function overrideStdOut() {
-  const originalWrite = process.stdout.write;
-  const outputText: string[] = [];
-  (process.stdout.write as any) = (...text: string[]): void => {
-    outputText.push(text[0]);
-  };
-  return { originalWrite, outputText };
+  const output: string[] = [];
+  if (typeof process !== 'undefined' && process.stdout) {
+    const originalWrite = process.stdout.write;
+    (process.stdout.write as any) = (...text: string[]): void => {
+      output.push(text[0]);
+    };
+    return { originalWrite, outputText: output };
+  }
+  // Browser fallback: no-op
+  return { originalWrite: null, outputText: output };
 }
 
 export function restoreStdOut(originalWrite: any) {
-  (process.stdout.write as any) = originalWrite;
+  if (originalWrite != null && typeof process !== 'undefined' && process.stdout) {
+    (process.stdout.write as any) = originalWrite;
+  }
 }
