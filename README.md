@@ -705,6 +705,10 @@ LoggerAdaptToConsole({
 
 * *[Adding Contributors...](docs/CONTRIBUTING.md)*
 
+## Changelog
+
+See [CHANGELOG.md](CHANGELOG.md) for release history, breaking changes, and migration guides.
+
 ## License
 
 MIT
