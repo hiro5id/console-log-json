@@ -15,6 +15,11 @@ RUN apt install -y \
     git \
     xdg-utils
 
+################################################################################
+# Install Chromium for headless browser tests (puppeteer-core)
+RUN apt install -y chromium --no-install-recommends
+ENV CHROME_PATH=/usr/bin/chromium
+
 
 
 # Add non-root user

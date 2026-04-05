@@ -4,6 +4,7 @@ import {
   FormatErrorObject,
   GetLogLevel,
   LOG_LEVEL,
+  loadEnvConfig,
   LoggerAdaptToConsole,
   LoggerRestoreConsole,
   NativeConsoleLog,
@@ -344,6 +345,7 @@ describe('logger - additional coverage', () => {
   // ---- FormatErrorObject direct tests ----
   it('FormatErrorObject handles plain object with level and message', () => {
     sandbox.stub(process.env, 'CONSOLE_LOG_JSON_NO_TIME_STAMP').value('TRUE');
+    loadEnvConfig();
     const result = FormatErrorObject({ level: 'info', message: 'test' });
     const parsed = JSON.parse(result.trim());
     expect(parsed.level).to.equal('info');
@@ -371,6 +373,7 @@ describe('logger - additional coverage', () => {
 
   it('FormatErrorObject handles empty message with error level', () => {
     sandbox.stub(process.env, 'CONSOLE_LOG_JSON_NO_TIME_STAMP').value('TRUE');
+    loadEnvConfig();
     const result = FormatErrorObject({ level: 'error', message: '' });
     const parsed = JSON.parse(result.trim());
     expect(parsed.message).to.equal('<no-error-message-was-passed-to-console-log>');
@@ -378,6 +381,7 @@ describe('logger - additional coverage', () => {
 
   it('FormatErrorObject handles empty message with info level', () => {
     sandbox.stub(process.env, 'CONSOLE_LOG_JSON_NO_TIME_STAMP').value('TRUE');
+    loadEnvConfig();
     const result = FormatErrorObject({ level: 'info', message: '' });
     const parsed = JSON.parse(result.trim());
     expect(parsed.message).to.equal('<no-message-was-passed-to-console-log>');
@@ -385,6 +389,7 @@ describe('logger - additional coverage', () => {
 
   it('FormatErrorObject cleans leading dash in message', () => {
     sandbox.stub(process.env, 'CONSOLE_LOG_JSON_NO_TIME_STAMP').value('TRUE');
+    loadEnvConfig();
     const result = FormatErrorObject({ level: 'info', message: ' - actual message' });
     const parsed = JSON.parse(result.trim());
     expect(parsed.message).to.equal('actual message');
@@ -392,6 +397,7 @@ describe('logger - additional coverage', () => {
 
   it('FormatErrorObject handles extraContext', () => {
     sandbox.stub(process.env, 'CONSOLE_LOG_JSON_NO_TIME_STAMP').value('TRUE');
+    loadEnvConfig();
     const result = FormatErrorObject({ level: 'info', message: 'test', extraContext: { key: 'ctx' } });
     const parsed = JSON.parse(result.trim());
     expect(parsed.key).to.equal('ctx');

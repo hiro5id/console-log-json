@@ -3,13 +3,13 @@ import { getAppRoot } from './get-app-root';
 import { getEnv } from './get-env';
 import { ErrorWithContext } from './error-with-context';
 import { FormatStackTrace } from './format-stack-trace';
-import { getCallStack } from './get-call-stack';
-import { getCallingFilename } from './get-calling-filename';
+import { getCallStackFromString } from './get-call-stack';
+import { getCallingFilenameFromStack } from './get-calling-filename';
 import { safeObjectAssign } from './safe-object-assign';
 import { sortObject } from './sort-object';
 import { ToOneLine } from './to-one-line';
 import { Env } from './env';
-import { NewLineCharacter } from './new-line-character';
+import { NewLineCharacter, resetNewLineCharacterCache } from './new-line-character';
 import { colorJson } from './colors/colorize';
 import { jsonStringifySafe } from './json-stringify-safe/stringify-safe';
 
@@ -110,8 +110,6 @@ declare global {
 
 export function FormatErrorObject(object: any) {
   let returnData: any = object;
-  const CONSOLE_LOG_JSON_NO_NEW_LINE_CHARACTERS = getEnv('CONSOLE_LOG_JSON_NO_NEW_LINE_CHARACTERS');
-  const CONSOLE_LOG_JSON_NO_NEW_LINE_CHARACTERS_EXCEPT_STACK = getEnv('CONSOLE_LOG_JSON_NO_NEW_LINE_CHARACTERS_EXCEPT_STACK');
 
   // Flatten message if it is an object
   if (typeof object.message === 'object') {
@@ -138,8 +136,10 @@ export function FormatErrorObject(object: any) {
 
     // Lets put a space into the message when stack message exists
     if (returnData.message) {
-      const stackRegex = new RegExp(`^Error:[ ](.*?)${NewLineCharacter()}`, 'im');
-      const stackRegexMatch = stackOneLine.match(stackRegex);
+      if (!stackMessageRegex) {
+        stackMessageRegex = new RegExp(`^Error:[ ](.*?)${NewLineCharacter()}`, 'im');
+      }
+      const stackRegexMatch = stackOneLine.match(stackMessageRegex);
       if (stackRegexMatch != null && stackRegexMatch.length >= 2) {
         const stackMessage = stackRegexMatch[1];
         returnData.message = `${ToOneLine(returnData.message).replace(stackMessage, '')} - ${stackMessage}`;
@@ -164,8 +164,7 @@ export function FormatErrorObject(object: any) {
   }
 
   // Add timestamp
-  const CONSOLE_LOG_JSON_NO_TIME_STAMP = getEnv('CONSOLE_LOG_JSON_NO_TIME_STAMP');
-  if (!(CONSOLE_LOG_JSON_NO_TIME_STAMP && CONSOLE_LOG_JSON_NO_TIME_STAMP.toLowerCase() === 'true')) {
+  if (!envConfig.noTimeStamp) {
     returnData['@timestamp'] = new Date().toISOString();
   }
 
@@ -177,20 +176,33 @@ export function FormatErrorObject(object: any) {
   // interpret JSON if it is inside the error message
   if (typeof returnData.message === 'string' && returnData.message.length > 0) {
     let parsedObject = null;
-    const CONSOLE_LOG_JSON_DISABLE_AUTO_PARSE = getEnv('CONSOLE_LOG_JSON_DISABLE_AUTO_PARSE');
-    try {
-      // if defined CONSOLE_LOG_JSON_DISABLE_AUTO_PARSE=TRUE, disable auto parsing.
-      if (CONSOLE_LOG_JSON_DISABLE_AUTO_PARSE && CONSOLE_LOG_JSON_DISABLE_AUTO_PARSE.toLowerCase() === 'true') {
-        parsedObject = JSON.parse(returnData.message); // trim & remove new lines
-        parsedObject = JSON.stringify(parsedObject);
-      } else {
-        parsedObject = JSON.parse(returnData.message);
+    // Quick check: only attempt JSON.parse if the message looks like it could be JSON
+    const trimmedMsg = returnData.message.trim();
+    const firstChar = trimmedMsg.charAt(0);
+    if (
+      firstChar === '{' ||
+      firstChar === '[' ||
+      firstChar === '"' ||
+      firstChar === '-' ||
+      (firstChar >= '0' && firstChar <= '9') ||
+      trimmedMsg === 'true' ||
+      trimmedMsg === 'false' ||
+      trimmedMsg === 'null'
+    ) {
+      try {
+        // if defined CONSOLE_LOG_JSON_DISABLE_AUTO_PARSE=TRUE, disable auto parsing.
+        if (envConfig.disableAutoParse) {
+          parsedObject = JSON.parse(returnData.message); // trim & remove new lines
+          parsedObject = JSON.stringify(parsedObject);
+        } else {
+          parsedObject = JSON.parse(returnData.message);
+        }
+      } catch (err) {
+        // do nothing
       }
-    } catch (err) {
-      // do nothing
     }
     if (parsedObject != null) {
-      if (CONSOLE_LOG_JSON_DISABLE_AUTO_PARSE && CONSOLE_LOG_JSON_DISABLE_AUTO_PARSE.toLowerCase() === 'true') {
+      if (envConfig.disableAutoParse) {
         returnData.message = parsedObject;
       } else {
         returnData.message = '<auto-parsed-json-string-see-@autoParsedJson-property>';
@@ -209,18 +221,12 @@ export function FormatErrorObject(object: any) {
 
   // add new line at the end for better local readability
   let endOfLogCharacter = '\n';
-  if (
-    (CONSOLE_LOG_JSON_NO_NEW_LINE_CHARACTERS && CONSOLE_LOG_JSON_NO_NEW_LINE_CHARACTERS.toLowerCase() === 'true') ||
-    (CONSOLE_LOG_JSON_NO_NEW_LINE_CHARACTERS_EXCEPT_STACK && CONSOLE_LOG_JSON_NO_NEW_LINE_CHARACTERS_EXCEPT_STACK.toLowerCase() === 'true')
-  ) {
+  if (envConfig.noNewLineCharacters || envConfig.noNewLineCharactersExceptStack) {
     endOfLogCharacter = '';
   }
 
-  const CONSOLE_LOG_COLORIZE = getEnv('CONSOLE_LOG_COLORIZE');
-
   // Return string to be logged on the command line
-  // TODO: This is where the post processing happens
-  if (CONSOLE_LOG_COLORIZE && CONSOLE_LOG_COLORIZE.toLowerCase() === 'true') {
+  if (envConfig.colorize) {
     return `${colorJson(returnData)}${endOfLogCharacter}`;
   } else {
     const jsonString = jsonStringifySafe(returnData);
@@ -319,18 +325,51 @@ export function NativeConsoleLog(...args: any[]) {
 }
 
 function ifEverythingFailsLogger(functionName: string, err: Error) {
-  if (consoleErrorBackup != null) {
-    try {
+  try {
+    if (consoleErrorBackup != null) {
       consoleErrorBackup(`{"level":"error","message":"Error: console-log-json: error while trying to process ${functionName} : ${err.message}"}`);
-    } catch (err) {
-      throw new Error(`Failed to call ${functionName} and failed to fall back to native function`);
     }
-  } else {
-    throw new Error('Error: console-log-json: This is unexpected, there is no where to call console.log, this should never happen');
+  } catch (err) {
+    // fail silently, we don't want to throw from here since this is the last resort logger when everything else has failed
   }
 }
 
 let logParams!: { logLevel: LOG_LEVEL; debugString: boolean };
+
+// Pre-compiled regex for stack message extraction — compiled once at init time
+let stackMessageRegex: RegExp;
+
+// Cached environment configuration — populated once at LoggerAdaptToConsole() time
+let envConfig = {
+  noNewLineCharacters: false,
+  noNewLineCharactersExceptStack: false,
+  noTimeStamp: false,
+  disableAutoParse: false,
+  colorize: false,
+  noStackForNonError: false,
+  noFileName: false,
+  noPackageName: false,
+  noLoggerDebug: false,
+  contextKey: '' as string,
+};
+
+export function loadEnvConfig() {
+  const isTrue = (val: string | undefined) => val != null && val.toLowerCase() === 'true';
+  envConfig = {
+    noNewLineCharacters: isTrue(getEnv('CONSOLE_LOG_JSON_NO_NEW_LINE_CHARACTERS')),
+    noNewLineCharactersExceptStack: isTrue(getEnv('CONSOLE_LOG_JSON_NO_NEW_LINE_CHARACTERS_EXCEPT_STACK')),
+    noTimeStamp: isTrue(getEnv('CONSOLE_LOG_JSON_NO_TIME_STAMP')),
+    disableAutoParse: isTrue(getEnv('CONSOLE_LOG_JSON_DISABLE_AUTO_PARSE')),
+    colorize: isTrue(getEnv('CONSOLE_LOG_COLORIZE')),
+    noStackForNonError: isTrue(getEnv('CONSOLE_LOG_JSON_NO_STACK_FOR_NON_ERROR')),
+    noFileName: isTrue(getEnv('CONSOLE_LOG_JSON_NO_FILE_NAME')),
+    noPackageName: isTrue(getEnv('CONSOLE_LOG_JSON_NO_PACKAGE_NAME')),
+    noLoggerDebug: isTrue(getEnv('CONSOLE_LOG_JSON_NO_LOGGER_DEBUG')),
+    contextKey: getEnv('CONSOLE_LOG_JSON_CONTEXT_KEY') || '',
+  };
+  resetNewLineCharacterCache();
+  stackMessageRegex = new RegExp(`^Error:[ ](.*?)${NewLineCharacter()}`, 'im');
+}
 
 /**
  * This function adapts a logger to the console.
@@ -352,6 +391,7 @@ let logParams!: { logLevel: LOG_LEVEL; debugString: boolean };
 export function LoggerAdaptToConsole(options?: { logLevel?: LOG_LEVEL; debugString?: boolean; customOptions?: object }) {
   const env = new Env();
   env.loadDotEnv();
+  loadEnvConfig();
 
   const defaultOptions = {
     logLevel: LOG_LEVEL.info,
@@ -515,16 +555,24 @@ export function logUsingWinston(args: any[], level: LOG_LEVEL, customOptions?: o
     args.push({ _loggerDebug: `err ${err.message}` });
   }
 
-  // Discover calling filename
-  try {
-    const name = getCallingFilename();
-    if (name) {
-      args.push({ '@filename': name, '@logCallStack': getCallStack() });
-    } else {
-      args.push({ '@filename': '<unknown>', '@logCallStack': getCallStack() });
+  // Discover calling filename and call stack from a single Error object
+  // Skip entirely when both features are suppressed — avoids the expensive new Error() call
+  if (!envConfig.noFileName || !envConfig.noStackForNonError) {
+    try {
+      const sharedStack = new Error().stack ?? '';
+      const name = !envConfig.noFileName ? getCallingFilenameFromStack(sharedStack) : null;
+      const callStack = !envConfig.noStackForNonError ? getCallStackFromString(sharedStack) : undefined;
+      const fileInfo: any = {};
+      if (!envConfig.noFileName) {
+        fileInfo['@filename'] = name || '<unknown>';
+      }
+      if (!envConfig.noStackForNonError) {
+        fileInfo['@logCallStack'] = callStack;
+      }
+      args.push(fileInfo);
+    } catch (err: any) {
+      args.push({ '@filename': `<error>:${err.message}`, '@logCallStack': err.message });
     }
-  } catch (err: any) {
-    args.push({ '@filename': `<error>:${err.message}`, '@logCallStack': err.message });
   }
 
   // Custom options
@@ -558,28 +606,23 @@ export function logUsingWinston(args: any[], level: LOG_LEVEL, customOptions?: o
 }
 
 function supressDetailsIfSelected(errorObject: ErrorWithContext | undefined) {
-  const CONSOLE_LOG_JSON_NO_STACK_FOR_NON_ERROR = getEnv('CONSOLE_LOG_JSON_NO_STACK_FOR_NON_ERROR');
-  const CONSOLE_LOG_JSON_NO_FILE_NAME = getEnv('CONSOLE_LOG_JSON_NO_FILE_NAME');
-  const CONSOLE_LOG_JSON_NO_PACKAGE_NAME = getEnv('CONSOLE_LOG_JSON_NO_PACKAGE_NAME');
-  const CONSOLE_LOG_JSON_NO_LOGGER_DEBUG = getEnv('CONSOLE_LOG_JSON_NO_LOGGER_DEBUG');
-
   if (errorObject == undefined) {
     return undefined;
   }
 
-  if (CONSOLE_LOG_JSON_NO_STACK_FOR_NON_ERROR && CONSOLE_LOG_JSON_NO_STACK_FOR_NON_ERROR.toLowerCase() === 'true') {
+  if (envConfig.noStackForNonError) {
     delete (errorObject as any)['@logCallStack'];
   }
 
-  if (CONSOLE_LOG_JSON_NO_FILE_NAME && CONSOLE_LOG_JSON_NO_FILE_NAME.toLowerCase() === 'true') {
+  if (envConfig.noFileName) {
     delete (errorObject as any)['@filename'];
   }
 
-  if (CONSOLE_LOG_JSON_NO_PACKAGE_NAME && CONSOLE_LOG_JSON_NO_PACKAGE_NAME.toLowerCase() === 'true') {
+  if (envConfig.noPackageName) {
     delete (errorObject as any)['@packageName'];
   }
 
-  if (CONSOLE_LOG_JSON_NO_LOGGER_DEBUG && CONSOLE_LOG_JSON_NO_LOGGER_DEBUG.toLowerCase() === 'true') {
+  if (envConfig.noLoggerDebug) {
     delete (errorObject as any)._loggerDebug;
   }
 
@@ -694,6 +737,24 @@ function extractParametersFromArguments(args: any[]) {
   if (extraContext != undefined) {
     // noinspection JSUnusedAssignment
     extraContext = sortObject(extraContext);
+
+    // When contextKey is set, wrap user context under that key to keep the top level clean
+    if (envConfig.contextKey) {
+      const userContextKeys = Object.keys(extraContext).filter((k: string) => !['@filename', '@logCallStack', '@packageName'].includes(k));
+      if (userContextKeys.length > 0) {
+        const userContext: any = {};
+        const metadataContext: any = {};
+        for (const k of Object.keys(extraContext)) {
+          if (['@filename', '@logCallStack', '@packageName'].includes(k)) {
+            metadataContext[k] = (extraContext as any)[k];
+          } else {
+            userContext[k] = (extraContext as any)[k];
+          }
+        }
+        extraContext = { ...metadataContext, [envConfig.contextKey]: userContext };
+      }
+    }
+
     if (errorObject == undefined) {
       errorObjectWasPassed = false;
       // pass it dry

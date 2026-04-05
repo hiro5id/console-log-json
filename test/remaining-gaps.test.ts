@@ -4,6 +4,7 @@ import {
   FormatErrorObject,
   GetLogLevel,
   LOG_LEVEL,
+  loadEnvConfig,
   LoggerAdaptToConsole,
   LoggerRestoreConsole,
   overrideStdOut,
@@ -336,6 +337,7 @@ describe('FormatErrorObject edge cases', () => {
 
   it('handles message that is an object without a message string property', () => {
     sandbox.stub(process.env, 'CONSOLE_LOG_JSON_NO_TIME_STAMP').value('TRUE');
+    loadEnvConfig();
     // When message is an object like { key: 'value' }, it should be flattened
     // into the return data without crashing
     const result = FormatErrorObject({ level: 'info', message: { key: 'value' } });
@@ -346,6 +348,7 @@ describe('FormatErrorObject edge cases', () => {
 
   it('handles message that is an object with its own message property', () => {
     sandbox.stub(process.env, 'CONSOLE_LOG_JSON_NO_TIME_STAMP').value('TRUE');
+    loadEnvConfig();
     const result = FormatErrorObject({ level: 'info', message: { message: 'inner msg', extra: 'data' } });
     const parsed = JSON.parse(result.trim());
     expect(parsed.level).to.equal('info');
@@ -356,6 +359,7 @@ describe('FormatErrorObject edge cases', () => {
 
   it('handles stack with Caused By section', () => {
     sandbox.stub(process.env, 'CONSOLE_LOG_JSON_NO_TIME_STAMP').value('TRUE');
+    loadEnvConfig();
     const stack = 'Error: outer\n    at func1 (file.ts:1:1)\nCaused By: Error: inner\n    at func2 (file.ts:2:2)';
     const result = FormatErrorObject({ level: 'info', message: 'test', stack });
     const parsed = JSON.parse(result.trim());
@@ -365,6 +369,7 @@ describe('FormatErrorObject edge cases', () => {
 
   it('auto-parses JSON arrays in message', () => {
     sandbox.stub(process.env, 'CONSOLE_LOG_JSON_NO_TIME_STAMP').value('TRUE');
+    loadEnvConfig();
     const result = FormatErrorObject({ level: 'info', message: '[1,2,3]' });
     const parsed = JSON.parse(result.trim());
     expect(parsed['@autoParsedJson']).to.eql([1, 2, 3]);
@@ -373,6 +378,7 @@ describe('FormatErrorObject edge cases', () => {
   it('handles CONSOLE_LOG_JSON_NO_NEW_LINE_CHARACTERS with stack trace', () => {
     sandbox.stub(process.env, 'CONSOLE_LOG_JSON_NO_TIME_STAMP').value('TRUE');
     sandbox.stub(process.env, 'CONSOLE_LOG_JSON_NO_NEW_LINE_CHARACTERS').value('TRUE');
+    loadEnvConfig();
     const stack = 'Error: test\n    at func (file.ts:1:1)';
     const result = FormatErrorObject({ level: 'info', message: 'msg', stack });
     // No trailing newline from the formatter
@@ -385,6 +391,7 @@ describe('FormatErrorObject edge cases', () => {
     sandbox.stub(process.env, 'FORCE_NO_COLOR').value('');
     sandbox.stub(process.env, 'FORCE_COLOR').value('');
     sandbox.stub(process.env, 'DYNO').value('');
+    loadEnvConfig();
     const result = FormatErrorObject({ level: 'info', message: 'colorized' });
     // Should contain ANSI escape codes
     expect(result).to.include('\x1b[');

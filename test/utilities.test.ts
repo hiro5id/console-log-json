@@ -2,7 +2,7 @@
 import { expect } from 'chai';
 import { FormatStackTrace } from '../src/format-stack-trace';
 import { ToOneLine } from '../src/to-one-line';
-import { NewLineCharacter } from '../src/new-line-character';
+import { NewLineCharacter, resetNewLineCharacterCache } from '../src/new-line-character';
 import { sortObject } from '../src/sort-object';
 import { jsonStringifySafe, getSerialize } from '../src/json-stringify-safe/stringify-safe';
 import { safeObjectAssign } from '../src/safe-object-assign';
@@ -80,24 +80,29 @@ describe('NewLineCharacter', () => {
 
   afterEach(() => {
     sandbox.restore();
+    resetNewLineCharacterCache();
   });
 
   it('returns \\n by default', () => {
+    resetNewLineCharacterCache();
     expect(NewLineCharacter()).to.equal('\n');
   });
 
   it('returns " - " when CONSOLE_LOG_JSON_NO_NEW_LINE_CHARACTERS is true', () => {
     sandbox.stub(process.env, 'CONSOLE_LOG_JSON_NO_NEW_LINE_CHARACTERS').value('true');
+    resetNewLineCharacterCache();
     expect(NewLineCharacter()).to.equal(' - ');
   });
 
   it('returns " - " when CONSOLE_LOG_JSON_NO_NEW_LINE_CHARACTERS is TRUE (case insensitive)', () => {
     sandbox.stub(process.env, 'CONSOLE_LOG_JSON_NO_NEW_LINE_CHARACTERS').value('TRUE');
+    resetNewLineCharacterCache();
     expect(NewLineCharacter()).to.equal(' - ');
   });
 
   it('returns \\n when env var is set to something other than true', () => {
     sandbox.stub(process.env, 'CONSOLE_LOG_JSON_NO_NEW_LINE_CHARACTERS').value('yes');
+    resetNewLineCharacterCache();
     expect(NewLineCharacter()).to.equal('\n');
   });
 });
