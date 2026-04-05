@@ -66,7 +66,7 @@
     "build:esm": "node -e \"require('esbuild').buildSync({entryPoints:['src/index.ts'],outfile:'dist/esm/index.mjs',bundle:true,format:'esm',platform:'node',sourcemap:true,target:'es2017'})\" && tsc -p tsconfig.esm.json --emitDeclarationOnly",
     "test": "mocha \"dist/test/**/*.js\"",
     "build:watch": "tsc -w",
-    "clean": "rimraf dist && rimraf node_modules",
+    "clean": "rm -rf dist && rm -rf node_modules",
     "audit": "npm audit --production",
     "prepublishOnly": "npm run clean && npm run install:prod && npm run build && npm run test && npm run prune:prod",
     "preversion": "npm run build && npm run test",
