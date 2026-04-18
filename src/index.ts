@@ -10,7 +10,7 @@ export {
   LoggerRestoreConsole,
   NativeConsoleLog,
   loadEnvConfig,
-  logUsingWinston,
+  logUsingConsoleJson,
   overrideStdOut,
   restoreStdOut,
 } from './logger';

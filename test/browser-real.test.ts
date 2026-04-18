@@ -41,21 +41,16 @@ const PROJECT_ROOT = process.cwd();
 const SRC_INDEX = path.join(PROJECT_ROOT, 'src', 'index.ts');
 const BUNDLE_PATH = path.join(PROJECT_ROOT, 'dist', 'browser-test-bundle.js');
 
-describe('Real browser tests (headless Chrome)', function () {
-  // tslint:disable-next-line:no-invalid-this
-  this.timeout(30000);
+jest.setTimeout(30000);
+
+const describeBrowser = CHROME_EXECUTABLE ? describe : describe.skip;
+
+describeBrowser('Real browser tests (headless Chrome)', () => {
 
   let browser: any;
   let page: any;
 
-  before(async () => {
-    // Skip entire suite if no Chrome/Chromium is available
-    if (!CHROME_EXECUTABLE) {
-      console.log('    (skipping: no Chrome/Chromium found — set CHROME_PATH to enable)');
-      // tslint:disable-next-line:no-invalid-this
-      return (this as any).skip();
-    }
-
+  beforeAll(async () => {
     // Bundle the library for browser using esbuild
     await esbuild.build({
       entryPoints: [SRC_INDEX],
@@ -80,7 +75,7 @@ describe('Real browser tests (headless Chrome)', function () {
     page = await browser.newPage();
   });
 
-  after(async () => {
+  afterAll(async () => {
     if (browser) {
       await browser.close();
     }

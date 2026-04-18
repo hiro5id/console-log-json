@@ -32,22 +32,19 @@ describe('logger', () => {
 
   it('logs error in correct shape', async () => {
     const { originalWrite, outputText } = overrideStdOut();
-    await LoggerAdaptToConsole();
+    LoggerAdaptToConsole();
     try {
       // action
       NativeConsoleLog('testing native log');
-      await console.error('some string', new ErrorWithContext('error \r\nobject', { 'extra-context': 'extra-context' }));
+      console.error('some string', new ErrorWithContext('error \r\nobject', { 'extra-context': 'extra-context' }));
     } finally {
       restoreStdOut(originalWrite);
       LoggerRestoreConsole();
     }
 
     // assert
-    console.log(outputText[0]);
-    console.log(outputText[1]);
-    expect(outputText[0]).equal('testing native log\n');
-
-    const testObj = JSON.parse(stripTimeStamp(outputText[1]));
+    const logOutput = outputText[outputText.length - 1];
+    const testObj = JSON.parse(stripTimeStamp(logOutput));
     delete testObj['@filename'];
     delete testObj.errCallStack;
     delete testObj['@logCallStack'];
@@ -60,31 +57,28 @@ describe('logger', () => {
       'extra-context': 'extra-context',
     });
 
-    expect(JSON.parse(outputText[1]).errCallStack.startsWith('Error: error object\n    at ')).eql(true, 'starts with specific text');
+    expect(JSON.parse(logOutput).errCallStack.startsWith('Error: error object\n    at ')).eql(true, 'starts with specific text');
 
     // Ensure that the normal new lines are included at the end of the string
-    expect(outputText[1].endsWith('\n\n')).eql(true);
+    expect(logOutput.endsWith('\n\n')).eql(true);
   });
 
   it('does not log new line characters if configured', async () => {
     sandbox.stub(process.env, 'CONSOLE_LOG_JSON_NO_NEW_LINE_CHARACTERS').value('TRUE');
     const { originalWrite, outputText } = overrideStdOut();
-    await LoggerAdaptToConsole();
+    LoggerAdaptToConsole();
     try {
       // action
       NativeConsoleLog('testing native log');
-      await console.error('some string', new ErrorWithContext('error \r\nobject', { 'extra-context': 'extra-context' }));
+      console.error('some string', new ErrorWithContext('error \r\nobject', { 'extra-context': 'extra-context' }));
     } finally {
       restoreStdOut(originalWrite);
       LoggerRestoreConsole();
     }
 
     // assert
-    console.log(outputText[0]);
-    console.log(outputText[1]);
-    expect(outputText[0]).equal('testing native log\n');
-
-    const testObj = JSON.parse(stripTimeStamp(outputText[1]));
+    const logOutput = outputText[outputText.length - 1];
+    const testObj = JSON.parse(stripTimeStamp(logOutput));
     delete testObj['@filename'];
     delete testObj.errCallStack;
     delete testObj['@logCallStack'];
@@ -98,31 +92,28 @@ describe('logger', () => {
     });
 
     // strip last \n character because that is an artifact from stubbing out the console and not added by this library so we don't want to test for that
-    outputText[1] = outputText[1].replace(/\n$/, '');
+    const normalizedOutput = logOutput.replace(/\n$/, '');
 
     // check our expected result, (if our system were to add a line break there would be an extra one at the end)
-    expect(outputText[1]).not.includes('\n');
+    expect(normalizedOutput).not.includes('\n');
   });
 
   it('does not log new line characters if configured and regular error is thrown', async () => {
     sandbox.stub(process.env, 'CONSOLE_LOG_JSON_NO_NEW_LINE_CHARACTERS').value('TRUE');
     const { originalWrite, outputText } = overrideStdOut();
-    await LoggerAdaptToConsole();
+    LoggerAdaptToConsole();
     try {
       // action
       NativeConsoleLog('testing native log');
-      await console.error('some string', new Error('error \r\nobject'), { age: 100 });
+      console.error('some string', new Error('error \r\nobject'), { age: 100 });
     } finally {
       restoreStdOut(originalWrite);
       LoggerRestoreConsole();
     }
 
     // assert
-    console.log(outputText[0]);
-    console.log(outputText[1]);
-    expect(outputText[0]).equal('testing native log\n');
-
-    const testObj = JSON.parse(stripTimeStamp(outputText[1]));
+    const logOutput = outputText[outputText.length - 1];
+    const testObj = JSON.parse(stripTimeStamp(logOutput));
     delete testObj['@filename'];
     delete testObj.errCallStack;
     delete testObj['@logCallStack'];
@@ -136,19 +127,19 @@ describe('logger', () => {
     });
 
     // strip last \n character because that is an artifact from stubbing out the console and not added by this library so we don't want to test for that
-    outputText[1] = outputText[1].replace(/\n$/, '');
+    const normalizedOutput = logOutput.replace(/\n$/, '');
 
     // check our expected result, (if our system were to add a line break there would be an extra one at the end)
-    expect(outputText[1]).not.includes('\n');
+    expect(normalizedOutput).not.includes('\n');
   });
 
   it(`omits log call stack if configured in environment variable`, async () => {
     sandbox.stub(process.env, 'CONSOLE_LOG_JSON_NO_STACK_FOR_NON_ERROR').value('TRUE');
     const { originalWrite, outputText } = overrideStdOut();
-    await LoggerAdaptToConsole();
+    LoggerAdaptToConsole();
     try {
       // action
-      await console.log('some log string string');
+      console.log('some log string string');
     } finally {
       restoreStdOut(originalWrite);
       LoggerRestoreConsole();
@@ -166,10 +157,10 @@ describe('logger', () => {
 
   it(`does NOT omit log call stack if NOT configured in environment variable`, async () => {
     const { originalWrite, outputText } = overrideStdOut();
-    await LoggerAdaptToConsole();
+    LoggerAdaptToConsole();
     try {
       // action
-      await console.log('some log string string');
+      console.log('some log string string');
     } finally {
       restoreStdOut(originalWrite);
       LoggerRestoreConsole();
@@ -192,10 +183,10 @@ describe('logger', () => {
     sandbox.stub(process.env, 'CONSOLE_LOG_JSON_NO_STACK_FOR_NON_ERROR').value('TRUE');
 
     const { originalWrite, outputText } = overrideStdOut();
-    await LoggerAdaptToConsole();
+    LoggerAdaptToConsole();
     try {
       // action
-      await console.log('some log string string');
+      console.log('some log string string');
     } finally {
       restoreStdOut(originalWrite);
       LoggerRestoreConsole();
@@ -213,10 +204,10 @@ describe('logger', () => {
 
   it('logs error in correct shape using console.log', async () => {
     const { originalWrite, outputText } = overrideStdOut();
-    await LoggerAdaptToConsole();
+    LoggerAdaptToConsole();
     try {
       // action
-      await console.log('some string', new ErrorWithContext('error \r\nobject', { 'extra-context': 'extra-context' }));
+      console.log('some string', new ErrorWithContext('error \r\nobject', { 'extra-context': 'extra-context' }));
     } finally {
       restoreStdOut(originalWrite);
       LoggerRestoreConsole();
@@ -242,10 +233,10 @@ describe('logger', () => {
 
   it('console.log is correctly adapted when using a combination of types', async () => {
     const { originalWrite, outputText } = overrideStdOut();
-    await LoggerAdaptToConsole();
+    LoggerAdaptToConsole();
     try {
       // action
-      await console.log(
+      console.log(
         'some string1',
         123,
         'some string2',
@@ -285,7 +276,7 @@ describe('logger', () => {
 
     try {
       // action
-      await console.error('some outer error', new ErrorWithContext(innerError, { 'extra-context': 'extra-context' }));
+      console.error('some outer error', new ErrorWithContext(innerError, { 'extra-context': 'extra-context' }));
     } finally {
       restoreStdOut(originalWrite);
       LoggerRestoreConsole();
@@ -319,7 +310,7 @@ describe('logger', () => {
 
     try {
       // action
-      await console.error('some outer error', new ErrorWithContext(innerError, { 'extra-context': 'extra-context' }));
+      console.error('some outer error', new ErrorWithContext(innerError, { 'extra-context': 'extra-context' }));
     } finally {
       restoreStdOut(originalWrite);
       LoggerRestoreConsole();
@@ -332,10 +323,10 @@ describe('logger', () => {
   it('console.debug works', async () => {
     const backupLevel = GetLogLevel();
     const { originalWrite, outputText } = overrideStdOut();
-    await LoggerAdaptToConsole({ logLevel: LOG_LEVEL.debug });
+    LoggerAdaptToConsole({ logLevel: LOG_LEVEL.debug });
 
     try {
-      await console.debug('this is a message', { 'extra-context': 'hello' });
+      console.debug('this is a message', { 'extra-context': 'hello' });
     } finally {
       SetLogLevel(backupLevel);
       restoreStdOut(originalWrite);
@@ -356,7 +347,7 @@ describe('logger', () => {
     LoggerAdaptToConsole({ logLevel: LOG_LEVEL.silly });
 
     try {
-      await console.silly('this is a message', { 'extra-context': 'hello' });
+      console.silly('this is a message', { 'extra-context': 'hello' });
     } finally {
       SetLogLevel(backupLevel);
       restoreStdOut(originalWrite);
@@ -373,7 +364,7 @@ describe('logger', () => {
     LoggerAdaptToConsole({ logLevel: LOG_LEVEL.info });
 
     try {
-      await console.warn('this is a message', { 'extra-context': 'hello' });
+      console.warn('this is a message', { 'extra-context': 'hello' });
     } finally {
       SetLogLevel(backupLevel);
       restoreStdOut(originalWrite);
@@ -410,7 +401,7 @@ describe('logger', () => {
       // noinspection ExceptionCaughtLocallyJS
       throw new ErrorWithContext(`error message 1`, extraContext as any);
     } catch (err) {
-      await console.log(err);
+      console.log(err);
     }
     restoreStdOut(originalWrite);
     LoggerRestoreConsole();
@@ -424,7 +415,7 @@ describe('logger', () => {
 
   it('logs error properly when extra context is a string and main error is an error object', async () => {
     const { originalWrite, outputText } = overrideStdOut();
-    await LoggerAdaptToConsole();
+    LoggerAdaptToConsole();
 
     const extraContext = 'this is a test string';
     const mainError = new Error('error message 2');
@@ -432,7 +423,7 @@ describe('logger', () => {
       // noinspection ExceptionCaughtLocallyJS
       throw new ErrorWithContext(mainError, extraContext as any);
     } catch (err) {
-      await console.log(err);
+      console.log(err);
     }
     restoreStdOut(originalWrite);
     LoggerRestoreConsole();
@@ -456,9 +447,9 @@ describe('logger', () => {
 
   it('console.info works', async () => {
     const { originalWrite, outputText } = overrideStdOut();
-    await LoggerAdaptToConsole();
+    LoggerAdaptToConsole();
 
-    await console.info('this is a test', { a: 'stuff-a', b: 'stuff-b' }, 'more messages', { c: 'stuff-c' });
+    console.info('this is a test', { a: 'stuff-a', b: 'stuff-b' }, 'more messages', { c: 'stuff-c' });
 
     restoreStdOut(originalWrite);
     LoggerRestoreConsole();
@@ -484,12 +475,12 @@ describe('logger', () => {
 
   it('handles object with circular reference', async () => {
     const { originalWrite, outputText } = overrideStdOut();
-    await LoggerAdaptToConsole();
+    LoggerAdaptToConsole();
 
     const circObject: any = { bob: 'bob' };
     circObject.circ = circObject;
 
-    await console.log('circular reference test', circObject);
+    console.log('circular reference test', circObject);
 
     restoreStdOut(originalWrite);
     LoggerRestoreConsole();
@@ -502,7 +493,7 @@ describe('logger', () => {
 
   it('Handle where a string is passed to the logger that happens to be JSON, with new lines in it', async () => {
     const { originalWrite, outputText } = overrideStdOut();
-    await LoggerAdaptToConsole();
+    LoggerAdaptToConsole();
 
     const circObject: any = { bob: 'bob' };
     circObject.circ = circObject;
@@ -538,7 +529,7 @@ describe('logger', () => {
 }  
      `;
 
-    await console.log(sampleStringJson);
+    console.log(sampleStringJson);
 
     restoreStdOut(originalWrite);
     LoggerRestoreConsole();
@@ -564,7 +555,7 @@ describe('logger', () => {
   it('If the CONSOLE_LOG_JSON_DISABLE_AUTO_PARSE definition is enabled, the automatic JSON parser will not run.', async () => {
     sandbox.stub(process.env, 'CONSOLE_LOG_JSON_DISABLE_AUTO_PARSE').value('TRUE');
     const { originalWrite, outputText } = overrideStdOut();
-    await LoggerAdaptToConsole();
+    LoggerAdaptToConsole();
 
     const circObject: any = { bob: 'bob' };
     circObject.circ = circObject;
@@ -600,7 +591,7 @@ describe('logger', () => {
     }
 `;
 
-    await console.log(sampleStringJson);
+    console.log(sampleStringJson);
 
     restoreStdOut(originalWrite);
     LoggerRestoreConsole();
@@ -616,7 +607,7 @@ describe('logger', () => {
     const { originalWrite, outputText } = overrideStdOut();
     LoggerAdaptToConsole();
 
-    await console.log({ level: 'info' }, 'this is a test', { a: 'stuff-a', b: 'stuff-b' }, 'more messages', { c: 'stuff-c' });
+    console.log({ level: 'info' }, 'this is a test', { a: 'stuff-a', b: 'stuff-b' }, 'more messages', { c: 'stuff-c' });
 
     restoreStdOut(originalWrite);
     LoggerRestoreConsole();
@@ -629,7 +620,7 @@ describe('logger', () => {
     const { originalWrite, outputText } = overrideStdOut();
     LoggerAdaptToConsole();
 
-    await console.log({ level: 'error' }, 'this is a test', { a: 'stuff-a', b: 'stuff-b' }, 'more messages', { c: 'stuff-c' });
+    console.log({ level: 'error' }, 'this is a test', { a: 'stuff-a', b: 'stuff-b' }, 'more messages', { c: 'stuff-c' });
 
     restoreStdOut(originalWrite);
     LoggerRestoreConsole();
@@ -643,7 +634,7 @@ describe('logger', () => {
     const { originalWrite, outputText } = overrideStdOut();
     LoggerAdaptToConsole();
 
-    await console.log({ level: 'err' }, 'this is a test', { a: 'stuff-a', b: 'stuff-b' }, 'more messages', { c: 'stuff-c' });
+    console.log({ level: 'err' }, 'this is a test', { a: 'stuff-a', b: 'stuff-b' }, 'more messages', { c: 'stuff-c' });
 
     restoreStdOut(originalWrite);
     LoggerRestoreConsole();
@@ -657,7 +648,7 @@ describe('logger', () => {
     const { originalWrite, outputText } = overrideStdOut();
     LoggerAdaptToConsole();
 
-    await console.log(
+    console.log(
       { level: 'warning' },
       'this is a test',
       {
@@ -678,9 +669,9 @@ describe('logger', () => {
 
   it('handle empty object', async () => {
     const { originalWrite, outputText } = overrideStdOut();
-    await LoggerAdaptToConsole();
+    LoggerAdaptToConsole();
 
-    await console.log({}, 'this is a test', { a: 'stuff-a', b: 'stuff-b' }, 'more messages', { c: 'stuff-c' }, {});
+    console.log({}, 'this is a test', { a: 'stuff-a', b: 'stuff-b' }, 'more messages', { c: 'stuff-c' }, {});
 
     restoreStdOut(originalWrite);
     LoggerRestoreConsole();
@@ -703,7 +694,7 @@ describe('logger', () => {
     const { originalWrite, outputText } = overrideStdOut();
     LoggerAdaptToConsole();
 
-    await console.log(null, 'this is a test', null, { a: 'stuff-a', b: 'stuff-b' }, 'more messages', { c: 'stuff-c' });
+    console.log(null, 'this is a test', null, { a: 'stuff-a', b: 'stuff-b' }, 'more messages', { c: 'stuff-c' });
 
     restoreStdOut(originalWrite);
     LoggerRestoreConsole();
@@ -722,7 +713,7 @@ describe('logger', () => {
     const { originalWrite, outputText } = overrideStdOut();
     LoggerAdaptToConsole();
 
-    await console.log(null);
+    console.log(null);
 
     restoreStdOut(originalWrite);
     LoggerRestoreConsole();
@@ -738,7 +729,7 @@ describe('logger', () => {
     const { originalWrite, outputText } = overrideStdOut();
     LoggerAdaptToConsole();
 
-    await console.log();
+    console.log();
 
     restoreStdOut(originalWrite);
     LoggerRestoreConsole();
@@ -754,7 +745,7 @@ describe('logger', () => {
     const { originalWrite, outputText } = overrideStdOut();
     LoggerAdaptToConsole();
 
-    await console.error({ durationInSeconds: 1, totalErrored: 2, totalFlaggedAsSent: 4, totalPickedUp: 5, totalSent: 3 });
+    console.error({ durationInSeconds: 1, totalErrored: 2, totalFlaggedAsSent: 4, totalPickedUp: 5, totalSent: 3 });
 
     restoreStdOut(originalWrite);
     LoggerRestoreConsole();
@@ -804,7 +795,7 @@ describe('logger', () => {
     const { originalWrite, outputText } = overrideStdOut();
     LoggerAdaptToConsole();
 
-    await console.log(new Error('error-message'));
+    console.log(new Error('error-message'));
 
     restoreStdOut(originalWrite);
     LoggerRestoreConsole();
@@ -824,13 +815,13 @@ describe('logger', () => {
     // action 1
     const err1 = new Error('Error1');
     (err1 as any).self = err1;
-    await console.log(err1);
+    console.log(err1);
 
     // action 2
     const objSelf: any = { name: 'objSelf' };
     objSelf.self = objSelf;
     const err2 = new ErrorWithContext('Error2', objSelf);
-    await console.log(err2);
+    console.log(err2);
 
     // cleanup
     restoreStdOut(originalWrite);
@@ -851,7 +842,7 @@ describe('logger', () => {
     const { originalWrite, outputText } = overrideStdOut();
     LoggerAdaptToConsole();
 
-    await console.error('Encountered Fatal Error on startup of public-api', {
+    console.error('Encountered Fatal Error on startup of public-api', {
       name: 'MongoTimeoutError',
       stack:
         'MongoTimeoutError: Server selection timed out after 30000 ms\n    at Timeout._onTimeout (/Users/roberto/dev/cnp/web/public-api/node_modules/mongodb/lib/core/sdam/server_selection.js:308:9)\n    at listOnTimeout (internal/timers.js:531:17)\n    at processTimers (internal/timers.js:475:7)',
@@ -873,7 +864,7 @@ describe('logger', () => {
     const { originalWrite, outputText } = overrideStdOut();
     LoggerAdaptToConsole({ debugString: true });
 
-    await console.log(new Error('error-message'), 'test string');
+    console.log(new Error('error-message'), 'test string');
 
     restoreStdOut(originalWrite);
     LoggerRestoreConsole();
@@ -893,7 +884,7 @@ describe('logger', () => {
     (console as any).debugStringException = () => {
       throw new Error('error while building debugString');
     };
-    await console.log('testing');
+    console.log('testing');
 
     restoreStdOut(originalWrite);
     LoggerRestoreConsole();
@@ -911,7 +902,7 @@ describe('logger', () => {
     const { originalWrite, outputText } = overrideStdOut();
     LoggerAdaptToConsole();
 
-    await console.log(
+    console.log(
       { level: 'somethingElse' },
       'this is a test',
       {
@@ -935,33 +926,67 @@ describe('logger', () => {
     expect(testObj['@filename']).include('/test/logger.test');
   });
 
-  it('logging in a different order produces same result', async () => {
-    // arrange
+  it('logging permutations of message, error, contexts, and explicit level produce the same normalized result', async () => {
     const { originalWrite, outputText } = overrideStdOut();
     LoggerAdaptToConsole();
 
-    const extraInfo1 = { firstName: 'homer', lastName: 'simpson' };
-    const extraInfo2 = { age: 25, location: 'mars' };
+    const permutations = [
+      ['message', 'error', 'context1', 'context2', 'level'],
+      ['level', 'context2', 'message', 'context1', 'error'],
+      ['context1', 'error', 'level', 'context2', 'message'],
+      ['context2', 'message', 'level', 'error', 'context1'],
+      ['error', 'context1', 'message', 'level', 'context2'],
+      ['context1', 'context2', 'level', 'message', 'error'],
+    ];
 
-    // action1
-    await console.log(extraInfo1, 'hello world', extraInfo2);
-    // action2
-    await console.log('hello world', extraInfo2, extraInfo1);
+    const createArgumentByKind = (kind: string) => {
+      if (kind === 'message') {
+        return 'hello world';
+      }
+      if (kind === 'error') {
+        return new Error('permuted failure');
+      }
+      if (kind === 'context1') {
+        return { firstName: 'homer', lastName: 'simpson' };
+      }
+      if (kind === 'context2') {
+        return { age: 25, location: 'mars' };
+      }
+      if (kind === 'level') {
+        return { level: 'warn' };
+      }
+      throw new Error(`unknown permutation kind ${kind}`);
+    };
 
-    // cleanup
-    restoreStdOut(originalWrite);
-    LoggerRestoreConsole();
+    try {
+      for (const permutation of permutations) {
+        const args = permutation.map(createArgumentByKind);
+        console.log(...args);
+      }
+    } finally {
+      restoreStdOut(originalWrite);
+      LoggerRestoreConsole();
+    }
 
-    // assert
-    console.log(outputText[0]);
-    console.log(outputText[1]);
+    const normalizedLogs = outputText.map(normalizeStableLogObject);
 
-    outputText[0] = stripTimeStamp(outputText[0]);
-    outputText[1] = stripTimeStamp(outputText[1]);
-    outputText[0] = stripProperty(outputText[0], '@logCallStack');
-    outputText[1] = stripProperty(outputText[1], '@logCallStack');
+    normalizedLogs.forEach((log) => {
+      expect(log).to.eql({
+        '@errorObjectName': 'Error',
+        '@packageName': 'console-log-json',
+        age: 25,
+        firstName: 'homer',
+        lastName: 'simpson',
+        level: 'error',
+        location: 'mars',
+        message: 'hello world  - permuted failure',
+      });
+    });
 
-    expect(outputText[0]).equal(outputText[1]);
+    const baseline = normalizedLogs[0];
+    normalizedLogs.slice(1).forEach((log) => {
+      expect(log).to.eql(baseline);
+    });
   });
 
   it('console.log exception but is handled without crashing out', async () => {
@@ -975,7 +1000,7 @@ describe('logger', () => {
 
     // action
     try {
-      await console.log('this is a test', { a: 'stuff-a', b: 'stuff-b' }, 'more messages', { c: 'stuff-c' });
+      console.log('this is a test', { a: 'stuff-a', b: 'stuff-b' }, 'more messages', { c: 'stuff-c' });
     } catch (err) {
       caughtErr = err;
     }
@@ -1007,7 +1032,7 @@ describe('logger', () => {
       message: 'Error while querying DB2 database',
       extraContext: 'Timed out in 20000ms.',
     };
-    await console.log(err1);
+    console.log(err1);
 
     restoreStdOut(originalWrite);
     LoggerRestoreConsole();
@@ -1071,7 +1096,7 @@ describe('logger', () => {
     const { originalWrite, outputText } = overrideStdOut();
     LoggerAdaptToConsole();
 
-    await console.log({ level: 'err' }, 'this is a test', { a: 'stuff-a', b: 'stuff-b' }, 'more messages', { c: 1234 });
+    console.log({ level: 'err' }, 'this is a test', { a: 'stuff-a', b: 'stuff-b' }, 'more messages', { c: 1234 });
 
     restoreStdOut(originalWrite);
     LoggerRestoreConsole();
@@ -1088,7 +1113,7 @@ describe('logger', () => {
     const { originalWrite, outputText } = overrideStdOut();
     LoggerAdaptToConsole();
 
-    await console.log('this is a test', { a: 'stuff-a', b: 'stuff-b' }, 'more messages', { c: 1234 });
+    console.log('this is a test', { a: 'stuff-a', b: 'stuff-b' }, 'more messages', { c: 1234 });
 
     restoreStdOut(originalWrite);
     LoggerRestoreConsole();
@@ -1105,7 +1130,7 @@ describe('logger', () => {
     LoggerAdaptToConsole();
 
     const err = new Error("HEY MAN THIS IS AN ERROR!");
-    await console.log('this is a test', { a: 'stuff-a', b: 'stuff-b' }, 'more messages', err,{ c: 1234 });
+    console.log('this is a test', { a: 'stuff-a', b: 'stuff-b' }, 'more messages', err,{ c: 1234 });
 
     restoreStdOut(originalWrite);
     LoggerRestoreConsole();
@@ -1129,4 +1154,13 @@ const stripProperty = (input: string, propertyName: string): string => {
   const obj = JSON.parse(input);
   delete obj[propertyName];
   return JSON.stringify(obj);
+};
+
+const normalizeStableLogObject = (input: string): any => {
+  const obj = JSON.parse(input);
+  delete obj['@timestamp'];
+  delete obj['@filename'];
+  delete obj['@logCallStack'];
+  delete obj.errCallStack;
+  return obj;
 };

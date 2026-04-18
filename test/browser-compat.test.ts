@@ -29,6 +29,15 @@ import sinon from 'sinon';
 describe('Browser compatibility', () => {
   const sandbox = sinon.createSandbox();
 
+  process.env.CONSOLE_LOG_JSON_NO_NEW_LINE_CHARACTERS = '';
+  process.env.CONSOLE_LOG_JSON_NO_FILE_NAME = '';
+  process.env.CONSOLE_LOG_JSON_NO_PACKAGE_NAME = '';
+  process.env.CONSOLE_LOG_JSON_NO_TIME_STAMP = '';
+  process.env.CONSOLE_LOG_JSON_NO_STACK_FOR_NON_ERROR = '';
+  process.env.FORCE_NO_COLOR = '';
+  process.env.FORCE_COLOR = '';
+  process.env.DYNO = '';
+
   afterEach(() => {
     sandbox.restore();
     resetNewLineCharacterCache();
@@ -164,9 +173,21 @@ describe('Browser compatibility', () => {
       expect(name).to.equal(null);
     });
 
+    it('skips fallback-pattern internal frames and returns the first external caller', () => {
+      const stack =
+        'Error\n' +
+        '    at logUsingConsoleJson (logger.js:100:5)\n' +
+        '    at LoggerAdaptToConsole.console.log (logger.js:200:5)\n' +
+        '    at getCallingFilename (logger.js:300:5)\n' +
+        '    at getCallStack (logger.js:400:5)\n' +
+        '    at handleClick (src/components/Button.tsx:25:3)';
+      const name = getCallingFilenameFromStack(stack);
+      expect(name).to.equal('src/components/Button.tsx');
+    });
+
     it('handles stack with only internal frames by returning the first available', () => {
       // If all frames are internal, it should still return something
-      const stack = 'Error\n    at logUsingWinston (logger.js:100:5)\n    at LoggerAdaptToConsole.console.log (logger.js:200:5)';
+      const stack = 'Error\n    at logUsingConsoleJson (logger.js:100:5)\n    at LoggerAdaptToConsole.console.log (logger.js:200:5)';
       // These are internal frames, so it returns null (no external caller found)
       const name = getCallingFilenameFromStack(stack);
       // In this case with only internal frames, result depends on whether __filename matches
@@ -336,19 +357,6 @@ describe('Browser compatibility', () => {
       const { restoreStdOut } = require('../src');
       // Should not throw with null originalWrite
       expect(() => restoreStdOut(null)).to.not.throw();
-    });
-  });
-
-  // ============================================================
-  // Env.loadDotEnv — no-op in browser
-  // ============================================================
-  describe('Env.loadDotEnv browser behavior', () => {
-    it('does not throw when dotenv is unavailable', () => {
-      const { Env } = require('../src/env/env');
-      const env = new Env();
-      // In Node this works fine; in browser the try/catch inside loadDotEnv
-      // catches the missing require and returns silently
-      expect(() => env.loadDotEnv()).to.not.throw();
     });
   });
 

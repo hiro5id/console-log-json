@@ -24,7 +24,7 @@ describe('transformOutput', () => {
     });
 
     try {
-      await console.log('transformed');
+      console.log('transformed');
     } finally {
       restoreStdOut(originalWrite);
       LoggerRestoreConsole();
@@ -51,7 +51,7 @@ describe('transformOutput', () => {
     });
 
     try {
-      await console.log('no level');
+      console.log('no level');
     } finally {
       restoreStdOut(originalWrite);
       LoggerRestoreConsole();
@@ -81,7 +81,7 @@ describe('transformOutput', () => {
     });
 
     try {
-      await console.log('renamed fields');
+      console.log('renamed fields');
     } finally {
       restoreStdOut(originalWrite);
       LoggerRestoreConsole();
@@ -109,7 +109,7 @@ describe('transformOutput', () => {
     });
 
     try {
-      await console.log('replaced');
+      console.log('replaced');
     } finally {
       restoreStdOut(originalWrite);
       LoggerRestoreConsole();
@@ -134,7 +134,7 @@ describe('transformOutput', () => {
     });
 
     try {
-      await console.log('should survive');
+      console.log('should survive');
     } finally {
       restoreStdOut(originalWrite);
       LoggerRestoreConsole();
@@ -161,7 +161,7 @@ describe('transformOutput', () => {
     });
 
     try {
-      await console.log('null return');
+      console.log('null return');
     } finally {
       restoreStdOut(originalWrite);
       LoggerRestoreConsole();
@@ -186,7 +186,7 @@ describe('transformOutput', () => {
     });
 
     try {
-      await console.log('string return');
+      console.log('string return');
     } finally {
       restoreStdOut(originalWrite);
       LoggerRestoreConsole();
@@ -212,7 +212,7 @@ describe('transformOutput', () => {
     });
 
     try {
-      await console.log('error test', new Error('boom'));
+      console.log('error test', new Error('boom'));
     } finally {
       restoreStdOut(originalWrite);
       LoggerRestoreConsole();
@@ -244,7 +244,7 @@ describe('transformOutput', () => {
     });
 
     try {
-      await console.log('both hooks');
+      console.log('both hooks');
     } finally {
       restoreStdOut(originalWrite);
       LoggerRestoreConsole();
@@ -272,7 +272,7 @@ describe('transformOutput', () => {
     });
 
     try {
-      await console.log('default');
+      console.log('default');
     } finally {
       restoreStdOut(originalWrite);
       LoggerRestoreConsole();

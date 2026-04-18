@@ -1,14 +1,14 @@
 /* tslint:disable:object-literal-sort-keys */
-import { getAppRoot } from './get-app-root';
 import { getEnv } from './get-env';
 import { ErrorWithContext } from './error-with-context';
 import { FormatStackTrace } from './format-stack-trace';
 import { getCallStackFromString } from './get-call-stack';
-import { getCallingFilenameFromStack } from './get-calling-filename';
+import { getCallingFilename, registerInternalCallerFunction } from './get-calling-filename';
+import { getPackageNameAsync, getPackageNameSync } from './package-name';
+import { compileRedactor, RedactOptions, Redactor } from './redact';
 import { safeObjectAssign } from './safe-object-assign';
 import { sortObject } from './sort-object';
 import { ToOneLine } from './to-one-line';
-import { Env } from './env';
 import { NewLineCharacter, resetNewLineCharacterCache } from './new-line-character';
 import { colorJson } from './colors/colorize';
 import { jsonStringifySafe } from './json-stringify-safe/stringify-safe';
@@ -108,14 +108,19 @@ declare global {
   }
 }
 
-export function FormatErrorObject(object: any) {
+function buildFormattedLogObject(object: any) {
   let returnData: any = object;
 
-  // Flatten message if it is an object
+  // Preserve object-valued message under a dedicated field instead of flattening it.
   if (typeof object.message === 'object') {
     const messageObj = object.message;
     delete returnData.message;
-    returnData = safeObjectAssign(returnData, ['message'], messageObj);
+    const clonedMessageObject = safeObjectAssign({}, [], messageObj);
+    if (returnData['@messageObject'] == null) {
+      returnData['@messageObject'] = clonedMessageObject;
+    } else {
+      returnData['@messageObject'] = safeObjectAssign(returnData['@messageObject'], [], clonedMessageObject);
+    }
   }
 
   // Combine extra context from ErrorWithContext
@@ -219,19 +224,60 @@ export function FormatErrorObject(object: any) {
     }
   }
 
-  // add new line at the end for better local readability
+  if (returnData.message == null && returnData['@messageObject'] != null) {
+    if (returnData.level === 'error') {
+      returnData.message = '<no-error-message-was-passed-to-console-log>';
+    } else {
+      returnData.message = '<no-message-was-passed-to-console-log>';
+    }
+  }
+
+  return returnData;
+}
+
+function appendTrailingLogCharacter(text: string): string {
   let endOfLogCharacter = '\n';
   if (envConfig.noNewLineCharacters || envConfig.noNewLineCharactersExceptStack) {
     endOfLogCharacter = '';
   }
+  return `${text}${endOfLogCharacter}`;
+}
 
-  // Return string to be logged on the command line
+function formatLogObjectForOutput(logObject: any, jsonString?: string): string {
   if (envConfig.colorize) {
-    return `${colorJson(returnData)}${endOfLogCharacter}`;
-  } else {
-    const jsonString = jsonStringifySafe(returnData);
-    return `${jsonString}${endOfLogCharacter}`;
+    return appendTrailingLogCharacter(colorJson(logObject));
   }
+  return appendTrailingLogCharacter(jsonString != null ? jsonString : jsonStringifySafe(logObject));
+}
+
+function cloneForMutation(value: any, seen: Map<any, any> = new Map<any, any>()): any {
+  if (value == null || typeof value !== 'object') {
+    return value;
+  }
+
+  if (seen.has(value)) {
+    return seen.get(value);
+  }
+
+  if (Array.isArray(value)) {
+    const clonedArray: any[] = [];
+    seen.set(value, clonedArray);
+    for (const item of value) {
+      clonedArray.push(cloneForMutation(item, seen));
+    }
+    return clonedArray;
+  }
+
+  const clonedObject: any = {};
+  seen.set(value, clonedObject);
+  for (const key of Object.keys(value)) {
+    clonedObject[key] = cloneForMutation(value[key], seen);
+  }
+  return clonedObject;
+}
+
+export function FormatErrorObject(object: any) {
+  return formatLogObjectForOutput(buildFormattedLogObject(object));
 }
 
 const LOG_LEVEL_PRIORITY: Record<string, number> = {
@@ -294,20 +340,31 @@ const Logger = {
       }
     }
 
-    let formatted = FormatErrorObject(info);
+    let outputObject = buildFormattedLogObject(info);
 
     // Apply user's transform if provided — falls back to original on error
     if (transformOutputCallback) {
       try {
-        const parsed = JSON.parse(formatted.trim());
-        const transformed = transformOutputCallback(parsed);
+        const transformed = transformOutputCallback(outputObject);
         if (transformed != null && typeof transformed === 'object') {
-          formatted = jsonStringifySafe(transformed) + '\n';
+          outputObject = transformed;
         }
       } catch (_) {
         /* transform error — use original formatted output */
       }
     }
+
+    if (redactor) {
+      try {
+        outputObject = cloneForMutation(outputObject);
+        redactor.redact(outputObject);
+      } catch (_) {
+        /* redaction error — use unredacted output rather than breaking the app */
+      }
+    }
+
+    const callbackJsonString = onLogCallback || !envConfig.colorize ? jsonStringifySafe(outputObject) : null;
+    const formatted = formatLogObjectForOutput(outputObject, callbackJsonString == null ? undefined : callbackJsonString);
 
     writeOutput(formatted);
 
@@ -316,13 +373,14 @@ const Logger = {
       const callback = onLogCallback;
       const timeout = onLogTimeoutMs;
       try {
-        const parsedCopy = JSON.parse(formatted.trim());
+        const jsonString = callbackJsonString == null ? jsonStringifySafe(outputObject) : callbackJsonString;
+        const parsedCopy = JSON.parse(jsonString);
         // Run async so it doesn't block the caller
         const timeoutId = setTimeout(() => {
           /* interceptor timed out — silently ignore */
         }, timeout);
         Promise.resolve()
-          .then(() => callback(formatted.trim(), parsedCopy))
+          .then(() => callback(jsonString, parsedCopy))
           .then(() => clearTimeout(timeoutId))
           .catch(() => clearTimeout(timeoutId));
       } catch (_) {
@@ -395,6 +453,7 @@ let onLogTimeoutMs: number = 5000;
 
 /** User-provided synchronous transform — runs before output, can modify the log object */
 let transformOutputCallback: ((parsedObject: any) => any) | null = null;
+let redactor: Redactor | null = null;
 
 export function loadEnvConfig() {
   const resolve = (envVarName: string): string | undefined => {
@@ -424,7 +483,7 @@ export function loadEnvConfig() {
 /**
  * This function adapts a logger to the console.
  *
- * @param {({ logLevel?: LOG_LEVEL; debugString?: boolean; customOptions?: object })} [options] - An optional parameter that can be an object with optional properties 'logLevel', 'debugString', and 'customOptions'. 'logLevel' sets the level of logging. 'debugString' toggles whether to output a debug string. 'customOptions' can be any object that contains custom settings for the logger.
+ * @param {({ logLevel?: LOG_LEVEL; debugString?: boolean; customOptions?: object })} [options] - An optional parameter that can configure log level, debug output, extra context, structured redaction, and lifecycle hooks.
  *
  * @example
  * // Default behavior with no options
@@ -437,6 +496,10 @@ export function loadEnvConfig() {
  * @example
  * // Override default options and add customOptions
  * LoggerAdaptToConsole({ logLevel: LOG_LEVEL.ERROR, debugString: false, customOptions: { applicationName: 'my-app' } });
+ *
+ * @example
+ * // Redact sensitive fields from the final structured log object
+ * LoggerAdaptToConsole({ redact: ['password', 'headers.authorization'] });
  */
 export function LoggerAdaptToConsole(options?: {
   logLevel?: LOG_LEVEL;
@@ -446,13 +509,13 @@ export function LoggerAdaptToConsole(options?: {
   onLog?: (jsonString: string, parsedObject: any) => void;
   onLogTimeout?: number;
   transformOutput?: (parsedObject: any) => any;
+  redact?: RedactOptions;
 }) {
-  const env = new Env();
-  env.loadDotEnv();
   envOptionOverrides = options?.envOptions || {};
   onLogCallback = options?.onLog || null;
   onLogTimeoutMs = options?.onLogTimeout || 5000;
   transformOutputCallback = options?.transformOutput || null;
+  redactor = compileRedactor(options?.redact);
   loadEnvConfig();
 
   const defaultOptions = {
@@ -460,21 +523,13 @@ export function LoggerAdaptToConsole(options?: {
     debugString: false,
   };
   logParams = { ...defaultOptions, ...options };
+  customOptionsReference = options?.customOptions ? (options.customOptions as { [key: string]: any }) : null;
+  customOptionKeys = customOptionsReference ? Object.keys(customOptionsReference) : [];
 
   // log package name
   packageName = '';
-  try {
-    if (typeof require !== 'undefined') {
-      const root = getAppRoot();
-      if (root) {
-        const p = require('path');
-        const jsonPackage = require(p.join(root, 'package.json'));
-        packageName = jsonPackage.name || '';
-      }
-    }
-  } catch (_) {
-    /* package.json not available */
-  }
+  packageNameState = 'uninitialized';
+  startPackageNameInitialization();
 
   Logger.level = logParams.logLevel;
 
@@ -509,36 +564,44 @@ export function LoggerAdaptToConsole(options?: {
   }
 
   console.error = (...args: any[]) => {
-    return logUsingWinston(args, LOG_LEVEL.error, options?.customOptions);
+    return logUsingConsoleJson(args, LOG_LEVEL.error, options?.customOptions);
   };
+  registerInternalCallerFunction(console.error as any);
 
   console.warn = (...args: any[]) => {
-    return logUsingWinston(args, LOG_LEVEL.warn, options?.customOptions);
+    return logUsingConsoleJson(args, LOG_LEVEL.warn, options?.customOptions);
   };
+  registerInternalCallerFunction(console.warn as any);
 
   console.info = (...args: any[]) => {
-    return logUsingWinston(args, LOG_LEVEL.info, options?.customOptions);
+    return logUsingConsoleJson(args, LOG_LEVEL.info, options?.customOptions);
   };
+  registerInternalCallerFunction(console.info as any);
 
   console.http = (...args: any[]) => {
-    return logUsingWinston(args, LOG_LEVEL.http, options?.customOptions);
+    return logUsingConsoleJson(args, LOG_LEVEL.http, options?.customOptions);
   };
+  registerInternalCallerFunction(console.http as any);
 
   console.verbose = (...args: any[]) => {
-    return logUsingWinston(args, LOG_LEVEL.verbose, options?.customOptions);
+    return logUsingConsoleJson(args, LOG_LEVEL.verbose, options?.customOptions);
   };
+  registerInternalCallerFunction(console.verbose as any);
 
   console.debug = (...args: any[]) => {
-    return logUsingWinston(args, LOG_LEVEL.debug, options?.customOptions);
+    return logUsingConsoleJson(args, LOG_LEVEL.debug, options?.customOptions);
   };
+  registerInternalCallerFunction(console.debug as any);
 
   console.silly = (...args: any[]) => {
-    return logUsingWinston(args, LOG_LEVEL.silly, options?.customOptions);
+    return logUsingConsoleJson(args, LOG_LEVEL.silly, options?.customOptions);
   };
+  registerInternalCallerFunction(console.silly as any);
 
   console.log = (...args: any[]) => {
-    return logUsingWinston(args, LOG_LEVEL.info, options?.customOptions);
+    return logUsingConsoleJson(args, LOG_LEVEL.info, options?.customOptions);
   };
+  registerInternalCallerFunction(console.log as any);
 }
 
 function filterNullOrUndefinedParameters(args: any[]): number {
@@ -585,19 +648,78 @@ function findExplicitLogLevelAndUseIt(args: any[], level: LOG_LEVEL) {
 }
 
 let packageName: string = '';
+let customOptionsReference: { [key: string]: any } | null = null;
+let customOptionKeys: string[] = [];
+type PackageNameState = 'uninitialized' | 'pending' | 'ready' | 'unavailable';
+type PendingLogEntry = { args: any[]; level: LOG_LEVEL; customOptions?: object };
+let packageNameState: PackageNameState = 'uninitialized';
+let packageNameInitVersion = 0;
+let pendingLogs: PendingLogEntry[] = [];
 
-/**
- * It takes the arguments passed to the console.log function and logs them using Winston
- * @param {any[]} args - any[] - the arguments passed to the console.log function
- * @param {LOG_LEVEL} level - LOG_LEVEL
- * @param {object} [customOptions] - object - an optional parameter that can be an object with custom settings for the logger
- */
-export function logUsingWinston(args: any[], level: LOG_LEVEL, customOptions?: object) {
-  if (packageName.length === 0) {
-    args.push({ '@packageName': '<not-yet-set> Please await the call LoggerAdaptToConsole() on startup' });
-  } else {
+function startPackageNameInitialization(): void {
+  packageName = getPackageNameSync();
+  if (packageName.length > 0) {
+    packageNameState = 'ready';
+    flushPendingLogs();
+    return;
+  }
+
+  if (envConfig.noPackageName || typeof process === 'undefined' || typeof process.cwd !== 'function') {
+    packageNameState = 'unavailable';
+    flushPendingLogs();
+    return;
+  }
+
+  packageNameState = 'pending';
+  const initVersion = ++packageNameInitVersion;
+  getPackageNameAsync()
+    .then((resolvedPackageName) => {
+      if (initVersion !== packageNameInitVersion) {
+        return;
+      }
+      packageName = resolvedPackageName;
+      packageNameState = packageName.length > 0 ? 'ready' : 'unavailable';
+    })
+    .catch(() => {
+      if (initVersion !== packageNameInitVersion) {
+        return;
+      }
+      packageName = '';
+      packageNameState = 'unavailable';
+    })
+    .then(() => {
+      if (initVersion !== packageNameInitVersion) {
+        return;
+      }
+      flushPendingLogs();
+    });
+}
+
+function flushPendingLogs(): void {
+  if (pendingLogs.length === 0) {
+    return;
+  }
+
+  const logsToFlush = pendingLogs;
+  pendingLogs = [];
+
+  for (const pendingLog of logsToFlush) {
+    emitConsoleJsonLog(pendingLog.args, pendingLog.level, pendingLog.customOptions);
+  }
+}
+
+function maybeAddPackageName(args: any[]): void {
+  if (envConfig.noPackageName) {
+    return;
+  }
+
+  if (packageNameState === 'ready' && packageName.length > 0) {
     args.push({ '@packageName': packageName });
   }
+}
+
+function emitConsoleJsonLog(args: any[], level: LOG_LEVEL, customOptions?: object) {
+  maybeAddPackageName(args);
 
   // log debug logging if needed
   try {
@@ -622,7 +744,7 @@ export function logUsingWinston(args: any[], level: LOG_LEVEL, customOptions?: o
   if (!envConfig.noFileName || !envConfig.noStackForNonError) {
     try {
       const sharedStack = new Error().stack ?? '';
-      const name = !envConfig.noFileName ? getCallingFilenameFromStack(sharedStack) : null;
+      const name = !envConfig.noFileName ? getCallingFilename(sharedStack) : null;
       const callStack = !envConfig.noStackForNonError ? getCallStackFromString(sharedStack) : undefined;
       const fileInfo: any = {};
       if (!envConfig.noFileName) {
@@ -639,11 +761,13 @@ export function logUsingWinston(args: any[], level: LOG_LEVEL, customOptions?: o
 
   // Custom options
   try {
-    if (customOptions) {
-      for (const key in customOptions) {
-        if (Object.prototype.hasOwnProperty.call(customOptions, key)) {
-          const obj: { [key: string]: any } = {}; // Add index signature to obj
-          obj[key] = (customOptions as { [key: string]: any })[key]; // Cast customOptions to an indexable type
+    const runtimeCustomOptions = customOptionsReference || (customOptions ? (customOptions as { [key: string]: any }) : null);
+    const runtimeCustomOptionKeys = customOptionsReference ? customOptionKeys : runtimeCustomOptions ? Object.keys(runtimeCustomOptions) : [];
+    if (runtimeCustomOptions) {
+      for (const key of runtimeCustomOptionKeys) {
+        if (Object.prototype.hasOwnProperty.call(runtimeCustomOptions, key)) {
+          const obj: { [key: string]: any } = {};
+          obj[key] = runtimeCustomOptions[key];
           args.push(obj);
         }
       }
@@ -666,6 +790,27 @@ export function logUsingWinston(args: any[], level: LOG_LEVEL, customOptions?: o
     ifEverythingFailsLogger('console.log', err);
   }
 }
+
+/**
+ * It takes the arguments passed to the console methods and formats them as console-log-json output
+ * @param {any[]} args - any[] - the arguments passed to the console.log function
+ * @param {LOG_LEVEL} level - LOG_LEVEL
+ * @param {object} [customOptions] - object - an optional parameter that can be an object with custom settings for the logger
+ */
+export function logUsingConsoleJson(args: any[], level: LOG_LEVEL, customOptions?: object) {
+  if (!envConfig.noPackageName && packageNameState === 'pending') {
+    pendingLogs.push({
+      args: args.slice(),
+      level,
+      customOptions,
+    });
+    return;
+  }
+
+  emitConsoleJsonLog(args, level, customOptions);
+}
+
+registerInternalCallerFunction(logUsingConsoleJson);
 
 function supressDetailsIfSelected(errorObject: ErrorWithContext | undefined) {
   if (errorObject == undefined) {
@@ -797,6 +942,17 @@ function extractParametersFromArguments(args: any[]) {
 
   // if we have extra context we must either wrap it into an existing error object or, pass it dry
   if (extraContext != undefined) {
+    const extraContextMessage = (extraContext as any).message;
+    if (typeof extraContextMessage === 'string') {
+      if (extraContextMessage.length > 0) {
+        message = message.length > 0 ? `${message} - ${extraContextMessage}` : extraContextMessage;
+      }
+      delete (extraContext as any).message;
+    } else if (extraContextMessage != null && typeof extraContextMessage === 'object') {
+      (extraContext as any)['@messageObject'] = safeObjectAssign({}, [], extraContextMessage);
+      delete (extraContext as any).message;
+    }
+
     // noinspection JSUnusedAssignment
     extraContext = sortObject(extraContext);
 

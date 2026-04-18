@@ -51,7 +51,7 @@ describe('onLog interceptor', () => {
       },
     });
 
-    await console.log('normal output');
+    console.log('normal output');
 
     restoreStdOut(originalWrite);
     LoggerRestoreConsole();
@@ -75,7 +75,7 @@ describe('onLog interceptor', () => {
     });
 
     // Should not throw
-    await console.log('should not crash');
+    console.log('should not crash');
 
     restoreStdOut(originalWrite);
     LoggerRestoreConsole();
@@ -174,9 +174,9 @@ describe('onLog interceptor', () => {
       },
     });
 
-    await console.log('first');
-    await console.log('second');
-    await console.log('third');
+    console.log('first');
+    console.log('second');
+    console.log('third');
 
     restoreStdOut(originalWrite);
     LoggerRestoreConsole();
@@ -190,7 +190,7 @@ describe('onLog interceptor', () => {
     const { originalWrite, outputText } = overrideStdOut();
     LoggerAdaptToConsole();
 
-    await console.log('no interceptor');
+    console.log('no interceptor');
 
     restoreStdOut(originalWrite);
     LoggerRestoreConsole();
@@ -209,7 +209,7 @@ describe('onLog interceptor', () => {
     });
 
     const start = Date.now();
-    await console.log('should be fast');
+    console.log('should be fast');
     const elapsed = Date.now() - start;
 
     restoreStdOut(originalWrite);

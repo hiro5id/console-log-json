@@ -69,11 +69,23 @@ Every log entry is a single line of JSON. Stack traces, nested objects, multi-li
 Every log entry automatically includes contextual information that would be tedious and error-prone to add manually:
 
 - **`@timestamp`** -- ISO 8601 UTC timestamp. Essential for correlating events across services, tracking the order of operations during incident response, and querying logs by time range. Always in UTC so there's no timezone ambiguity across distributed systems.
-- **`@filename`** -- the source file that generated the log. When you're paged at 3 AM and see an error in DataDog, this tells you exactly which file to open. No more grepping the codebase for a log message string.
+- **`@filename`** -- the best-effort source file that generated the log. In normal Node.js and unbundled browser builds, this usually points to the caller you care about. If a consumer bundles `console-log-json` together with app code into a single browser file, there may be no reliable boundary in the stack between library frames and app frames, so `@filename` can fall back to `<unknown>` or a bundle path.
 - **`@logCallStack`** -- the full call stack at the point of logging. Shows you not just *where* the log was called, but *how the code got there*. Invaluable for tracing execution paths through middleware chains, event handlers, and deeply nested function calls.
-- **`@packageName`** -- the npm package name from `package.json`. In monorepos or microservice architectures where multiple packages log to the same stream, this tells you which service or package produced the log without relying on container labels or deployment metadata.
+- **`@packageName`** -- the npm package name from `package.json`. In monorepos or microservice architectures where multiple packages log to the same stream, this tells you which service or package produced the log without relying on container labels or deployment metadata. In Node.js, this works in both CommonJS and ESM projects. If the package name cannot be determined, the field is omitted rather than emitting a placeholder value.
 
 No manual tagging. No `logger.info("msg", { file: __filename })`. It just works.
+
+### Built-in structured redaction
+
+Sensitive fields can be redacted with a Pino-style `redact` option using explicit object paths. This keeps secrets like passwords, bearer tokens, API keys, and cookies out of logs without relying on brittle regexes over whole log lines.
+
+```js
+LoggerAdaptToConsole({
+  redact: ['password', 'headers.authorization', 'payment.card.number']
+});
+```
+
+Redaction is applied to the final structured log object, so it also covers fields added by `transformOutput`. The original objects passed to `console.log(...)` are not mutated.
 
 ### Crash-safe by design
 
@@ -81,12 +93,13 @@ The logger will **never** crash your application. Every code path in the logging
 
 ### Browser compatible
 
-Works in Node.js and in the browser. Node-specific features (file detection, `.env` loading) degrade gracefully -- `@filename` shows `<unknown>` in the browser instead of crashing. Ship the same logging code to your server and your frontend.
+Works in Node.js and in the browser. Node-specific features (file detection) degrade gracefully instead of crashing. `@filename` is best-effort in the browser and may show `<unknown>` or a bundle path, especially when the library and app are bundled into one file. Ship the same logging code to your server and your frontend.
 
 ### Performance-conscious
 
-- **One Error object** per log call (for stack capture), skipped entirely when stack features are disabled
+- **One shared stack string** per log call for `@logCallStack` and stack-based fallback, plus a V8 callsite lookup for `@filename` when available
 - **Env vars cached** at init time, not read on every log call
+- **Redaction paths compiled once** at initialization, not reparsed on every log call
 - **Pre-compiled regex** for stack trace parsing
 - **No JSON round-trip cloning** -- deep clone uses a visited-object map
 - **No blocking I/O** in the logging hot path
@@ -109,6 +122,8 @@ LoggerAdaptToConsole();
 ```
 
 That's it. Every `console.log()` in your codebase now outputs JSON.
+
+In Node ESM projects, very early startup logs may be buffered briefly while `@packageName` is resolved from `package.json`, then emitted normally.
 
 ### Restore original console (optional)
 
@@ -245,6 +260,30 @@ console.log('{"event":"webhook","source":"stripe","type":"payment.succeeded"}');
 
 Now you can query `@autoParsedJson.source = "stripe"` in your log dashboard instead of doing substring searches on a raw message. This can be disabled with `CONSOLE_LOG_JSON_DISABLE_AUTO_PARSE=true` if you prefer the raw string.
 
+### Reserved `message` handling
+
+The logger treats `message` as a reserved field and handles it consistently:
+
+- if you pass a normal string message, it stays the canonical `message`
+- if a context object also contains `message: "..."`, it is merged into the canonical message with ` - `
+- if a context object contains `message: { ... }`, that object is preserved under `@messageObject`
+
+```js
+console.log('dude', { message: 'hi there', cont: { key: 'value' } });
+```
+
+```json
+{"level":"info","message":"dude - hi there","cont":{"key":"value"},"@timestamp":"..."}
+```
+
+```js
+console.log({ message: { key: 'value' } });
+```
+
+```json
+{"level":"info","message":"<no-message-was-passed-to-console-log>","@messageObject":{"key":"value"},"@timestamp":"..."}
+```
+
 ### Static properties on every log (service name, environment, etc.)
 
 In microservice and containerized environments, SRE teams need to filter logs by service, environment, region, deployment version, or pod name. Rather than adding these to every log call, set them once at startup and they're automatically included on every line.
@@ -337,7 +376,7 @@ CONSOLE_LOG_COLORIZE=true
 
 ## Environment Variable Configuration
 
-All configuration is through environment variables. Set them before calling `LoggerAdaptToConsole()`, or in your `.env` file. This means you can change logging behavior per environment (dev vs. staging vs. production) without touching code.
+All configuration is through environment variables. Set them before calling `LoggerAdaptToConsole()`, or pass `envOptions` directly. This means you can change logging behavior per environment (dev vs. staging vs. production) without touching code.
 
 ### Output formatting
 
@@ -391,13 +430,18 @@ LoggerAdaptToConsole({
   envOptions?: Record<string, string>,   // Configuration flags (same names as env vars, takes precedence)
   onLog?: (jsonString: string, parsedObject: any) => void,  // Interceptor callback (after write)
   onLogTimeout?: number,                 // Max time in ms for onLog callback (default: 5000)
-  transformOutput?: (parsedObject: any) => any  // Modify log object before it's written
+  transformOutput?: (parsedObject: any) => any, // Modify log object before it's written
+  redact?: string[] | {                  // Redact sensitive structured fields
+    paths: string[],
+    censor?: any                         // Default: "Redacted"
+  }
 });
 ```
 
 - **`envOptions`** accepts the same variable names as the environment variables listed in the [Configuration](#environment-variable-configuration) section. Values passed here override `process.env`. This is the recommended way to configure the logger in browser environments where `process.env` is not available.
 - **`transformOutput`** runs synchronously before each log is written. Receives the parsed log object, returns a modified object. Falls back to original output if the callback throws or returns null. See [Transforming log output](#transforming-log-output-with-transformoutput) for details.
-- **`onLog`** runs asynchronously after each log is written. Receives the formatted JSON string and a parsed copy of the log object. If `transformOutput` is also set, `onLog` sees the transformed result. See [Intercepting logs](#intercepting-logs-with-onlog) for details.
+- **`redact`** redacts structured fields by path after `transformOutput` and before the log is written. The shorthand array form uses `"Redacted"` as the replacement value. Invalid redact paths are ignored rather than breaking logging, and the original caller-owned objects are left unchanged.
+- **`onLog`** runs asynchronously after each log is written. Receives the formatted JSON string and a parsed copy of the log object. If `transformOutput` and `redact` are also set, `onLog` sees the final transformed and redacted result. See [Intercepting logs](#intercepting-logs-with-onlog) for details.
 - **`onLogTimeout`** sets the maximum time in milliseconds that the `onLog` callback is allowed to run before being abandoned. Defaults to 5000ms.
 
 ### `LoggerRestoreConsole()`
@@ -464,6 +508,8 @@ Output in the browser DevTools console:
 ```
 
 The `browser` field in `package.json` tells bundlers (webpack, vite, esbuild, etc.) to stub out Node-specific modules automatically. No extra configuration needed.
+
+`@filename` remains best-effort in bundled browser builds. If your app and `console-log-json` end up in one output file, stack traces may no longer expose a reliable boundary between library frames and your code, so the logger may emit `<unknown>` or the bundle path instead of an original source filename.
 
 ### Configuration in the browser
 
@@ -573,7 +619,7 @@ console.log("page loaded", { route: "/dashboard", loadTime: 1.2 });
 |---|---|---|
 | `@filename` | Source file path (e.g. `src/index.ts`) | `<unknown>` (no filesystem) |
 | `@packageName` | From `package.json` | Empty (no `package.json`) |
-| `.env` loading | Automatic via `dotenv` | Skipped (no filesystem) |
+| `.env` loading | Not performed by the library | Not performed by the library |
 | Stack traces | V8 format with source maps | Browser-native format (source maps work in DevTools) |
 | Output destination | `process.stdout` (JSON string) | Browser `console.log` (visible in DevTools) |
 | Environment variables | `process.env` | Set via bundler `define` or manual `process.env` setup |
@@ -678,6 +724,53 @@ LoggerAdaptToConsole({
   }
 });
 ```
+
+### Redacting sensitive fields with `redact`
+
+Use `redact` to replace sensitive structured values with `"Redacted"` before the log is written.
+
+```js
+LoggerAdaptToConsole({
+  redact: ['password', 'headers.authorization', 'payment.card.number']
+});
+
+console.log("checkout failed", {
+  password: "hunter2",
+  headers: { authorization: "Bearer secret-token" },
+  payment: { card: { number: "4111111111111111", brand: "visa" } }
+});
+```
+
+```json
+{"level":"info","message":"checkout failed","password":"Redacted","headers":{"authorization":"Redacted"},"payment":{"card":{"number":"Redacted","brand":"visa"}},"@timestamp":"..."}
+```
+
+For nested arrays and keys with hyphens, use bracket and wildcard syntax:
+
+```js
+LoggerAdaptToConsole({
+  redact: ['items[*].token', 'headers["x-api-key"]']
+});
+```
+
+You can also use the object form to change the replacement value:
+
+```js
+LoggerAdaptToConsole({
+  redact: {
+    paths: ['auth.refreshToken', 'auth.accessToken'],
+    censor: 'MASKED'
+  }
+});
+```
+
+Guidance:
+
+- Use explicit structured paths. This is the established logger pattern and is more predictable than regex redaction over full log strings.
+- Redaction applies to the final log object, so fields added or renamed by `transformOutput` can also be redacted.
+- Redaction does not mutate the original objects you pass into `console.log(...)`.
+- Redaction is crash-safe. If the logger cannot compile or apply a redact path, it ignores the bad path or falls back without throwing into the application.
+- Redaction targets structured fields, not arbitrary substrings inside free-text `message` values.
 
 ---
 

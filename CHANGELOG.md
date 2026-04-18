@@ -1,5 +1,58 @@
 # Changelog
 
+## 6.0.0
+
+### Breaking Changes
+
+- **Automatic `.env` loading has been removed.** The library no longer reads `.env` files or depends on `dotenv`, even optionally. Configuration now comes only from existing `process.env` values or `LoggerAdaptToConsole({ envOptions })`.
+- **`logUsingWinston` has been renamed to `logUsingConsoleJson`.** If you were importing or referencing the old helper directly, update to the new name.
+
+### New Features
+
+- **Built-in structured redaction.** `LoggerAdaptToConsole()` now accepts a Pino-style `redact` option:
+  - shorthand array form: `redact: ['password', 'headers.authorization', 'items[*].token']`
+  - object form with custom censor: `redact: { paths: [...], censor: 'MASKED' }`
+- **Redaction runs on the final output object.** It applies after `transformOutput`, before serialization/write, and `onLog` receives the redacted result.
+- **Minification-resistant caller detection.** `@filename` now prefers V8 callsites, skips internal logger frames by function identity where possible, and falls back to stack parsing only when needed.
+
+### Improvements
+
+- **Jest replaced Mocha.** The test runner is now Jest via `ts-jest`, with a new `jest.config.cjs` and TypeScript configured for Jest globals.
+- **Safer browser/bundled filename behavior.** Documentation now explicitly treats `@filename` as best-effort when a consumer bundles the library and their app into a single browser file.
+- **No more manual `.env` scanning logic.** The legacy `Env.loadDotEnv()` implementation is now a no-op compatibility shim instead of touching the filesystem.
+- **Logging pipeline cleanup.** Internal naming and structure were updated to match the current architecture:
+  - `logUsingConsoleJson` replaces stale Winston naming
+  - final output shaping, transform hooks, redaction, and serialization are now separated more clearly
+- **Test suite cleanup.** Removed confusing no-op `await console.*(...)` usage, converted the helper stack-format test to assertions instead of console output, and added targeted coverage for:
+  - reserved `message` handling through the real `console.log(...)` path
+  - fallback-pattern skipping in browser-style stack parsing
+  - callsite-based filename detection
+  - structured redaction behavior
+- **Stronger configuration coverage.** Added an audit test to ensure every documented `CONSOLE_LOG_*` setting in `README.md` is referenced by the test suite.
+- **More deterministic permutation coverage.** Added a table-driven test that exercises permutations of string messages, errors, one or more context objects, and explicit `{ level: ... }` overrides and asserts a normalized final payload.
+
+### Follow-up Behavior Changes
+
+- **Reserved `message` handling is now consistent.**
+  - `console.log('dude', { message: 'hi there' })` now produces `message: "dude - hi there"`
+  - object-valued `message` is preserved under `@messageObject` instead of being flattened into top-level keys
+  - when only `message: { ... }` is provided, the canonical `message` field remains present with the usual placeholder text
+
+### Bug Fixes
+
+- **`@packageName` now works in Node ESM startup paths.** The logger no longer relies solely on `require(...)` to discover `package.json`, so `LoggerAdaptToConsole()` in `"type": "module"` projects no longer emits the misleading `"<not-yet-set> Please await..."` placeholder.
+- **Early logs are buffered while async package-name lookup completes.** Startup logs emitted immediately after `LoggerAdaptToConsole()` are now replayed once package-name resolution finishes, instead of racing initialization.
+- **Redaction no longer mutates caller-owned input objects.** Sensitive fields are still redacted in the final emitted log object, but the original application objects passed to `console.log(...)` remain unchanged.
+
+### Documentation
+
+- **`ARCHITECTURE.md` was rewritten and updated** to reflect the real implementation instead of the older Winston-based design.
+- **`README.md` now documents**:
+  - Jest-based contributor/test setup
+  - no automatic `.env` loading
+  - best-effort `@filename` semantics in bundled browsers
+  - the new `redact` API with examples and guidance
+
 ## 4.0.0
 
 ### Breaking Changes

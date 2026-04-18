@@ -44,6 +44,7 @@ function deepClone(obj: any, visited: Map<any, string> = new Map(), path: string
  */
 export function safeObjectAssign(target: any, mergeStringProperties: string[], ...sources: any): any {
   const traversedProps = new Set();
+  const mergeStringPropertySet = new Set((mergeStringProperties || []).map((value) => value.toLowerCase()));
 
   function mergeDeep(theTarget: any, depth: number, ...theSources: any): any {
     if (!theSources.length || depth > MAX_DEPTH) {
@@ -64,28 +65,25 @@ export function safeObjectAssign(target: any, mergeStringProperties: string[], .
           if (!theTarget[key]) {
             // noinspection JSUnfilteredForInLoop
             Object.assign(theTarget, { [key]: {} });
-            theTarget = sortObject(theTarget);
           }
           // noinspection JSUnfilteredForInLoop
           mergeDeep(theTarget[key], depth + 1, source[key]);
         } else {
-          const targetMatchedKey = Object.keys(target).find((k) => k.toLowerCase() === key);
+          const targetMatchedKey = findCaseInsensitiveKey(theTarget, key);
           if (
             targetMatchedKey != null &&
-            mergeStringProperties != null &&
-            mergeStringProperties.includes(targetMatchedKey) &&
+            mergeStringPropertySet.has(targetMatchedKey.toLowerCase()) &&
             typeof theTarget[targetMatchedKey] === 'string' &&
-            typeof source[targetMatchedKey] === 'string'
+            typeof source[key] === 'string'
           ) {
             // merge the two strings together
-            theTarget[targetMatchedKey] = `${theTarget[targetMatchedKey]} - ${source[targetMatchedKey]}`;
+            theTarget[targetMatchedKey] = `${theTarget[targetMatchedKey]} - ${source[key]}`;
           } else {
             // noinspection JSUnfilteredForInLoop
             const targetKey = findNonConflictingKeyInTarget(theTarget, key, 0);
             // noinspection JSUnfilteredForInLoop
             Object.assign(theTarget, { [targetKey]: source[key] });
           }
-          theTarget = sortObject(theTarget);
         }
       }
     }
@@ -96,7 +94,7 @@ export function safeObjectAssign(target: any, mergeStringProperties: string[], .
   const targetCopy = deepClone(target);
   const sourcesCopy = deepClone(sources);
 
-  return mergeDeep(targetCopy, 0, ...sourcesCopy);
+  return deepSortObject(mergeDeep(targetCopy, 0, ...sourcesCopy));
 }
 
 function isObject(item: any) {
@@ -107,12 +105,38 @@ function findNonConflictingKeyInTarget(target: any, key: string, depth: number):
   if (depth > MAX_CONFLICT_PREFIX_DEPTH) {
     return `${conflictResolutionPrefix}${key}`;
   }
-  const targetContainsKey = Object.keys(target).find((k) => k.toLowerCase() === key);
+  const targetContainsKey = findCaseInsensitiveKey(target, key);
   if (targetContainsKey != null) {
     return findNonConflictingKeyInTarget(target, `${conflictResolutionPrefix}${key}`, depth + 1);
   } else {
     return key;
   }
+}
+
+function findCaseInsensitiveKey(target: any, key: string): string | undefined {
+  const lowerKey = key.toLowerCase();
+  const keys = Object.keys(target);
+  for (const existingKey of keys) {
+    if (existingKey.toLowerCase() === lowerKey) {
+      return existingKey;
+    }
+  }
+  return undefined;
+}
+
+function deepSortObject(value: any): any {
+  if (Array.isArray(value)) {
+    return value.map((item) => deepSortObject(item));
+  }
+  if (!isObject(value)) {
+    return value;
+  }
+
+  const sortedObject = sortObject(value) as any;
+  for (const key of Object.keys(sortedObject)) {
+    sortedObject[key] = deepSortObject(sortedObject[key]);
+  }
+  return sortedObject;
 }
 
 const conflictResolutionPrefix = '_';

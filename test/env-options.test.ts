@@ -15,7 +15,7 @@ describe('envOptions (programmatic configuration)', () => {
     });
 
     try {
-      await console.log('no timestamp');
+      console.log('no timestamp');
     } finally {
       restoreStdOut(originalWrite);
       LoggerRestoreConsole();
@@ -33,7 +33,7 @@ describe('envOptions (programmatic configuration)', () => {
     });
 
     try {
-      await console.log('no filename');
+      console.log('no filename');
     } finally {
       restoreStdOut(originalWrite);
       LoggerRestoreConsole();
@@ -50,7 +50,7 @@ describe('envOptions (programmatic configuration)', () => {
     });
 
     try {
-      await console.log('no package');
+      console.log('no package');
     } finally {
       restoreStdOut(originalWrite);
       LoggerRestoreConsole();
@@ -67,7 +67,7 @@ describe('envOptions (programmatic configuration)', () => {
     });
 
     try {
-      await console.log('no stack');
+      console.log('no stack');
     } finally {
       restoreStdOut(originalWrite);
       LoggerRestoreConsole();
@@ -90,7 +90,7 @@ describe('envOptions (programmatic configuration)', () => {
     });
 
     try {
-      await console.log('nested', { key: 'value' });
+      console.log('nested', { key: 'value' });
     } finally {
       restoreStdOut(originalWrite);
       LoggerRestoreConsole();
@@ -113,7 +113,7 @@ describe('envOptions (programmatic configuration)', () => {
     });
 
     try {
-      await console.log('minimal');
+      console.log('minimal');
     } finally {
       restoreStdOut(originalWrite);
       LoggerRestoreConsole();
@@ -133,7 +133,7 @@ describe('envOptions (programmatic configuration)', () => {
     });
 
     try {
-      await console.log('override test');
+      console.log('override test');
     } finally {
       restoreStdOut(originalWrite);
       LoggerRestoreConsole();
@@ -156,7 +156,7 @@ describe('envOptions (programmatic configuration)', () => {
     });
 
     try {
-      await console.log('combined', { action: 'test' });
+      console.log('combined', { action: 'test' });
     } finally {
       restoreStdOut(originalWrite);
       LoggerRestoreConsole();
@@ -176,7 +176,7 @@ describe('envOptions (programmatic configuration)', () => {
     LoggerAdaptToConsole();
 
     try {
-      await console.log('default');
+      console.log('default');
     } finally {
       restoreStdOut(originalWrite);
       LoggerRestoreConsole();

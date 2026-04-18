@@ -13,7 +13,7 @@ describe('when a request-like error occurs', function () {
       const simulatedError: any = new Error('Error: getaddrinfo ENOTFOUND 123.xynon-existante.com');
       simulatedError.name = 'RequestError';
       simulatedError.options = { uri: 'https://123.xynon-existante.com' };
-      await console.log(simulatedError);
+      console.log(simulatedError);
     } finally {
       restoreStdOut(originalWrite);
       LoggerRestoreConsole();

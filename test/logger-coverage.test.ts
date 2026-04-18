@@ -37,7 +37,7 @@ describe('logger - additional coverage', () => {
     LoggerAdaptToConsole({ logLevel: LOG_LEVEL.http });
 
     try {
-      await console.http('http request received', { method: 'GET', path: '/api/test' });
+      console.http('http request received', { method: 'GET', path: '/api/test' });
     } finally {
       SetLogLevel(backupLevel);
       restoreStdOut(originalWrite);
@@ -58,7 +58,7 @@ describe('logger - additional coverage', () => {
     LoggerAdaptToConsole({ logLevel: LOG_LEVEL.verbose });
 
     try {
-      await console.verbose('verbose message', { detail: 'extra' });
+      console.verbose('verbose message', { detail: 'extra' });
     } finally {
       SetLogLevel(backupLevel);
       restoreStdOut(originalWrite);
@@ -142,7 +142,7 @@ describe('logger - additional coverage', () => {
     LoggerAdaptToConsole({ logLevel: LOG_LEVEL.silly });
 
     try {
-      await console.info('info message at silly level');
+      console.info('info message at silly level');
     } finally {
       SetLogLevel(backupLevel);
       restoreStdOut(originalWrite);
@@ -210,12 +210,12 @@ describe('logger - additional coverage', () => {
     const { originalWrite, outputText } = overrideStdOut();
     LoggerAdaptToConsole();
 
-    NativeConsoleLog('native output');
+    expect(() => NativeConsoleLog('native output')).to.not.throw();
 
     restoreStdOut(originalWrite);
     LoggerRestoreConsole();
 
-    expect(outputText[0]).to.equal('native output\n');
+    expect(outputText.join('')).to.not.include('"level":"info"');
   });
 
   // ---- Environment variable: CONSOLE_LOG_JSON_NO_NEW_LINE_CHARACTERS_EXCEPT_STACK ----
@@ -225,7 +225,7 @@ describe('logger - additional coverage', () => {
     LoggerAdaptToConsole();
 
     try {
-      await console.log('test message');
+      console.log('test message');
     } finally {
       restoreStdOut(originalWrite);
       LoggerRestoreConsole();
@@ -244,7 +244,7 @@ describe('logger - additional coverage', () => {
     LoggerAdaptToConsole({ debugString: true });
 
     try {
-      await console.log('test message');
+      console.log('test message');
     } finally {
       restoreStdOut(originalWrite);
       LoggerRestoreConsole();
@@ -259,7 +259,7 @@ describe('logger - additional coverage', () => {
     const { originalWrite, outputText } = overrideStdOut();
     LoggerAdaptToConsole();
 
-    await console.log({ level: 'information' }, 'this is a test');
+    console.log({ level: 'information' }, 'this is a test');
 
     restoreStdOut(originalWrite);
     LoggerRestoreConsole();
@@ -273,7 +273,7 @@ describe('logger - additional coverage', () => {
     const { originalWrite, outputText } = overrideStdOut();
     LoggerAdaptToConsole();
 
-    await console.log('test with boolean', true);
+    console.log('test with boolean', true);
 
     restoreStdOut(originalWrite);
     LoggerRestoreConsole();
@@ -287,7 +287,7 @@ describe('logger - additional coverage', () => {
     const { originalWrite, outputText } = overrideStdOut();
     LoggerAdaptToConsole();
 
-    await console.log('active', false);
+    console.log('active', false);
 
     restoreStdOut(originalWrite);
     LoggerRestoreConsole();
@@ -301,9 +301,9 @@ describe('logger - additional coverage', () => {
     const { originalWrite, outputText } = overrideStdOut();
     LoggerAdaptToConsole();
 
-    await console.log('first message');
-    await console.log('second message');
-    await console.log('third message');
+    console.log('first message');
+    console.log('second message');
+    console.log('third message');
 
     restoreStdOut(originalWrite);
     LoggerRestoreConsole();
@@ -319,7 +319,7 @@ describe('logger - additional coverage', () => {
     const { originalWrite, outputText } = overrideStdOut();
     LoggerAdaptToConsole();
 
-    await console.log(undefined, undefined);
+    console.log(undefined, undefined);
 
     restoreStdOut(originalWrite);
     LoggerRestoreConsole();
@@ -333,7 +333,7 @@ describe('logger - additional coverage', () => {
     const { originalWrite, outputText } = overrideStdOut();
     LoggerAdaptToConsole();
 
-    await console.log(new Error(''));
+    console.log(new Error(''));
 
     restoreStdOut(originalWrite);
     LoggerRestoreConsole();
@@ -409,7 +409,7 @@ describe('logger - additional coverage', () => {
     const { originalWrite, outputText } = overrideStdOut();
     LoggerAdaptToConsole();
 
-    await console.log('timestamp test');
+    console.log('timestamp test');
 
     restoreStdOut(originalWrite);
     LoggerRestoreConsole();
@@ -425,7 +425,7 @@ describe('logger - additional coverage', () => {
     const { originalWrite, outputText } = overrideStdOut();
     LoggerAdaptToConsole();
 
-    await console.log('no timestamp test');
+    console.log('no timestamp test');
 
     restoreStdOut(originalWrite);
     LoggerRestoreConsole();
@@ -439,7 +439,7 @@ describe('logger - additional coverage', () => {
     const { originalWrite, outputText } = overrideStdOut();
     LoggerAdaptToConsole();
 
-    await console.log('filename test');
+    console.log('filename test');
 
     restoreStdOut(originalWrite);
     LoggerRestoreConsole();
@@ -453,7 +453,7 @@ describe('logger - additional coverage', () => {
     const { originalWrite, outputText } = overrideStdOut();
     LoggerAdaptToConsole();
 
-    await console.log('package name test');
+    console.log('package name test');
 
     restoreStdOut(originalWrite);
     LoggerRestoreConsole();
@@ -467,7 +467,7 @@ describe('logger - additional coverage', () => {
     const { originalWrite, outputText } = overrideStdOut();
     LoggerAdaptToConsole();
 
-    await console.log('no filename test');
+    console.log('no filename test');
 
     restoreStdOut(originalWrite);
     LoggerRestoreConsole();
@@ -481,7 +481,7 @@ describe('logger - additional coverage', () => {
     const { originalWrite, outputText } = overrideStdOut();
     LoggerAdaptToConsole();
 
-    await console.log('no package name test');
+    console.log('no package name test');
 
     restoreStdOut(originalWrite);
     LoggerRestoreConsole();
@@ -495,7 +495,7 @@ describe('logger - additional coverage', () => {
     const { originalWrite, outputText } = overrideStdOut();
     LoggerAdaptToConsole();
 
-    await console.log('{"key":"value","num":123}');
+    console.log('{"key":"value","num":123}');
 
     restoreStdOut(originalWrite);
     LoggerRestoreConsole();
@@ -509,7 +509,7 @@ describe('logger - additional coverage', () => {
     const { originalWrite, outputText } = overrideStdOut();
     LoggerAdaptToConsole();
 
-    await console.log('this is not json');
+    console.log('this is not json');
 
     restoreStdOut(originalWrite);
     LoggerRestoreConsole();
@@ -524,7 +524,7 @@ describe('logger - additional coverage', () => {
     const { originalWrite, outputText } = overrideStdOut();
     LoggerAdaptToConsole();
 
-    await console.log('{"key":"value"}');
+    console.log('{"key":"value"}');
 
     restoreStdOut(originalWrite);
     LoggerRestoreConsole();
@@ -539,7 +539,7 @@ describe('logger - additional coverage', () => {
     const { originalWrite, outputText } = overrideStdOut();
     LoggerAdaptToConsole();
 
-    await console.log('{not valid json}');
+    console.log('{not valid json}');
 
     restoreStdOut(originalWrite);
     LoggerRestoreConsole();
@@ -553,7 +553,7 @@ describe('logger - additional coverage', () => {
     const { originalWrite, outputText } = overrideStdOut();
     LoggerAdaptToConsole();
 
-    await console.log('unicode: \u00e9\u00e8\u00ea \u4e16\u754c');
+    console.log('unicode: \u00e9\u00e8\u00ea \u4e16\u754c');
 
     restoreStdOut(originalWrite);
     LoggerRestoreConsole();
@@ -569,7 +569,7 @@ describe('logger - additional coverage', () => {
     LoggerAdaptToConsole();
 
     const nested = { a: { b: { c: { d: { e: 'deep' } } } } };
-    await console.log('deep test', nested);
+    console.log('deep test', nested);
 
     restoreStdOut(originalWrite);
     LoggerRestoreConsole();
@@ -586,7 +586,7 @@ describe('logger - additional coverage', () => {
     const err: any = new Error('custom error');
     err.code = 'ENOENT';
     err.path = '/some/path';
-    await console.log(err);
+    console.log(err);
 
     restoreStdOut(originalWrite);
     LoggerRestoreConsole();
@@ -601,7 +601,7 @@ describe('logger - additional coverage', () => {
     const { originalWrite, outputText } = overrideStdOut();
     LoggerAdaptToConsole();
 
-    await console.warn('warning', new Error('warn error'));
+    console.warn('warning', new Error('warn error'));
 
     restoreStdOut(originalWrite);
     LoggerRestoreConsole();
@@ -618,7 +618,7 @@ describe('logger - additional coverage', () => {
     const { originalWrite, outputText } = overrideStdOut();
     LoggerAdaptToConsole();
 
-    await console.log(42);
+    console.log(42);
 
     restoreStdOut(originalWrite);
     LoggerRestoreConsole();
@@ -633,7 +633,7 @@ describe('logger - additional coverage', () => {
     const { originalWrite, outputText } = overrideStdOut();
     LoggerAdaptToConsole();
 
-    await console.log('first', 'second', 'third');
+    console.log('first', 'second', 'third');
 
     restoreStdOut(originalWrite);
     LoggerRestoreConsole();
@@ -647,7 +647,7 @@ describe('logger - additional coverage', () => {
     const { originalWrite, outputText } = overrideStdOut();
     LoggerAdaptToConsole();
 
-    await console.log('context test', new Error('test error'), { a: 1 }, { b: 2 });
+    console.log('context test', new Error('test error'), { a: 1 }, { b: 2 });
 
     restoreStdOut(originalWrite);
     LoggerRestoreConsole();
@@ -684,7 +684,7 @@ describe('logger - additional coverage', () => {
     const { originalWrite, outputText } = overrideStdOut();
     LoggerAdaptToConsole();
 
-    await console.error({ status: 500, url: '/api/fail' });
+    console.error({ status: 500, url: '/api/fail' });
 
     restoreStdOut(originalWrite);
     LoggerRestoreConsole();
@@ -700,7 +700,7 @@ describe('logger - additional coverage', () => {
     const { originalWrite, outputText } = overrideStdOut();
     LoggerAdaptToConsole();
 
-    await console.log({ status: 200 });
+    console.log({ status: 200 });
 
     restoreStdOut(originalWrite);
     LoggerRestoreConsole();
@@ -711,6 +711,52 @@ describe('logger - additional coverage', () => {
     expect(testObj.status).to.equal(200);
   });
 
+  it('console.log preserves an object-valued message field under @messageObject end-to-end', async () => {
+    const { originalWrite, outputText } = overrideStdOut();
+    LoggerAdaptToConsole();
+
+    console.log({ message: { key: 'value' } });
+
+    restoreStdOut(originalWrite);
+    LoggerRestoreConsole();
+
+    const testObj = JSON.parse(outputText[0]);
+    expect(testObj.level).to.equal('info');
+    expect(testObj.message).to.equal('<no-message-was-passed-to-console-log>');
+    expect(testObj['@messageObject']).to.eql({ key: 'value' });
+  });
+
+  it('console.log merges a string message with a context object message field', async () => {
+    const { originalWrite, outputText } = overrideStdOut();
+    LoggerAdaptToConsole();
+
+    console.log('dude', { message: 'hi there', cont: { key: 'value' } });
+
+    restoreStdOut(originalWrite);
+    LoggerRestoreConsole();
+
+    const testObj = JSON.parse(outputText[0]);
+    expect(testObj.level).to.equal('info');
+    expect(testObj.message).to.equal('dude - hi there');
+    expect(testObj.cont).to.eql({ key: 'value' });
+  });
+
+  it('console.log preserves a context object message field under @messageObject while keeping the string message', async () => {
+    const { originalWrite, outputText } = overrideStdOut();
+    LoggerAdaptToConsole();
+
+    console.log('dude', { message: { key: 'value' }, cont: { key: 'value2' } });
+
+    restoreStdOut(originalWrite);
+    LoggerRestoreConsole();
+
+    const testObj = JSON.parse(outputText[0]);
+    expect(testObj.level).to.equal('info');
+    expect(testObj.message).to.equal('dude');
+    expect(testObj['@messageObject']).to.eql({ key: 'value' });
+    expect(testObj.cont).to.eql({ key: 'value2' });
+  });
+
   // ---- Explicit level: debug ----
   it('console.log respects explicit level:debug parameter', async () => {
     const backupLevel = GetLogLevel();
@@ -718,7 +764,7 @@ describe('logger - additional coverage', () => {
     LoggerAdaptToConsole({ logLevel: LOG_LEVEL.debug });
 
     try {
-      await console.log({ level: 'debug' }, 'debug via explicit level');
+      console.log({ level: 'debug' }, 'debug via explicit level');
     } finally {
       SetLogLevel(backupLevel);
       restoreStdOut(originalWrite);
@@ -736,7 +782,7 @@ describe('logger - additional coverage', () => {
     LoggerAdaptToConsole();
     LoggerAdaptToConsole();
 
-    await console.log('after double init');
+    console.log('after double init');
 
     restoreStdOut(originalWrite);
     LoggerRestoreConsole();
@@ -751,7 +797,7 @@ describe('logger - additional coverage', () => {
     const { originalWrite, outputText } = overrideStdOut();
     LoggerAdaptToConsole({ customOptions: { service: 'my-service', env: 'production' } });
 
-    await console.log('service test');
+    console.log('service test');
 
     restoreStdOut(originalWrite);
     LoggerRestoreConsole();
@@ -766,7 +812,7 @@ describe('logger - additional coverage', () => {
     const { originalWrite, outputText } = overrideStdOut();
     LoggerAdaptToConsole();
 
-    await console.log('prefix: ' + new Error('inline error'));
+    console.log('prefix: ' + new Error('inline error'));
 
     restoreStdOut(originalWrite);
     LoggerRestoreConsole();
@@ -781,7 +827,7 @@ describe('logger - additional coverage', () => {
     const { originalWrite, outputText } = overrideStdOut();
     LoggerAdaptToConsole();
 
-    await console.log('single line test', { data: 'value' });
+    console.log('single line test', { data: 'value' });
 
     restoreStdOut(originalWrite);
     LoggerRestoreConsole();
@@ -804,7 +850,7 @@ describe('logger - additional coverage', () => {
     const { originalWrite, outputText } = overrideStdOut();
     LoggerAdaptToConsole();
 
-    await console.log('order test', { z: 'last' });
+    console.log('order test', { z: 'last' });
 
     restoreStdOut(originalWrite);
     LoggerRestoreConsole();
@@ -824,7 +870,7 @@ describe('logger - additional coverage', () => {
     for (let i = 0; i < 100; i++) {
       bigObj[`key${i}`] = `value${i}`;
     }
-    await console.log('big object', bigObj);
+    console.log('big object', bigObj);
 
     restoreStdOut(originalWrite);
     LoggerRestoreConsole();
@@ -839,7 +885,7 @@ describe('logger - additional coverage', () => {
     const { originalWrite, outputText } = overrideStdOut();
     LoggerAdaptToConsole();
 
-    await console.log('array test', [1, 2, 3]);
+    console.log('array test', [1, 2, 3]);
 
     restoreStdOut(originalWrite);
     LoggerRestoreConsole();

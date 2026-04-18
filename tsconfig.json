@@ -15,6 +15,7 @@
     "strictPropertyInitialization": true,
     "esModuleInterop": true,
     "skipLibCheck": true,
+    "types": ["node", "jest"],
 
     "rootDir": ".",
     "module": "commonjs", // Use commonjs for compatibility

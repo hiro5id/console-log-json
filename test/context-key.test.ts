@@ -33,7 +33,7 @@ describe('CONSOLE_LOG_JSON_CONTEXT_KEY', () => {
     LoggerAdaptToConsole();
 
     try {
-      await console.log('hello', { a: 1, b: 2 });
+      console.log('hello', { a: 1, b: 2 });
     } finally {
       restoreStdOut(originalWrite);
       LoggerRestoreConsole();
@@ -58,7 +58,7 @@ describe('CONSOLE_LOG_JSON_CONTEXT_KEY', () => {
     LoggerAdaptToConsole();
 
     try {
-      await console.log('hello', { a: 1 }, { b: 2 }, { c: 3 });
+      console.log('hello', { a: 1 }, { b: 2 }, { c: 3 });
     } finally {
       restoreStdOut(originalWrite);
       LoggerRestoreConsole();
@@ -82,7 +82,7 @@ describe('CONSOLE_LOG_JSON_CONTEXT_KEY', () => {
     LoggerAdaptToConsole();
 
     try {
-      await console.log('Hello', { a: 1 }, { a: 2 }, { a: 3 }, 'World', { a: 4 });
+      console.log('Hello', { a: 1 }, { a: 2 }, { a: 3 }, 'World', { a: 4 });
     } finally {
       restoreStdOut(originalWrite);
       LoggerRestoreConsole();
@@ -111,7 +111,7 @@ describe('CONSOLE_LOG_JSON_CONTEXT_KEY', () => {
     LoggerAdaptToConsole();
 
     try {
-      await console.log('test', { key: 'value' });
+      console.log('test', { key: 'value' });
     } finally {
       restoreStdOut(originalWrite);
       LoggerRestoreConsole();
@@ -130,7 +130,7 @@ describe('CONSOLE_LOG_JSON_CONTEXT_KEY', () => {
     LoggerAdaptToConsole();
 
     try {
-      await console.log('test', { userKey: 'userVal' });
+      console.log('test', { userKey: 'userVal' });
     } finally {
       restoreStdOut(originalWrite);
       LoggerRestoreConsole();
@@ -154,7 +154,7 @@ describe('CONSOLE_LOG_JSON_CONTEXT_KEY', () => {
     LoggerAdaptToConsole();
 
     try {
-      await console.log('test', { a: 1, b: 2 });
+      console.log('test', { a: 1, b: 2 });
     } finally {
       restoreStdOut(originalWrite);
       LoggerRestoreConsole();
@@ -177,7 +177,7 @@ describe('CONSOLE_LOG_JSON_CONTEXT_KEY', () => {
     LoggerAdaptToConsole();
 
     try {
-      await console.error('failed', new Error('boom'), { retryCount: 3 });
+      console.error('failed', new Error('boom'), { retryCount: 3 });
     } finally {
       restoreStdOut(originalWrite);
       LoggerRestoreConsole();
@@ -204,7 +204,7 @@ describe('CONSOLE_LOG_JSON_CONTEXT_KEY', () => {
     LoggerAdaptToConsole();
 
     try {
-      await console.warn('low disk', { available: '2GB' });
+      console.warn('low disk', { available: '2GB' });
     } finally {
       restoreStdOut(originalWrite);
       LoggerRestoreConsole();
@@ -225,7 +225,7 @@ describe('CONSOLE_LOG_JSON_CONTEXT_KEY', () => {
     LoggerAdaptToConsole();
 
     try {
-      await console.log('just a message');
+      console.log('just a message');
     } finally {
       restoreStdOut(originalWrite);
       LoggerRestoreConsole();
@@ -247,7 +247,7 @@ describe('CONSOLE_LOG_JSON_CONTEXT_KEY', () => {
     LoggerAdaptToConsole({ customOptions: { service: 'my-api' } });
 
     try {
-      await console.log('request', { path: '/api/health' });
+      console.log('request', { path: '/api/health' });
     } finally {
       restoreStdOut(originalWrite);
       LoggerRestoreConsole();

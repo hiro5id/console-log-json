@@ -11,9 +11,6 @@
   "customizations": {
     "vscode": {
       "extensions": [
-        "VisualStudioExptTeam.vscodeintellicode",
-        "VisualStudioExptTeam.intellicode-api-usage-examples",
-        "VisualStudioExptTeam.vscodeintellicode-completions",
         "mintlify.document",
         "mgmcdermott.vscode-language-babel",
         "shakram02.bash-beautify",
@@ -64,11 +61,13 @@
         "yzhang.markdown-all-in-one",
         "jiejie.Lua-Nginx-Snippets",
         "ritwickdey.LiveServer",
-        "kavod-io.vscode-jest-test-adapter",
         "nilobarp.javascript-test-runner",
         "vespa-dev-works.jestRunIt",
         "andys8.jest-snippets",
-        "trunk.io"
+        "trunk.io",
+        "Orta.vscode-jest",
+        "GitHub.copilot-chat",
+        "openai.chatgpt"
       ]
     }
   }
