@@ -1,14 +1,7 @@
 import { FormatStackTrace } from './format-stack-trace';
 import { NewLineCharacter } from './new-line-character';
 
-const INTERNAL_STACK_PATTERNS = [
-  /captureFileInfo/,
-  /emitConsoleJsonLog/,
-  /logUsingConsoleJson/,
-  /LoggerAdaptToConsole\.console\./,
-  /getCallingFilename/,
-  /getCallStack/,
-];
+const INTERNAL_STACK_PATTERNS = [/captureFileInfo/, /emitConsoleJsonLog/, /logUsingConsoleJson/, /LoggerAdaptToConsole\.console\./, /getCallingFilename/, /getCallStack/];
 const INTERNAL_STACK_PATH_HINTS = ['/node_modules/console-log-json/', '/console-log-json/dist/', '/console-log-json/src/'];
 
 /**
