@@ -327,7 +327,7 @@ const Logger = {
           if (key === 'message') {
             // Replicate Winston behavior: concatenate error.message onto info.message
             if (errorObject.message && errorObject.message !== message) {
-              info.message = `${message} ${errorObject.message}`;
+              info.message = message.length > 0 ? `${message} ${errorObject.message}` : errorObject.message;
             }
           } else if (!(key in info)) {
             info[key] = (errorObject as any)[key];

@@ -1,5 +1,15 @@
 # Changelog
 
+## 6.2.1
+
+### Bug Fixes
+
+- **Logging a bare `Error` no longer prefixes the message with a dangling hyphen.** Calls like `console.error(new Error('bang'))` and `console.log(new Error('bang'))` now emit `message: "bang"` instead of `message: "  - bang"`.
+
+### Tests
+
+- **Added regression coverage for bare-error logging without extra context.** Updated error-only expectations and added an explicit end-to-end console-path test to ensure the emitted `message` stays clean when no leading string message is provided.
+
 ## 6.2.0
 
 ### Bug Fixes

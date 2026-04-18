@@ -409,7 +409,7 @@ describe('logger', () => {
     console.log(outputText[0]);
     const testObj = JSON.parse(outputText[0]);
     expect(testObj.level).eql('error');
-    expect(testObj.message).eql('  - error message 1 - this is a test string');
+    expect(testObj.message).eql('error message 1 - this is a test string');
     expect(testObj.errCallStack.startsWith('Error: error message 1 - this is a test string\n    at')).eql(true, 'stack starts with specific message');
   });
 
@@ -437,7 +437,7 @@ describe('logger', () => {
       '@errorObjectName': 'Error',
       '@packageName': 'console-log-json',
       level: 'error',
-      message: '  - error message 2 - this is a test string',
+      message: 'error message 2 - this is a test string',
     });
 
     const testObj2 = JSON.parse(outputText[0]);
@@ -804,7 +804,7 @@ describe('logger', () => {
     const testObj = JSON.parse(outputText[0]);
     expect(testObj.level).eql('error');
     expect(testObj['@filename']).include('/test/logger.test');
-    expect(testObj.message).eql('  - error-message');
+    expect(testObj.message).eql('error-message');
   });
 
   it('log works with self referencing properties', async () => {
@@ -834,7 +834,7 @@ describe('logger', () => {
     const testObj = JSON.parse(outputText[1]);
     expect(testObj.level).eql('error');
     expect(testObj['@filename']).include('/test/logger.test');
-    expect(testObj.message).eql('  - Error2');
+    expect(testObj.message).eql('Error2');
     expect(testObj.self.self).eql(undefined);
   });
 
@@ -1043,7 +1043,22 @@ describe('logger', () => {
     const testObj = JSON.parse(outputText[0]);
     expect(testObj.level).eql('error');
     expect(testObj['@filename']).include('/test/logger.test');
-    expect(testObj.message).eql('  - Timed out in 20000ms. - Error while querying DB2 database');
+    expect(testObj.message).eql('Timed out in 20000ms. - Error while querying DB2 database');
+  });
+
+  it('console.error with only an error does not prefix the message with a hyphen', async () => {
+    const { originalWrite, outputText } = overrideStdOut();
+    LoggerAdaptToConsole();
+
+    console.error(new Error('bang'));
+
+    restoreStdOut(originalWrite);
+    LoggerRestoreConsole();
+
+    const testObj = JSON.parse(outputText[0]);
+    expect(testObj.level).eql('error');
+    expect(testObj['@filename']).include('/test/logger.test');
+    expect(testObj.message).eql('bang');
   });
 
   it('extra context object is not flattened when nested', async () => {

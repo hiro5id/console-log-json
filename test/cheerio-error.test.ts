@@ -20,7 +20,7 @@ describe('when a request-like error occurs', function () {
     }
 
     expect(JSON.parse(outputText[0]).level).eql('error');
-    expect(JSON.parse(outputText[0]).message).eql('  - Error: getaddrinfo ENOTFOUND 123.xynon-existante.com');
+    expect(JSON.parse(outputText[0]).message).eql('Error: getaddrinfo ENOTFOUND 123.xynon-existante.com');
     expect(JSON.parse(outputText[0]).errCallStack).contain('123.xynon-existante.com');
   });
 });
