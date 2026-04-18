@@ -8,6 +8,7 @@ type AnyFunction = (...args: any[]) => any;
 // while function identity helps when library helpers are bundled into one file.
 const internalModuleDirs = detectInternalModuleDirs();
 const internalCallerFunctions = new Set<AnyFunction>();
+const INTERNAL_PATH_HINTS = ['/node_modules/console-log-json/', '/console-log-json/dist/', '/console-log-json/src/'];
 
 // Fallback patterns for when __filename is not available (browser/ESM).
 // These match function names and will work in unminified code.
@@ -124,6 +125,12 @@ function isInternalFilePath(text: string): boolean {
   const normalizedText = normalizeSlashes(text);
   for (const dir of internalModuleDirs) {
     if (normalizedText.includes(dir)) {
+      return true;
+    }
+  }
+
+  for (const hint of INTERNAL_PATH_HINTS) {
+    if (normalizedText.includes(hint)) {
       return true;
     }
   }

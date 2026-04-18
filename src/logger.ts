@@ -651,7 +651,7 @@ let packageName: string = '';
 let customOptionsReference: { [key: string]: any } | null = null;
 let customOptionKeys: string[] = [];
 type PackageNameState = 'uninitialized' | 'pending' | 'ready' | 'unavailable';
-type PendingLogEntry = { args: any[]; level: LOG_LEVEL; customOptions?: object };
+type PendingLogEntry = { args: any[]; level: LOG_LEVEL; customOptions?: object; fileInfo?: any | null };
 let packageNameState: PackageNameState = 'uninitialized';
 let packageNameInitVersion = 0;
 let pendingLogs: PendingLogEntry[] = [];
@@ -704,7 +704,7 @@ function flushPendingLogs(): void {
   pendingLogs = [];
 
   for (const pendingLog of logsToFlush) {
-    emitConsoleJsonLog(pendingLog.args, pendingLog.level, pendingLog.customOptions);
+    emitConsoleJsonLog(pendingLog.args, pendingLog.level, pendingLog.customOptions, pendingLog.fileInfo);
   }
 }
 
@@ -718,7 +718,30 @@ function maybeAddPackageName(args: any[]): void {
   }
 }
 
-function emitConsoleJsonLog(args: any[], level: LOG_LEVEL, customOptions?: object) {
+function captureFileInfo(): any | null {
+  // Skip entirely when both features are suppressed — avoids the expensive new Error() call
+  if (envConfig.noFileName && envConfig.noStackForNonError) {
+    return null;
+  }
+
+  try {
+    const sharedStack = new Error().stack ?? '';
+    const name = !envConfig.noFileName ? getCallingFilename(sharedStack) : null;
+    const callStack = !envConfig.noStackForNonError ? getCallStackFromString(sharedStack) : undefined;
+    const fileInfo: any = {};
+    if (!envConfig.noFileName) {
+      fileInfo['@filename'] = name || '<unknown>';
+    }
+    if (!envConfig.noStackForNonError) {
+      fileInfo['@logCallStack'] = callStack;
+    }
+    return fileInfo;
+  } catch (err: any) {
+    return { '@filename': `<error>:${err.message}`, '@logCallStack': err.message };
+  }
+}
+
+function emitConsoleJsonLog(args: any[], level: LOG_LEVEL, customOptions?: object, fileInfo?: any | null) {
   maybeAddPackageName(args);
 
   // log debug logging if needed
@@ -739,24 +762,9 @@ function emitConsoleJsonLog(args: any[], level: LOG_LEVEL, customOptions?: objec
     args.push({ _loggerDebug: `err ${err.message}` });
   }
 
-  // Discover calling filename and call stack from a single Error object
-  // Skip entirely when both features are suppressed — avoids the expensive new Error() call
-  if (!envConfig.noFileName || !envConfig.noStackForNonError) {
-    try {
-      const sharedStack = new Error().stack ?? '';
-      const name = !envConfig.noFileName ? getCallingFilename(sharedStack) : null;
-      const callStack = !envConfig.noStackForNonError ? getCallStackFromString(sharedStack) : undefined;
-      const fileInfo: any = {};
-      if (!envConfig.noFileName) {
-        fileInfo['@filename'] = name || '<unknown>';
-      }
-      if (!envConfig.noStackForNonError) {
-        fileInfo['@logCallStack'] = callStack;
-      }
-      args.push(fileInfo);
-    } catch (err: any) {
-      args.push({ '@filename': `<error>:${err.message}`, '@logCallStack': err.message });
-    }
+  const effectiveFileInfo = fileInfo !== undefined ? fileInfo : captureFileInfo();
+  if (effectiveFileInfo != null) {
+    args.push(effectiveFileInfo);
   }
 
   // Custom options
@@ -803,6 +811,7 @@ export function logUsingConsoleJson(args: any[], level: LOG_LEVEL, customOptions
       args: args.slice(),
       level,
       customOptions,
+      fileInfo: captureFileInfo(),
     });
     return;
   }

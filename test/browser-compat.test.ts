@@ -163,6 +163,17 @@ describe('Browser compatibility', () => {
       expect(name).to.include('bundle.min.js');
     });
 
+    it('skips installed package frames and returns the first application frame', () => {
+      const stack =
+        'Error\n' +
+        '    at emitConsoleJsonLog (file:///home/projects/app/node_modules/console-log-json/dist/esm/index.mjs:3717:33)\n' +
+        '    at logUsingConsoleJson (file:///home/projects/app/node_modules/console-log-json/dist/esm/index.mjs:3767:3)\n' +
+        '    at LoggerAdaptToConsole.console.log (file:///home/projects/app/node_modules/console-log-json/dist/esm/index.mjs:3601:12)\n' +
+        '    at file:///home/projects/app/index.js:3:9';
+      const name = getCallingFilenameFromStack(stack);
+      expect(name).to.equal('home/projects/app/index.js');
+    });
+
     it('returns null when stack has no parseable frames', () => {
       const name = getCallingFilenameFromStack('Error\n    no valid frames here');
       expect(name).to.equal(null);
@@ -214,6 +225,28 @@ describe('Browser compatibility', () => {
     it('handles empty stack string', () => {
       const result = getCallStackFromString('');
       expect(result).to.be.a('string');
+    });
+
+    it('removes a bare Error header line', () => {
+      const stack = 'Error\n    at file:///home/projects/app/index.js:3:9\n    at ModuleJob.run (node:internal/modules/esm/module_job:222:25)';
+      const result = getCallStackFromString(stack);
+      expect(result.startsWith('Error')).to.equal(false);
+      expect(result).to.include('index.js:3:9');
+    });
+
+    it('skips leading internal logger helper frames', () => {
+      const stack =
+        'Error\n' +
+        '    at captureFileInfo (/home/projects/console-log-json/src/logger.ts:728:25)\n' +
+        '    at emitConsoleJsonLog (/home/projects/console-log-json/src/logger.ts:765:65)\n' +
+        '    at logUsingConsoleJson (/home/projects/console-log-json/src/logger.ts:819:3)\n' +
+        '    at file:///home/projects/app/index.js:3:9\n' +
+        '    at ModuleJob.run (node:internal/modules/esm/module_job:222:25)';
+      const result = getCallStackFromString(stack);
+      expect(result).to.include('index.js:3:9');
+      expect(result).to.not.include('captureFileInfo');
+      expect(result).to.not.include('emitConsoleJsonLog');
+      expect(result).to.not.include('logUsingConsoleJson');
     });
   });
 

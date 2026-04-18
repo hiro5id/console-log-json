@@ -1,5 +1,19 @@
 # Changelog
 
+## 6.2.0
+
+### Bug Fixes
+
+- **Buffered startup logs now preserve original caller metadata.** When an early log is held briefly for async package-name lookup, its `@filename` and `@logCallStack` are captured at the original call site instead of being recomputed later during flush.
+- **Node ESM caller detection now skips packaged library frames more reliably.** `@filename` no longer falls back to `node_modules/console-log-json/dist/esm/index.mjs` in the reported startup case when the first real external caller is the consumer's app entry file.
+- **Bare `Error` stack headers are now stripped from non-error call stacks.** `@logCallStack` no longer degrades to a useless literal `"Error"` when the runtime emits a header line without a trailing colon.
+- **Internal helper frames are omitted from `@logCallStack`.** Non-error call stacks now start at the consumer-visible caller instead of internal helpers like `captureFileInfo(...)`, `emitConsoleJsonLog(...)`, or `logUsingConsoleJson(...)`.
+
+### Tests
+
+- **Added end-to-end regression coverage for the reported Node ESM startup case.** The test suite now verifies `@packageName`, `@filename`, and `@logCallStack` behavior with a temporary ESM consumer setup that mirrors the installed package layout under `node_modules/console-log-json/dist/esm/index.mjs`.
+- **Added stack-parser regressions for packaged ESM frames and internal helper trimming.** Browser/stack compatibility tests now cover installed-package frame skipping, bare `Error` headers, and removal of leading internal logger helper frames from `@logCallStack`.
+
 ## 6.0.0
 
 ### Breaking Changes
