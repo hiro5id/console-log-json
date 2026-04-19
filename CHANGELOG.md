@@ -1,6 +1,6 @@
 # Changelog
 
-## Next Version -- In progress
+## 6.3.1
 
 ### Bug Fixes
 - Added a second defensive safeguard for browser-style hosts where even the saved original `console.log(...)` feeds back into the patched console path. Re-entrant feedback during the logger's own write/fallback emission is now dropped instead of recursively re-logging logger output.
