@@ -1,4 +1,4 @@
-# `code.esm.sh` Fake `stdout` Recursion
+# `code.esm.sh` Console Feedback Recursion
 
 ## Problem
 
@@ -6,12 +6,14 @@
 
 In the `code.esm.sh` playground, the runtime is browser-like but also exposes a compatibility `process.stdout.write(...)` shim. That shim is not real Node stdout. It feeds output back into the playground's console plumbing.
 
+On top of that, browser-style hosts can also expose a saved `console.log(...)` implementation that is not a hard boundary. Even after `console-log-json` captures the "original" console method, calling it can still feed back into the patched console path.
+
 When `LoggerAdaptToConsole()` patches `console.log(...)`, the following loop can happen:
 
 1. Application calls `console.log(...)`
 2. `console-log-json` formats the log
-3. `writeOutput(...)` calls `process.stdout.write(...)`
-4. The playground shim routes that write back through console handling
+3. `writeOutput(...)` calls either `process.stdout.write(...)` or the saved console implementation
+4. The host routes that write back through console handling
 5. The patched `console.log(...)` is hit again
 6. The cycle repeats until `Maximum call stack size exceeded`
 
@@ -29,7 +31,14 @@ Because of that, the fix is intentionally limited to browser-like DOM hosts.
 
 `writeOutput(...)` now avoids `process.stdout.write(...)` when a real DOM-style `document` is present. In that case it falls back to the saved native console method instead.
 
-This preserves the existing behavior in real Node.js while preventing browser/playground stdout shims from causing recursive logging.
+That by itself was not enough for `code.esm.sh`, because the saved console method can still feed back into patched console handling.
+
+The current fix therefore adds a second narrow safeguard:
+
+- while `console-log-json` is emitting its own final output, any immediate re-entrant call back into the patched console methods is ignored
+- captured console methods are invoked with the `console` receiver, instead of as detached bare functions
+
+This preserves the existing behavior in real Node.js while preventing browser/playground feedback loops from recursively re-logging the logger's own output.
 
 ## Non-Goals
 
@@ -44,9 +53,11 @@ It deliberately does **not**:
 
 ## Regression Coverage
 
-The fix is covered by two regression tests:
+The fix is covered by regression tests for:
 
 - a Node-side simulation of a browser-like host with a fake `process.stdout.write(...)`
 - a real browser bundle test that injects a fake `process.stdout.write(...)` and verifies it is ignored
+- a Node-side simulation where the saved console implementation immediately feeds back into patched `console.log(...)`
+- a real browser bundle test that simulates the same saved-console feedback loop
 
 Those tests also verify the opposite case: plain Node-like execution still uses stdout.

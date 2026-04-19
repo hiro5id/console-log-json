@@ -180,6 +180,46 @@ describeBrowser('Real browser tests (headless Chrome)', () => {
     expect(summary.__stdoutWrites).to.equal(0);
   });
 
+  it('drops re-entrant feedback from a saved browser console implementation', async () => {
+    const logs = await runInBrowser(`
+      const originalConsoleLog = console.log;
+      window.__nativeConsoleCalls = [];
+      window.__feedbackCalls = 0;
+
+      console.log = function () {
+        window.__nativeConsoleCalls.push(Array.from(arguments));
+        originalConsoleLog.apply(window.console, arguments);
+        if (window.__feedbackCalls === 0) {
+          window.__feedbackCalls += 1;
+          window.console.log.apply(window.console, arguments);
+        }
+      };
+
+      ConsoleLogJson.LoggerAdaptToConsole();
+      console.log('browser re-entry');
+      ConsoleLogJson.LoggerRestoreConsole();
+      console.log = originalConsoleLog;
+
+      originalConsoleLog(JSON.stringify({
+        __nativeConsoleCalls: window.__nativeConsoleCalls.length,
+        __feedbackCalls: window.__feedbackCalls
+      }));
+    `);
+
+    const parsedLogs = logs
+      .filter((l) => l.startsWith('{'))
+      .map((l) => JSON.parse(l));
+
+    const logEntry = parsedLogs.find((l) => l.level === 'info');
+    expect(logEntry).to.not.equal(undefined);
+    expect(logEntry.message).to.equal('browser re-entry');
+
+    const summary = parsedLogs.find((l) => l.__nativeConsoleCalls !== undefined);
+    expect(summary).to.not.equal(undefined);
+    expect(summary.__feedbackCalls).to.equal(1);
+    expect(summary.__nativeConsoleCalls).to.equal(1);
+  });
+
   it('console.error produces level:error in browser', async () => {
     const logs = await runInBrowser(`
       ConsoleLogJson.LoggerAdaptToConsole();

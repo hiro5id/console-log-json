@@ -318,11 +318,13 @@ const LOG_LEVEL_PRIORITY: Record<string, number> = {
 };
 
 function writeOutput(text: string): void {
-  if (shouldUseProcessStdoutWrite()) {
-    process.stdout.write(text + '\n');
-  } else if (consoleLogBackup) {
-    consoleLogBackup(text);
-  }
+  runWithInternalWriteGuard(() => {
+    if (shouldUseProcessStdoutWrite()) {
+      process.stdout.write(text + '\n');
+    } else if (consoleLogBackup) {
+      invokeCapturedConsoleMethod(consoleLogBackup, text);
+    }
+  });
 }
 
 const Logger = {
@@ -433,10 +435,38 @@ let consoleVerboseBackup: any = null;
 let consoleDebugBackup: any = null;
 let consoleSillyBackup: any = null;
 let consoleLogBackup: any = null;
+let internalWriteDepth = 0;
+
+function invokeCapturedConsoleMethod(method: any, ...args: any[]): void {
+  if (typeof method !== 'function') {
+    return;
+  }
+
+  try {
+    Function.prototype.apply.call(method, console, args);
+  } catch (_) {
+    method(...args);
+  }
+}
+
+function runWithInternalWriteGuard(callback: () => void): void {
+  internalWriteDepth += 1;
+  try {
+    callback();
+  } finally {
+    internalWriteDepth -= 1;
+  }
+}
+
+function isHandlingInternalWriteFeedback(): boolean {
+  return internalWriteDepth > 0;
+}
 
 export function NativeConsoleLog(...args: any[]) {
   if (consoleLogBackup) {
-    consoleLogBackup(...args);
+    runWithInternalWriteGuard(() => {
+      invokeCapturedConsoleMethod(consoleLogBackup, ...args);
+    });
   } else {
     console.log(...args);
   }
@@ -445,7 +475,9 @@ export function NativeConsoleLog(...args: any[]) {
 function ifEverythingFailsLogger(functionName: string, err: Error) {
   try {
     if (consoleErrorBackup != null) {
-      consoleErrorBackup(`{"level":"error","message":"Error: console-log-json: error while trying to process ${functionName} : ${err.message}"}`);
+      runWithInternalWriteGuard(() => {
+        invokeCapturedConsoleMethod(consoleErrorBackup, `{"level":"error","message":"Error: console-log-json: error while trying to process ${functionName} : ${err.message}"}`);
+      });
     }
   } catch (err) {
     // fail silently, we don't want to throw from here since this is the last resort logger when everything else has failed
@@ -833,6 +865,10 @@ function emitConsoleJsonLog(args: any[], level: LOG_LEVEL, customOptions?: objec
  * @param {object} [customOptions] - object - an optional parameter that can be an object with custom settings for the logger
  */
 export function logUsingConsoleJson(args: any[], level: LOG_LEVEL, customOptions?: object) {
+  if (isHandlingInternalWriteFeedback()) {
+    return;
+  }
+
   if (!envConfig.noPackageName && packageNameState === 'pending') {
     pendingLogs.push({
       args: args.slice(),

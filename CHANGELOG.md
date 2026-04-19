@@ -1,5 +1,11 @@
 # Changelog
 
+## Next Version -- In progress
+
+### Bug Fixes
+- Added a second defensive safeguard for browser-style hosts where even the saved original `console.log(...)` feeds back into the patched console path. Re-entrant feedback during the logger's own write/fallback emission is now dropped instead of recursively re-logging logger output.
+
+
 ## 6.3.0
 
 ### Security Fixes
@@ -16,6 +22,7 @@
 
 ### Tests
 - Added regression coverage for the browser-like fake-stdout recursion case in both the Node-simulated compatibility tests and the real browser bundle tests.
+- Added regression coverage for browser-style saved-console feedback loops, both in the Node-simulated compatibility tests and in the real browser bundle tests.
 - Updated the Jest test suite to use ESM-safe imports where needed so the upgraded Jest/Chai toolchain runs cleanly end to end.
 
 ## 6.2.1

@@ -439,6 +439,56 @@ describe('Browser compatibility', () => {
       }
     });
 
+    it('drops re-entrant feedback when the saved console implementation calls back into patched console.log', async () => {
+      jest.resetModules();
+
+      const documentDescriptor = Object.getOwnPropertyDescriptor(globalThis, 'document');
+      const originalConsoleLog = console.log;
+      const originalStdoutWrite = process.stdout.write;
+      const nativeConsoleCalls: any[][] = [];
+      let feedbackCalls = 0;
+
+      try {
+        Object.defineProperty(globalThis, 'document', {
+          value: { createElement: () => ({}) },
+          configurable: true,
+        });
+
+        console.log = (...args: any[]) => {
+          nativeConsoleCalls.push(args);
+          if (feedbackCalls === 0) {
+            feedbackCalls += 1;
+            (globalThis as any).console.log(...args);
+          }
+        };
+        (process.stdout.write as any) = () => {
+          throw new Error('stdout should not be used in browser-like hosts');
+        };
+
+        const { LoggerAdaptToConsole, LoggerRestoreConsole } = await import('../src');
+
+        LoggerAdaptToConsole();
+        console.log('re-entrant browser-like host');
+        LoggerRestoreConsole();
+
+        expect(feedbackCalls).to.equal(1);
+        expect(nativeConsoleCalls.length).to.equal(1);
+        const jsonLine = nativeConsoleCalls[0][0];
+        expect(jsonLine).to.be.a('string');
+        const parsed = JSON.parse((jsonLine as string).trim());
+        expect(parsed.message).to.equal('re-entrant browser-like host');
+      } finally {
+        console.log = originalConsoleLog;
+        (process.stdout.write as any) = originalStdoutWrite;
+        if (documentDescriptor) {
+          Object.defineProperty(globalThis, 'document', documentDescriptor);
+        } else {
+          delete (globalThis as any).document;
+        }
+        jest.resetModules();
+      }
+    });
+
     it('keeps process.stdout.write as the sink in Node-like hosts', async () => {
       jest.resetModules();
 
