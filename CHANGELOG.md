@@ -1,5 +1,13 @@
 # Changelog
 
+## 6.3.2
+
+### Bug Fixes
+- Hardened browser-like host detection so the logger treats `globalThis.document` and `window.document` as DOM signals when deciding whether `process.stdout.write(...)` is trustworthy. This closes another `esm.sh`-style recursion path where a browser host exposes a fake Node `stdout` shim through `tty.mjs`.
+
+### Tests
+- Added regression coverage for browser-like hosts that expose DOM only through `window.document`, ensuring the logger still avoids fake `stdout` writes in that shape.
+
 ## 6.3.1
 
 ### Bug Fixes

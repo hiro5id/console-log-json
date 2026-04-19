@@ -396,6 +396,7 @@ describe('Browser compatibility', () => {
       jest.resetModules();
 
       const documentDescriptor = Object.getOwnPropertyDescriptor(globalThis, 'document');
+      const windowDescriptor = Object.getOwnPropertyDescriptor(globalThis, 'window');
       const originalConsoleLog = console.log;
       const originalStdoutWrite = process.stdout.write;
       const nativeConsoleCalls: any[][] = [];
@@ -434,6 +435,65 @@ describe('Browser compatibility', () => {
           Object.defineProperty(globalThis, 'document', documentDescriptor);
         } else {
           delete (globalThis as any).document;
+        }
+        if (windowDescriptor) {
+          Object.defineProperty(globalThis, 'window', windowDescriptor);
+        } else {
+          delete (globalThis as any).window;
+        }
+        jest.resetModules();
+      }
+    });
+
+    it('treats window.document as browser-like even when globalThis.document is missing', async () => {
+      jest.resetModules();
+
+      const documentDescriptor = Object.getOwnPropertyDescriptor(globalThis, 'document');
+      const windowDescriptor = Object.getOwnPropertyDescriptor(globalThis, 'window');
+      const originalConsoleLog = console.log;
+      const originalStdoutWrite = process.stdout.write;
+      const nativeConsoleCalls: any[][] = [];
+      const stdoutWrites: any[][] = [];
+
+      try {
+        delete (globalThis as any).document;
+        Object.defineProperty(globalThis, 'window', {
+          value: { document: { createElement: () => ({}) } },
+          configurable: true,
+        });
+
+        console.log = (...args: any[]) => {
+          nativeConsoleCalls.push(args);
+        };
+        (process.stdout.write as any) = (...args: any[]) => {
+          stdoutWrites.push(args);
+        };
+
+        const { LoggerAdaptToConsole, LoggerRestoreConsole } = await import('../src');
+
+        LoggerAdaptToConsole();
+        console.log('window document host');
+        LoggerRestoreConsole();
+
+        expect(stdoutWrites.length).to.equal(0);
+        const jsonLine = nativeConsoleCalls
+          .map((call) => call[0])
+          .find((value) => typeof value === 'string' && value.trim().startsWith('{'));
+        expect(jsonLine).to.be.a('string');
+        const parsed = JSON.parse((jsonLine as string).trim());
+        expect(parsed.message).to.equal('window document host');
+      } finally {
+        console.log = originalConsoleLog;
+        (process.stdout.write as any) = originalStdoutWrite;
+        if (documentDescriptor) {
+          Object.defineProperty(globalThis, 'document', documentDescriptor);
+        } else {
+          delete (globalThis as any).document;
+        }
+        if (windowDescriptor) {
+          Object.defineProperty(globalThis, 'window', windowDescriptor);
+        } else {
+          delete (globalThis as any).window;
         }
         jest.resetModules();
       }

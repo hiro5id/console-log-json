@@ -251,12 +251,15 @@ function formatLogObjectForOutput(logObject: any, jsonString?: string): string {
 }
 
 function hasDomLikeDocument(): boolean {
-  if (typeof document === 'undefined') {
+  const globalObject: any = typeof globalThis !== 'undefined' ? globalThis : {};
+  const maybeWindow = globalObject.window;
+  const maybeDocument = globalObject.document || (maybeWindow != null ? maybeWindow.document : undefined);
+  if (maybeDocument == null) {
     return false;
   }
 
   try {
-    return document != null && typeof (document as any).createElement === 'function';
+    return typeof maybeDocument.createElement === 'function';
   } catch (_) {
     return true;
   }
