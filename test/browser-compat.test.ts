@@ -1,4 +1,5 @@
 /* tslint:disable:object-literal-sort-keys */
+import { jest } from '@jest/globals';
 import { expect } from 'chai';
 import { getEnv } from '../src/get-env';
 import { CaptureNestedStackTrace } from '../src/capture-nested-stack-trace';
@@ -12,7 +13,7 @@ import { sortObject } from '../src/sort-object';
 import { safeObjectAssign } from '../src/safe-object-assign';
 import { jsonStringifySafe } from '../src/json-stringify-safe/stringify-safe';
 import { colorJson, supportsColor } from '../src/colors/colorize';
-import { FormatErrorObject, loadEnvConfig } from '../src';
+import { FormatErrorObject, loadEnvConfig, restoreStdOut } from '../src';
 import sinon from 'sinon';
 
 /**
@@ -387,9 +388,98 @@ describe('Browser compatibility', () => {
     it('overrideStdOut returns null originalWrite when process.stdout is missing', () => {
       // We can't easily remove process.stdout in Node, but we can verify
       // the function signature handles the null case in restoreStdOut
-      const { restoreStdOut } = require('../src');
       // Should not throw with null originalWrite
       expect(() => restoreStdOut(null)).to.not.throw();
+    });
+
+    it('prefers the original console over process.stdout.write in browser-like hosts with fake stdout', async () => {
+      jest.resetModules();
+
+      const documentDescriptor = Object.getOwnPropertyDescriptor(globalThis, 'document');
+      const originalConsoleLog = console.log;
+      const originalStdoutWrite = process.stdout.write;
+      const nativeConsoleCalls: any[][] = [];
+      const stdoutWrites: any[][] = [];
+
+      try {
+        Object.defineProperty(globalThis, 'document', {
+          value: { createElement: () => ({}) },
+          configurable: true,
+        });
+
+        console.log = (...args: any[]) => {
+          nativeConsoleCalls.push(args);
+        };
+        (process.stdout.write as any) = (...args: any[]) => {
+          stdoutWrites.push(args);
+        };
+
+        const { LoggerAdaptToConsole, LoggerRestoreConsole } = await import('../src');
+
+        LoggerAdaptToConsole();
+        console.log('browser-like host');
+        LoggerRestoreConsole();
+
+        expect(stdoutWrites.length).to.equal(0);
+        const jsonLine = nativeConsoleCalls
+          .map((call) => call[0])
+          .find((value) => typeof value === 'string' && value.trim().startsWith('{'));
+        expect(jsonLine).to.be.a('string');
+        const parsed = JSON.parse((jsonLine as string).trim());
+        expect(parsed.message).to.equal('browser-like host');
+      } finally {
+        console.log = originalConsoleLog;
+        (process.stdout.write as any) = originalStdoutWrite;
+        if (documentDescriptor) {
+          Object.defineProperty(globalThis, 'document', documentDescriptor);
+        } else {
+          delete (globalThis as any).document;
+        }
+        jest.resetModules();
+      }
+    });
+
+    it('keeps process.stdout.write as the sink in Node-like hosts', async () => {
+      jest.resetModules();
+
+      const documentDescriptor = Object.getOwnPropertyDescriptor(globalThis, 'document');
+      const originalConsoleLog = console.log;
+      const originalStdoutWrite = process.stdout.write;
+      const nativeConsoleCalls: any[][] = [];
+      const stdoutWrites: any[][] = [];
+
+      try {
+        delete (globalThis as any).document;
+
+        console.log = (...args: any[]) => {
+          nativeConsoleCalls.push(args);
+        };
+        (process.stdout.write as any) = (...args: any[]) => {
+          stdoutWrites.push(args);
+        };
+
+        const { LoggerAdaptToConsole, LoggerRestoreConsole } = await import('../src');
+
+        LoggerAdaptToConsole();
+        console.log('node-like host');
+        LoggerRestoreConsole();
+
+        expect(nativeConsoleCalls.length).to.equal(0);
+        expect(stdoutWrites.length).to.be.greaterThan(0);
+        const jsonLine = stdoutWrites
+          .map((call) => call[0])
+          .find((value) => typeof value === 'string' && value.trim().startsWith('{'));
+        expect(jsonLine).to.be.a('string');
+        const parsed = JSON.parse((jsonLine as string).trim());
+        expect(parsed.message).to.equal('node-like host');
+      } finally {
+        console.log = originalConsoleLog;
+        (process.stdout.write as any) = originalStdoutWrite;
+        if (documentDescriptor) {
+          Object.defineProperty(globalThis, 'document', documentDescriptor);
+        }
+        jest.resetModules();
+      }
     });
   });
 

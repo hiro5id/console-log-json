@@ -7,6 +7,7 @@ import {
   loadEnvConfig,
   LoggerAdaptToConsole,
   LoggerRestoreConsole,
+  NativeConsoleLog,
   overrideStdOut,
   restoreStdOut,
   SetLogLevel,
@@ -716,7 +717,6 @@ describe('overrideStdOut advanced', () => {
 // ============================================================
 describe('NativeConsoleLog edge cases', () => {
   it('NativeConsoleLog works even when called standalone (falls back to console.log)', () => {
-    const { NativeConsoleLog: NCL } = require('../src');
-    expect(() => NCL('standalone native')).to.not.throw();
+    expect(() => NativeConsoleLog('standalone native')).to.not.throw();
   });
 });

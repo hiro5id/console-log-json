@@ -1,11 +1,11 @@
 /* tslint:disable:object-literal-sort-keys */
+import { jest } from '@jest/globals';
 import { expect } from 'chai';
 import * as esbuild from 'esbuild';
 import * as path from 'path';
 import * as fs from 'fs';
-
-// tslint:disable-next-line:no-var-requires
-const puppeteer = require('puppeteer-core');
+import puppeteer from 'puppeteer-core';
+import { LoggerAdaptToConsole, LoggerRestoreConsole, overrideStdOut, restoreStdOut } from '../src';
 
 // Find Chrome/Chromium across platforms
 function findChrome(): string | null {
@@ -147,6 +147,37 @@ describeBrowser('Real browser tests (headless Chrome)', () => {
     const parsed = JSON.parse(jsonLogs[0]);
     expect(parsed.level).to.equal('info');
     expect(parsed.message).to.equal('hello from browser');
+  });
+
+  it('ignores fake process.stdout.write in browser-like hosts', async () => {
+    const logs = await runInBrowser(`
+      window.__stdoutWrites = [];
+      window.process = {
+        env: {},
+        stdout: {
+          write: function (text) {
+            window.__stdoutWrites.push(text);
+          }
+        }
+      };
+
+      ConsoleLogJson.LoggerAdaptToConsole();
+      console.log('browser with fake stdout');
+      ConsoleLogJson.LoggerRestoreConsole();
+      console.log(JSON.stringify({ __stdoutWrites: window.__stdoutWrites.length }));
+    `);
+
+    const parsedLogs = logs
+      .filter((l) => l.startsWith('{'))
+      .map((l) => JSON.parse(l));
+
+    const logEntry = parsedLogs.find((l) => l.level === 'info');
+    expect(logEntry).to.not.equal(undefined);
+    expect(logEntry.message).to.equal('browser with fake stdout');
+
+    const summary = parsedLogs.find((l) => l.__stdoutWrites !== undefined);
+    expect(summary).to.not.equal(undefined);
+    expect(summary.__stdoutWrites).to.equal(0);
   });
 
   it('console.error produces level:error in browser', async () => {
@@ -425,13 +456,6 @@ describeBrowser('Real browser tests (headless Chrome)', () => {
 
   it('output structure matches between Node and browser', async () => {
     // Run the same log in Node
-    const {
-      LoggerAdaptToConsole,
-      LoggerRestoreConsole,
-      overrideStdOut,
-      restoreStdOut,
-    } = require('../src');
-
     const { originalWrite, outputText } = overrideStdOut();
     LoggerAdaptToConsole();
     console.log('structure test', { key: 'value' });

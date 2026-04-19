@@ -1,9 +1,22 @@
 # Changelog
 
-## In Development
+## 6.3.0
 
 ### Security Fixes
-- Upgraded dev-dependency np package version to 11.1.0 to get security fixes
+- Upgraded dev-dependency np package version to 11.1.0
+- Upgraded dev-dependency jest package version to 30.3.0
+
+### Bug Fixes
+- Narrowed browser-like output handling to ignore fake `process.stdout.write(...)` shims in hosts like `code.esm.sh`, preventing recursive `console.log(...)` loops and `Maximum call stack size exceeded` while preserving direct stdout writes in real Node.js. See details in [docs/code-esm-sh-stdout-recursion.md](docs/code-esm-sh-stdout-recursion.md)
+
+### Improvements
+- Made the Jest contributor/test stack ESM-aware without changing library runtime behavior. Jest now transpiles the ESM-only `chai` package via `ts-jest`, uses a dedicated `tsconfig.jest.json`, and keeps the test environment on the existing CommonJS semantics so logger startup behavior stays stable under test.
+- Refreshed the contributor toolchain around the Jest migration by upgrading `ts-jest`, `chai`, `@types/jest`, `@types/chai`, `sinon`, `@types/sinon`, `@types/node`, `prettier`, and `typescript`, while pruning stale unused test/dev dependencies from `package.json`.
+- Added TypeScript 6 build compatibility by setting `ignoreDeprecations: "6.0"` in `tsconfig.json`, keeping the existing emit target and broader library compatibility intact.
+
+### Tests
+- Added regression coverage for the browser-like fake-stdout recursion case in both the Node-simulated compatibility tests and the real browser bundle tests.
+- Updated the Jest test suite to use ESM-safe imports where needed so the upgraded Jest/Chai toolchain runs cleanly end to end.
 
 ## 6.2.1
 

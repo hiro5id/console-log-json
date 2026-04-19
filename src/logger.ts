@@ -250,6 +250,33 @@ function formatLogObjectForOutput(logObject: any, jsonString?: string): string {
   return appendTrailingLogCharacter(jsonString != null ? jsonString : jsonStringifySafe(logObject));
 }
 
+function hasDomLikeDocument(): boolean {
+  if (typeof document === 'undefined') {
+    return false;
+  }
+
+  try {
+    return document != null && typeof (document as any).createElement === 'function';
+  } catch (_) {
+    return true;
+  }
+}
+
+function shouldUseProcessStdoutWrite(): boolean {
+  if (typeof process === 'undefined' || process.stdout == null || typeof process.stdout.write !== 'function') {
+    return false;
+  }
+
+  // Browser-oriented hosts sometimes expose a compatibility process.stdout.write
+  // that loops back into patched console methods. Keep direct stdout writes for
+  // real Node, but prefer the saved native console path when a DOM is present.
+  if (hasDomLikeDocument()) {
+    return false;
+  }
+
+  return true;
+}
+
 function cloneForMutation(value: any, seen: Map<any, any> = new Map<any, any>()): any {
   if (value == null || typeof value !== 'object') {
     return value;
@@ -291,7 +318,7 @@ const LOG_LEVEL_PRIORITY: Record<string, number> = {
 };
 
 function writeOutput(text: string): void {
-  if (typeof process !== 'undefined' && process.stdout && typeof process.stdout.write === 'function') {
+  if (shouldUseProcessStdoutWrite()) {
     process.stdout.write(text + '\n');
   } else if (consoleLogBackup) {
     consoleLogBackup(text);
@@ -822,7 +849,7 @@ export function logUsingConsoleJson(args: any[], level: LOG_LEVEL, customOptions
 registerInternalCallerFunction(logUsingConsoleJson);
 
 function supressDetailsIfSelected(errorObject: ErrorWithContext | undefined) {
-  if (errorObject == undefined) {
+  if (errorObject === undefined) {
     return undefined;
   }
 
@@ -950,7 +977,7 @@ function extractParametersFromArguments(args: any[]) {
   });
 
   // if we have extra context we must either wrap it into an existing error object or, pass it dry
-  if (extraContext != undefined) {
+  if (extraContext !== undefined) {
     const extraContextMessage = (extraContext as any).message;
     if (typeof extraContextMessage === 'string') {
       if (extraContextMessage.length > 0) {
@@ -982,7 +1009,7 @@ function extractParametersFromArguments(args: any[]) {
       }
     }
 
-    if (errorObject == undefined) {
+    if (errorObject === undefined) {
       errorObjectWasPassed = false;
       // pass it dry
       errorObject = extraContext as any;
