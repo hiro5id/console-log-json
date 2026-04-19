@@ -1,5 +1,10 @@
 # Changelog
 
+## In Development
+
+### Security Fixes
+- Upgraded dev-dependency np package version to 11.1.0 to get security fixes
+
 ## 6.2.1
 
 ### Bug Fixes
