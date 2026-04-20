@@ -138,24 +138,32 @@ function hslToRgb(h: number, s: number, l: number): [number, number, number] {
   let b = 0;
 
   if (h < 60) {
-    r = c; g = x; b = 0;
+    r = c;
+    g = x;
+    b = 0;
   } else if (h < 120) {
-    r = x; g = c; b = 0;
+    r = x;
+    g = c;
+    b = 0;
   } else if (h < 180) {
-    r = 0; g = c; b = x;
+    r = 0;
+    g = c;
+    b = x;
   } else if (h < 240) {
-    r = 0; g = x; b = c;
+    r = 0;
+    g = x;
+    b = c;
   } else if (h < 300) {
-    r = x; g = 0; b = c;
+    r = x;
+    g = 0;
+    b = c;
   } else {
-    r = c; g = 0; b = x;
+    r = c;
+    g = 0;
+    b = x;
   }
 
-  return [
-    Math.round((r + m) * 255),
-    Math.round((g + m) * 255),
-    Math.round((b + m) * 255),
-  ];
+  return [Math.round((r + m) * 255), Math.round((g + m) * 255), Math.round((b + m) * 255)];
 }
 
 function rgbToAnsi(r: number, g: number, b: number): string {
@@ -192,7 +200,7 @@ function generateValueAnsiCode(bareKeyName: string, theme: BackgroundTheme): str
 
   const hue = djb2Hash(bareKeyName) % 360;
   const isDark = theme !== 'light';
-  const [r, g, b] = hslToRgb(hue, isDark ? 0.60 : 0.55, isDark ? 0.55 : 0.46);
+  const [r, g, b] = hslToRgb(hue, isDark ? 0.6 : 0.55, isDark ? 0.55 : 0.46);
   const ansi = rgbToAnsi(r, g, b);
 
   colorCache.set(cacheKey, ansi);
@@ -375,11 +383,7 @@ function colorizeJsonString(json: string, colors: IColorConfiguration, colorMap:
     }
 
     if (tokenEndIndex > index) {
-      const color = directAnsi !== undefined
-        ? directAnsi
-        : colorCode !== undefined
-          ? (colorMap as any)[(colors as any)[colorCode]] || ''
-          : '';
+      const color = directAnsi !== undefined ? directAnsi : colorCode !== undefined ? (colorMap as any)[(colors as any)[colorCode]] || '' : '';
 
       if (color !== '') {
         output += json.slice(lastCopiedIndex, index);
@@ -408,12 +412,7 @@ function colorizeJsonString(json: string, colors: IColorConfiguration, colorMap:
  * @param {number} [spacing=2] - The indentation spaces.
  * @returns {string} Stringified JSON colored with ANSI escape characters.
  */
-export function colorJson(
-  jsonInput: any,
-  colorsInput: Partial<IColorConfiguration> = defaultColors,
-  colorMap: IDefaultColorMap = defaultColorMap,
-  spacing?: number,
-) {
+export function colorJson(jsonInput: any, colorsInput: Partial<IColorConfiguration> = defaultColors, colorMap: IDefaultColorMap = defaultColorMap, spacing?: number) {
   const colors = { ...defaultColors, ...colorsInput };
   const json = getJsonString(jsonInput, spacing);
 
