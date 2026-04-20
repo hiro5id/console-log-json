@@ -1,5 +1,17 @@
 # Changelog
 
+## Next Version In Progress
+
+### Security Fixes
+- Replaced the regex-based `colorJson(...)` token matcher with a linear JSON scanner, removing the polynomial-time escaped-string path flagged by CodeQL while preserving existing ANSI color behavior.
+
+### Improvements
+- Unified the logger configuration model so settings can be supplied either as direct `LoggerAdaptToConsole({...})` options or as environment variables. This adds top-level programmatic aliases for the existing env-backed flags and adds env-var forms for log level, debug-string capture, static custom fields, redaction, hook timeout, and advanced hook references.
+
+### Tests
+- Added regression coverage for long escaped-quote payloads in `colorJson(...)`, ensuring colorized output still round-trips without content changes.
+- Added regression coverage for the unified configuration surface, including top-level flag aliases, env-driven log level/debug/custom-options/redaction behavior, and env-resolved hook callbacks.
+
 ## 6.3.2
 
 ### Bug Fixes

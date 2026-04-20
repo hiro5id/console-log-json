@@ -10,9 +10,9 @@
 
 <a href="https://www.npmjs.com/package/console-log-json">![title](docs/images/console-log-json-image.png)</a>
 
-**Drop-in structured JSON logging for Node.js and the browser. Zero dependencies. One line to set up.**
+**Drop-in structured JSON logging for Node.js and the browser. Zero dependencies. No vendor lock-in. One line to set up. TypeScript types included.**
 
-Replace `console.log()` with production-grade JSON output -- no code changes required across your entire codebase.
+Replace `console.log()` with production-grade JSON output -- no code changes required across your entire codebase, and no logger API to couple your application to.
 
 ```js
 import { LoggerAdaptToConsole } from "console-log-json";
@@ -28,11 +28,43 @@ console.log("user signed in", { userId: 42, plan: "pro" });
 
 ---
 
-## Why console-log-json?
+console-log-json is built for developers who already have `console.*` calls throughout a codebase and want structured logs without a logger migration. Install it with `npm`, turn it on once, and keep shipping the same application code while getting JSON that log platforms can ingest immediately. Because it hooks the standard console API instead of making you thread a logger instance through your app, it is easy to add to an existing codebase and easy to remove later if you ever change direction.
+
+## At a Glance
+
+- Built for developers: keep using `console.log`, `console.error`, and friends while emitting structured JSON.
+- Self-serve adoption: `npm install console-log-json`, call `LoggerAdaptToConsole()`, and try it immediately.
+- Low application coupling: your app keeps using the standard console API instead of a library-specific logger object.
+- Useful in everyday development and production: easier debugging, searchable logs, cleaner ingestion in DataDog, Splunk, OpenSearch, CloudWatch, and ELK.
+- Works across Node.js and browser builds, with support for ESM, CommonJS, and bundled frontend apps.
+- Power-user features include redaction, output transforms, log interception hooks, log-level control, and env-var configuration.
+- Designed to be operationally safe: zero runtime dependencies, crash-safe fallbacks, and compatibility with older Node.js runtimes (`>=10`).
+
+## Contents
+
+- [Why Developers Use It](#why-developers-use-it)
+- [Quick Start](#quick-start)
+- [Common Usage Patterns](#common-usage-patterns)
+- [Supported Console Methods](#supported-console-methods)
+- [Configuration](#configuration)
+- [API Reference](#api-reference)
+- [Browser Usage](#browser-usage)
+- [Advanced Usage](#advanced-usage)
+
+## Why Developers Use It
+
+This library is a strong fit when you want structured logging to become part of the normal development flow without rewriting application code.
+
+- Keep existing `console.*` calls and upgrade their output in one place.
+- Avoid logger lock-in: application code stays on the standard console API instead of depending on a special logging object.
+- Adopt it without talking to sales, spinning up infrastructure, or learning a new logging API.
+- Use the same library in Node.js services and browser bundles.
+- Add power-user features only when you need them: redaction, hooks, transforms, and runtime configuration.
 
 | | console-log-json | winston / pino / bunyan |
 |---|---|---|
 | **Setup** | 1 line, drop-in | Rewrite every log call |
+| **Application coupling** | Standard `console.*` API | Special logger instance / library API |
 | **Dependencies** | Zero | 5-30+ transitive deps |
 | **Browser support** | Yes | No (Node only) |
 | **Argument handling** | Throw anything in any order | Strict API signatures |
@@ -47,6 +79,8 @@ No `winston`. No `pino`. No `bunyan`. No transitive dependency tree to audit, no
 ### Drop-in replacement -- no code changes needed
 
 Call `LoggerAdaptToConsole()` once at startup. Every `console.log()`, `console.error()`, `console.warn()`, `console.info()`, `console.debug()` across your entire codebase -- including third-party libraries -- instantly outputs structured JSON. No find-and-replace. No import changes.
+
+That same design keeps your application code decoupled from the logger. Unlike libraries that require a dedicated logger instance such as `logger.info(...)`, your code continues to use the platform-standard console API. If you later decide to remove `console-log-json` or replace it with something else, the change is typically concentrated at initialization instead of spread across the whole application.
 
 ### Throw anything at it
 
@@ -114,10 +148,19 @@ Works in Node.js and in the browser. Node-specific features (file detection) deg
 npm install console-log-json
 ```
 
-### Initialize (one line)
+### Initialize
+
+ESM:
 
 ```js
 import { LoggerAdaptToConsole } from "console-log-json";
+LoggerAdaptToConsole();
+```
+
+CommonJS:
+
+```js
+const { LoggerAdaptToConsole } = require("console-log-json");
 LoggerAdaptToConsole();
 ```
 
@@ -134,7 +177,9 @@ LoggerRestoreConsole();
 
 ---
 
-## Examples
+## Common Usage Patterns
+
+Start with the first few examples to understand the default behavior, then use the later sections as a cookbook for less common cases.
 
 ### Basic message
 
@@ -359,7 +404,7 @@ CONSOLE_LOG_COLORIZE=true
 
 ---
 
-## All Console Methods Supported
+## Supported Console Methods
 
 | Method | Default Level |
 |---|---|
@@ -374,9 +419,51 @@ CONSOLE_LOG_COLORIZE=true
 
 ---
 
-## Environment Variable Configuration
+## Configuration
 
-All configuration is through environment variables. Set them before calling `LoggerAdaptToConsole()`, or pass `envOptions` directly. This means you can change logging behavior per environment (dev vs. staging vs. production) without touching code.
+There are three practical ways to configure the logger:
+
+- Pass direct options to `LoggerAdaptToConsole({...})` when you control application startup.
+- Use `envOptions` when you want env-style names without mutating `process.env`.
+- Use real environment variables when deployment should control behavior.
+
+Every configurable setting can now be supplied in either of these ways:
+
+- **Directly in `LoggerAdaptToConsole({...})`** using normal camelCase option names like `noTimeStamp`, `contextKey`, `logLevel`, `customOptions`, or `redact`
+- **Through environment variables** using the corresponding `CONSOLE_LOG_*` names
+
+When both are present, precedence is:
+
+1. Direct `LoggerAdaptToConsole({...})` option
+2. `envOptions` override passed to `LoggerAdaptToConsole({...})`
+3. Real `process.env`
+4. Built-in default
+
+This means you can keep environment-specific defaults in deployment config while still overriding individual settings explicitly in code when needed.
+
+### Direct Option <-> Env Var Mapping
+
+| Direct `LoggerAdaptToConsole({...})` option | Environment variable | Notes |
+|---|---|---|
+| `logLevel` | `CONSOLE_LOG_JSON_LOG_LEVEL` | Env form is a string like `warn`, `error`, `debug`, `silly`. |
+| `debugString` | `CONSOLE_LOG_JSON_DEBUG_STRING` | Boolean setting. |
+| `customOptions` | `CONSOLE_LOG_JSON_CUSTOM_OPTIONS` | Env form must be a JSON object string. |
+| `colorize` | `CONSOLE_LOG_COLORIZE` | Boolean setting. |
+| `noNewLineCharacters` | `CONSOLE_LOG_JSON_NO_NEW_LINE_CHARACTERS` | Boolean setting. |
+| `noNewLineCharactersExceptStack` | `CONSOLE_LOG_JSON_NO_NEW_LINE_CHARACTERS_EXCEPT_STACK` | Boolean setting. |
+| `noTimeStamp` | `CONSOLE_LOG_JSON_NO_TIME_STAMP` | Boolean setting. |
+| `disableAutoParse` | `CONSOLE_LOG_JSON_DISABLE_AUTO_PARSE` | Boolean setting. |
+| `noStackForNonError` | `CONSOLE_LOG_JSON_NO_STACK_FOR_NON_ERROR` | Boolean setting. |
+| `noFileName` | `CONSOLE_LOG_JSON_NO_FILE_NAME` | Boolean setting. |
+| `noPackageName` | `CONSOLE_LOG_JSON_NO_PACKAGE_NAME` | Boolean setting. |
+| `noLoggerDebug` | `CONSOLE_LOG_JSON_NO_LOGGER_DEBUG` | Boolean setting. |
+| `contextKey` | `CONSOLE_LOG_JSON_CONTEXT_KEY` | Env form is a plain string like `context` or `metadata`. |
+| `redact` | `CONSOLE_LOG_JSON_REDACT` | Env form accepts a JSON array/object string or a comma-separated path list. |
+| `onLogTimeout` | `CONSOLE_LOG_JSON_ON_LOG_TIMEOUT` | Env form is a number in milliseconds. |
+| `onLog` | `CONSOLE_LOG_JSON_ON_LOG` | Direct form is a function. Env form is a dotted path on `globalThis`, like `appLoggerHooks.onLog`. |
+| `transformOutput` | `CONSOLE_LOG_JSON_TRANSFORM_OUTPUT` | Direct form is a function. Env form is a dotted path on `globalThis`. |
+
+`envOptions` does not have its own environment-variable equivalent because it is not a logger behavior setting. It is only the programmatic wrapper for supplying env-style values in code.
 
 ### Output formatting
 
@@ -410,6 +497,51 @@ These let you reduce log volume and noise. In high-throughput production systems
 |---|---|---|
 | `CONSOLE_LOG_JSON_CONTEXT_KEY="context"` | *(empty)* | When set, all user-provided context object properties are nested under this key instead of being flattened to the top level. This gives your log output a fixed, predictable top-level schema — no "random" properties appearing at the top level that could break DataDog filters, OpenSearch index mappings, or Splunk field extractions. The key name is whatever you set: `context`, `data`, `metadata`, etc. When not set, the default behavior (flatten to top level) is preserved. See the [context key example](#nesting-context-under-a-single-key-clean-top-level-schema) above. |
 
+### Runtime and hooks
+
+These are the settings that were previously only available as direct `LoggerAdaptToConsole(...)` options. They now also have environment-variable forms.
+
+| Variable | Default | Effect |
+|---|---|---|
+| `CONSOLE_LOG_JSON_LOG_LEVEL=warn` | `info` | Sets the minimum emitted log level. Supports `error`, `warn`, `info`, `http`, `verbose`, `debug`, `silly`, plus aliases like `err`, `warning`, and `information`. |
+| `CONSOLE_LOG_JSON_DEBUG_STRING=true` | `false` | Enables `_loggerDebug`, which captures the raw argument serialization used while building a log line. Mainly useful when debugging the logger itself. |
+| `CONSOLE_LOG_JSON_CUSTOM_OPTIONS='{"service":"billing-api","region":"ca-central-1"}'` | *(empty)* | Adds the same static structured properties to every log entry that `customOptions` adds in code. Must be a JSON object string. |
+| `CONSOLE_LOG_JSON_REDACT='["password","headers.authorization"]'` | *(empty)* | Supplies the same redaction config as the `redact` option. Accepts either a JSON array/object string or a simple comma-separated path list. |
+| `CONSOLE_LOG_JSON_ON_LOG_TIMEOUT=10000` | `5000` | Sets the timeout, in milliseconds, for the `onLog` callback before it is abandoned. |
+| `CONSOLE_LOG_JSON_ON_LOG=appLoggerHooks.onLog` | *(empty)* | Resolves `onLog` from a dotted path on `globalThis`. This avoids `eval` while still allowing env-driven hook wiring in advanced setups. |
+| `CONSOLE_LOG_JSON_TRANSFORM_OUTPUT=appLoggerHooks.transformOutput` | *(empty)* | Resolves `transformOutput` from a dotted path on `globalThis`. Useful when configuration must be environment-driven but the transform function itself lives in application code. |
+
+#### How env-configured hook references work
+
+`CONSOLE_LOG_JSON_ON_LOG` and `CONSOLE_LOG_JSON_TRANSFORM_OUTPUT` do **not** evaluate JavaScript source code from strings.
+
+This will **not** work:
+
+```bash
+CONSOLE_LOG_JSON_ON_LOG="(jsonString, parsedObject) => sendSomewhere(jsonString)"
+```
+
+Instead, put a real function on `globalThis` and point the env var at it with a dotted path:
+
+```js
+globalThis.appLoggerHooks = {
+  onLog(jsonString, parsedObject) {
+    sendSomewhere(jsonString);
+  },
+  transformOutput(obj) {
+    obj.service = "billing-api";
+    return obj;
+  }
+};
+
+process.env.CONSOLE_LOG_JSON_ON_LOG = "appLoggerHooks.onLog";
+process.env.CONSOLE_LOG_JSON_TRANSFORM_OUTPUT = "appLoggerHooks.transformOutput";
+
+LoggerAdaptToConsole();
+```
+
+At startup, the logger walks the dotted path on `globalThis` and uses the resolved function if it exists. If the path does not resolve to a function, it is ignored safely instead of throwing.
+
 ### Performance tip
 
 Setting both `CONSOLE_LOG_JSON_NO_FILE_NAME=true` and `CONSOLE_LOG_JSON_NO_STACK_FOR_NON_ERROR=true` skips stack trace capture entirely for non-error logs. This eliminates the most expensive operation in the logging pipeline (creating an Error object to capture the stack), reducing per-log overhead to near-zero. **Recommended for high-throughput production services** where you're logging hundreds or thousands of events per second and don't need source file tracking on every info/debug log. Error logs always capture the full stack regardless of these settings.
@@ -424,23 +556,36 @@ Initialize the logger. Call once at application startup.
 
 ```ts
 LoggerAdaptToConsole({
-  logLevel?: LOG_LEVEL,                  // Minimum log level (default: LOG_LEVEL.info)
+  logLevel?: LOG_LEVEL | string,         // Minimum log level (default: LOG_LEVEL.info)
   debugString?: boolean,                 // Include raw debug string in output (default: false)
   customOptions?: object,                // Static key-value pairs added to every log entry
-  envOptions?: Record<string, string>,   // Configuration flags (same names as env vars, takes precedence)
-  onLog?: (jsonString: string, parsedObject: any) => void,  // Interceptor callback (after write)
+  colorize?: boolean,                    // Same behavior as CONSOLE_LOG_COLORIZE
+  noNewLineCharacters?: boolean,         // Same behavior as CONSOLE_LOG_JSON_NO_NEW_LINE_CHARACTERS
+  noNewLineCharactersExceptStack?: boolean, // Same behavior as CONSOLE_LOG_JSON_NO_NEW_LINE_CHARACTERS_EXCEPT_STACK
+  noTimeStamp?: boolean,                 // Same behavior as CONSOLE_LOG_JSON_NO_TIME_STAMP
+  disableAutoParse?: boolean,            // Same behavior as CONSOLE_LOG_JSON_DISABLE_AUTO_PARSE
+  noStackForNonError?: boolean,          // Same behavior as CONSOLE_LOG_JSON_NO_STACK_FOR_NON_ERROR
+  noFileName?: boolean,                  // Same behavior as CONSOLE_LOG_JSON_NO_FILE_NAME
+  noPackageName?: boolean,               // Same behavior as CONSOLE_LOG_JSON_NO_PACKAGE_NAME
+  noLoggerDebug?: boolean,               // Same behavior as CONSOLE_LOG_JSON_NO_LOGGER_DEBUG
+  contextKey?: string,                   // Same behavior as CONSOLE_LOG_JSON_CONTEXT_KEY
+  envOptions?: Record<string, any>,      // Env-style overrides (same names as env vars, takes precedence over process.env)
+  onLog?: ((jsonString: string, parsedObject: any) => void) | string,  // Function or dotted global path
   onLogTimeout?: number,                 // Max time in ms for onLog callback (default: 5000)
-  transformOutput?: (parsedObject: any) => any, // Modify log object before it's written
+  transformOutput?: ((parsedObject: any) => any) | string, // Function or dotted global path
   redact?: string[] | {                  // Redact sensitive structured fields
     paths: string[],
     censor?: any                         // Default: "Redacted"
-  }
+  } | string                             // JSON string or comma-separated path list when configured indirectly
 });
 ```
 
-- **`envOptions`** accepts the same variable names as the environment variables listed in the [Configuration](#environment-variable-configuration) section. Values passed here override `process.env`. This is the recommended way to configure the logger in browser environments where `process.env` is not available.
+- **Formatting and metadata flags** like `noTimeStamp`, `noFileName`, `noStackForNonError`, `contextKey`, and `colorize` now work directly as top-level `LoggerAdaptToConsole(...)` options. Their behavior exactly matches the environment variables of the same meaning.
+- **`envOptions`** accepts the same variable names as the environment variables listed in the [Configuration](#environment-variable-configuration) section. Values passed here override `process.env`, but are themselves overridden by direct top-level options. This is useful when you want env-style names without mutating `process.env`.
+- **`customOptions`** can now also be supplied through `CONSOLE_LOG_JSON_CUSTOM_OPTIONS` as a JSON object string when configuration must be environment-driven.
 - **`transformOutput`** runs synchronously before each log is written. Receives the parsed log object, returns a modified object. Falls back to original output if the callback throws or returns null. See [Transforming log output](#transforming-log-output-with-transformoutput) for details.
-- **`redact`** redacts structured fields by path after `transformOutput` and before the log is written. The shorthand array form uses `"Redacted"` as the replacement value. Invalid redact paths are ignored rather than breaking logging, and the original caller-owned objects are left unchanged.
+- **`transformOutput`** and **`onLog`** may also be configured indirectly with `CONSOLE_LOG_JSON_TRANSFORM_OUTPUT` and `CONSOLE_LOG_JSON_ON_LOG` by pointing them at dotted paths on `globalThis`, such as `appLoggerHooks.transformOutput`. These env vars do not evaluate code strings. They only resolve existing functions already attached to `globalThis`. Direct function options are usually clearer and are recommended when possible.
+- **`redact`** redacts structured fields by path after `transformOutput` and before the log is written. The shorthand array form uses `"Redacted"` as the replacement value. Invalid redact paths are ignored rather than breaking logging, and the original caller-owned objects are left unchanged. The same config can also be supplied through `CONSOLE_LOG_JSON_REDACT`.
 - **`onLog`** runs asynchronously after each log is written. Receives the formatted JSON string and a parsed copy of the log object. If `transformOutput` and `redact` are also set, `onLog` sees the final transformed and redacted result. See [Intercepting logs](#intercepting-logs-with-onlog) for details.
 - **`onLogTimeout`** sets the maximum time in milliseconds that the `onLog` callback is allowed to run before being abandoned. Defaults to 5000ms.
 
@@ -492,6 +637,8 @@ import { LOG_LEVEL } from "console-log-json";
 
 ## Browser Usage
 
+Use the browser guide when you want the same console-to-JSON behavior in a frontend application. The logger works there too, but a few defaults and metadata fields are different from Node.js.
+
 ### Basic setup
 
 ```js
@@ -513,9 +660,49 @@ The `browser` field in `package.json` tells bundlers (webpack, vite, esbuild, et
 
 ### Configuration in the browser
 
-In Node.js, configuration is done through environment variables. In the browser, there's no `process.env` -- so you configure through the `customOptions` parameter and by setting `window.process` before initializing the logger.
+In the browser, the simplest path is to pass options directly to `LoggerAdaptToConsole(...)`. If you prefer environment-style configuration, `envOptions` works without touching `process.env`, and bundler `define` still works too.
 
-**Option 1: Set configuration before import (recommended for bundlers)**
+**Option 1: Pass options directly (recommended)**
+
+```js
+import { LoggerAdaptToConsole, LOG_LEVEL } from "console-log-json";
+
+LoggerAdaptToConsole({
+  logLevel: LOG_LEVEL.warn,
+  customOptions: {
+    app: "my-frontend",
+    version: "2.1.0"
+  },
+  noStackForNonError: true,
+  noFileName: true,
+  noPackageName: true
+});
+```
+
+**Option 2: Use `envOptions` parameter (recommended when you want env-style names without `process.env`)**
+
+Pass configuration flags directly to `LoggerAdaptToConsole()` using the same env var names. This works identically in Node and browser without any environment or bundler setup:
+
+```js
+import { LoggerAdaptToConsole, LOG_LEVEL } from "console-log-json";
+
+LoggerAdaptToConsole({
+  logLevel: LOG_LEVEL.warn,
+  customOptions: {
+    app: "my-frontend",
+    version: "2.1.0"
+  },
+  envOptions: {
+    CONSOLE_LOG_JSON_NO_STACK_FOR_NON_ERROR: 'true',  // Skip stack capture for non-errors
+    CONSOLE_LOG_JSON_NO_FILE_NAME: 'true',             // @filename is <unknown> in browser anyway
+    CONSOLE_LOG_JSON_NO_PACKAGE_NAME: 'true'           // No package.json in browser
+  }
+});
+```
+
+The `envOptions` parameter accepts the same variable names as the environment variables. Values passed here take precedence over `process.env`, but direct top-level options still win over both.
+
+**Option 3: Set configuration before import (useful for bundlers)**
 
 Most bundlers (webpack, vite) support `define` to replace `process.env` at build time:
 
@@ -544,7 +731,7 @@ module.exports = {
 }
 ```
 
-**Option 2: Set `process.env` at runtime before initializing**
+**Option 4: Set `process.env` at runtime before initializing**
 
 If your bundler doesn't support `define`, you can set up a minimal `process.env` before importing the logger:
 
@@ -567,29 +754,6 @@ import { LoggerAdaptToConsole } from "console-log-json";
 LoggerAdaptToConsole();
 ```
 
-**Option 3: Use `envOptions` parameter (recommended -- no process.env needed)**
-
-Pass configuration flags directly to `LoggerAdaptToConsole()` using the same env var names. This works identically in Node and browser without any environment or bundler setup:
-
-```js
-import { LoggerAdaptToConsole, LOG_LEVEL } from "console-log-json";
-
-LoggerAdaptToConsole({
-  logLevel: LOG_LEVEL.warn,
-  customOptions: {
-    app: "my-frontend",
-    version: "2.1.0"
-  },
-  envOptions: {
-    CONSOLE_LOG_JSON_NO_STACK_FOR_NON_ERROR: 'true',  // Skip stack capture for non-errors
-    CONSOLE_LOG_JSON_NO_FILE_NAME: 'true',             // @filename is <unknown> in browser anyway
-    CONSOLE_LOG_JSON_NO_PACKAGE_NAME: 'true',          // No package.json in browser
-  }
-});
-```
-
-The `envOptions` parameter accepts the same variable names as the environment variables. Values passed here take precedence over `process.env`.
-
 ### Recommended browser configuration
 
 For most frontend applications, you'll want to reduce noise by disabling features that don't add value in the browser:
@@ -599,11 +763,9 @@ import { LoggerAdaptToConsole } from "console-log-json";
 
 LoggerAdaptToConsole({
   customOptions: { app: "my-frontend" },
-  envOptions: {
-    CONSOLE_LOG_JSON_NO_FILE_NAME: 'true',             // @filename is <unknown> in browser anyway
-    CONSOLE_LOG_JSON_NO_STACK_FOR_NON_ERROR: 'true',   // Skip stack capture for non-errors (performance)
-    CONSOLE_LOG_JSON_NO_PACKAGE_NAME: 'true',          // No package.json in browser
-  }
+  noFileName: true,           // @filename is <unknown> in browser anyway
+  noStackForNonError: true,   // Skip stack capture for non-errors (performance)
+  noPackageName: true         // No package.json in browser
 });
 
 console.log("page loaded", { route: "/dashboard", loadTime: 1.2 });
@@ -624,6 +786,10 @@ console.log("page loaded", { route: "/dashboard", loadTime: 1.2 });
 | Output destination | `process.stdout` (JSON string) | Browser `console.log` (visible in DevTools) |
 | Environment variables | `process.env` | Set via bundler `define` or manual `process.env` setup |
 | Colors (`CONSOLE_LOG_COLORIZE`) | ANSI codes for terminal | ANSI codes (visible in Node-based tools, not in browser DevTools) |
+
+## Advanced Usage
+
+These features work in both Node.js and browser environments. Reach for them when you need to integrate with an existing logging pipeline, reshape output, or enforce structured redaction rules.
 
 ### Intercepting logs with `onLog`
 

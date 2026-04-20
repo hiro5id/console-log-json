@@ -492,6 +492,26 @@ let logParams!: { logLevel: LOG_LEVEL; debugString: boolean };
 // Pre-compiled regex for stack message extraction — compiled once at init time
 let stackMessageRegex: RegExp;
 
+const LOGGER_ENV_VARS = {
+  colorize: 'CONSOLE_LOG_COLORIZE',
+  noNewLineCharacters: 'CONSOLE_LOG_JSON_NO_NEW_LINE_CHARACTERS',
+  noNewLineCharactersExceptStack: 'CONSOLE_LOG_JSON_NO_NEW_LINE_CHARACTERS_EXCEPT_STACK',
+  noTimeStamp: 'CONSOLE_LOG_JSON_NO_TIME_STAMP',
+  disableAutoParse: 'CONSOLE_LOG_JSON_DISABLE_AUTO_PARSE',
+  noStackForNonError: 'CONSOLE_LOG_JSON_NO_STACK_FOR_NON_ERROR',
+  noFileName: 'CONSOLE_LOG_JSON_NO_FILE_NAME',
+  noPackageName: 'CONSOLE_LOG_JSON_NO_PACKAGE_NAME',
+  noLoggerDebug: 'CONSOLE_LOG_JSON_NO_LOGGER_DEBUG',
+  contextKey: 'CONSOLE_LOG_JSON_CONTEXT_KEY',
+  logLevel: 'CONSOLE_LOG_JSON_LOG_LEVEL',
+  debugString: 'CONSOLE_LOG_JSON_DEBUG_STRING',
+  customOptions: 'CONSOLE_LOG_JSON_CUSTOM_OPTIONS',
+  onLog: 'CONSOLE_LOG_JSON_ON_LOG',
+  onLogTimeout: 'CONSOLE_LOG_JSON_ON_LOG_TIMEOUT',
+  transformOutput: 'CONSOLE_LOG_JSON_TRANSFORM_OUTPUT',
+  redact: 'CONSOLE_LOG_JSON_REDACT',
+};
+
 // Cached environment configuration — populated once at LoggerAdaptToConsole() time
 let envConfig = {
   noNewLineCharacters: false,
@@ -507,7 +527,7 @@ let envConfig = {
 };
 
 /** Programmatic overrides passed via LoggerAdaptToConsole({ envOptions }) */
-let envOptionOverrides: Record<string, string> = {};
+let envOptionOverrides: Record<string, any> = {};
 
 /** User-provided log interceptor callback */
 let onLogCallback: ((jsonString: string, parsedObject: any) => void) | null = null;
@@ -517,26 +537,244 @@ let onLogTimeoutMs: number = 5000;
 let transformOutputCallback: ((parsedObject: any) => any) | null = null;
 let redactor: Redactor | null = null;
 
-export function loadEnvConfig() {
-  const resolve = (envVarName: string): string | undefined => {
-    // Programmatic overrides take precedence over environment variables
-    if (envVarName in envOptionOverrides) {
-      return envOptionOverrides[envVarName];
+export interface LoggerAdaptToConsoleOptions {
+  logLevel?: LOG_LEVEL | string;
+  debugString?: boolean;
+  customOptions?: { [key: string]: any };
+  colorize?: boolean;
+  noNewLineCharacters?: boolean;
+  noNewLineCharactersExceptStack?: boolean;
+  noTimeStamp?: boolean;
+  disableAutoParse?: boolean;
+  noStackForNonError?: boolean;
+  noFileName?: boolean;
+  noPackageName?: boolean;
+  noLoggerDebug?: boolean;
+  contextKey?: string;
+  envOptions?: Record<string, any>;
+  onLog?: ((jsonString: string, parsedObject: any) => void) | string;
+  onLogTimeout?: number;
+  transformOutput?: ((parsedObject: any) => any) | string;
+  redact?: RedactOptions | string;
+}
+
+function getConfiguredEnvValue(envVarName: string): any {
+  if (envVarName in envOptionOverrides) {
+    return envOptionOverrides[envVarName];
+  }
+  return getEnv(envVarName);
+}
+
+function isTrue(value: any): boolean {
+  if (typeof value === 'boolean') {
+    return value;
+  }
+  if (typeof value === 'string') {
+    return value.toLowerCase() === 'true';
+  }
+  return false;
+}
+
+function parseJsonConfigValue(value: any): any {
+  if (typeof value !== 'string') {
+    return value;
+  }
+
+  const trimmedValue = value.trim();
+  if (trimmedValue.length === 0) {
+    return undefined;
+  }
+
+  try {
+    return JSON.parse(trimmedValue);
+  } catch (_) {
+    return undefined;
+  }
+}
+
+function normalizeLogLevelValue(value: any, defaultLevel: LOG_LEVEL = LOG_LEVEL.info): LOG_LEVEL {
+  if (typeof value !== 'string') {
+    return defaultLevel;
+  }
+
+  let normalizedLevel = value.trim().toLowerCase();
+  if (normalizedLevel.length === 0) {
+    return defaultLevel;
+  }
+
+  if (normalizedLevel === 'err') {
+    normalizedLevel = LOG_LEVEL.error;
+  } else if (normalizedLevel === 'warning') {
+    normalizedLevel = LOG_LEVEL.warn;
+  } else if (normalizedLevel === 'information') {
+    normalizedLevel = LOG_LEVEL.info;
+  }
+
+  return Object.prototype.hasOwnProperty.call(LOG_LEVEL_PRIORITY, normalizedLevel) ? (normalizedLevel as LOG_LEVEL) : defaultLevel;
+}
+
+function normalizeTimeoutValue(value: any, defaultValue: number): number {
+  if (typeof value === 'number' && Number.isFinite(value) && value >= 0) {
+    return value;
+  }
+
+  if (typeof value === 'string' && value.trim().length > 0) {
+    const parsed = Number(value);
+    if (Number.isFinite(parsed) && parsed >= 0) {
+      return parsed;
     }
-    return getEnv(envVarName);
+  }
+
+  return defaultValue;
+}
+
+function normalizeCustomOptionsValue(value: any): { [key: string]: any } | null {
+  const parsedValue = parseJsonConfigValue(value);
+  if (parsedValue != null && typeof parsedValue === 'object' && !Array.isArray(parsedValue)) {
+    return parsedValue as { [key: string]: any };
+  }
+  return null;
+}
+
+function normalizeRedactValue(value: any): RedactOptions | undefined {
+  if (value == null) {
+    return undefined;
+  }
+
+  if (Array.isArray(value)) {
+    return value as RedactOptions;
+  }
+
+  if (typeof value === 'object') {
+    return value as RedactOptions;
+  }
+
+  if (typeof value !== 'string') {
+    return undefined;
+  }
+
+  const trimmedValue = value.trim();
+  if (trimmedValue.length === 0) {
+    return undefined;
+  }
+
+  const parsedValue = parseJsonConfigValue(trimmedValue);
+  if (Array.isArray(parsedValue) || (parsedValue != null && typeof parsedValue === 'object')) {
+    return parsedValue as RedactOptions;
+  }
+
+  const splitValue = trimmedValue
+    .split(',')
+    .map((entry) => entry.trim())
+    .filter((entry) => entry.length > 0);
+
+  return splitValue.length > 0 ? splitValue : undefined;
+}
+
+function resolveGlobalPath(path: string): any {
+  const rootObject: any = typeof globalThis !== 'undefined' ? globalThis : {};
+  const parts = path
+    .split('.')
+    .map((part) => part.trim())
+    .filter((part) => part.length > 0);
+
+  if (parts.length === 0) {
+    return undefined;
+  }
+
+  let current = rootObject;
+  for (const part of parts) {
+    if (current == null) {
+      return undefined;
+    }
+    current = current[part];
+  }
+
+  return current;
+}
+
+type AnyFunction = (...args: any[]) => any;
+
+function normalizeFunctionValue<T extends AnyFunction>(value: any): T | null {
+  if (typeof value === 'function') {
+    return value as T;
+  }
+
+  if (typeof value !== 'string') {
+    return null;
+  }
+
+  const trimmedValue = value.trim();
+  if (trimmedValue.length === 0) {
+    return null;
+  }
+
+  const resolved = resolveGlobalPath(trimmedValue);
+  return typeof resolved === 'function' ? (resolved as T) : null;
+}
+
+function applyIfDefined(target: Record<string, any>, envVarName: string, value: any): void {
+  if (value !== undefined) {
+    target[envVarName] = value;
+  }
+}
+
+function buildEnvOptionOverrides(options?: LoggerAdaptToConsoleOptions): Record<string, any> {
+  const overrides: Record<string, any> = { ...(options?.envOptions || {}) };
+
+  applyIfDefined(overrides, LOGGER_ENV_VARS.colorize, options?.colorize);
+  applyIfDefined(overrides, LOGGER_ENV_VARS.noNewLineCharacters, options?.noNewLineCharacters);
+  applyIfDefined(overrides, LOGGER_ENV_VARS.noNewLineCharactersExceptStack, options?.noNewLineCharactersExceptStack);
+  applyIfDefined(overrides, LOGGER_ENV_VARS.noTimeStamp, options?.noTimeStamp);
+  applyIfDefined(overrides, LOGGER_ENV_VARS.disableAutoParse, options?.disableAutoParse);
+  applyIfDefined(overrides, LOGGER_ENV_VARS.noStackForNonError, options?.noStackForNonError);
+  applyIfDefined(overrides, LOGGER_ENV_VARS.noFileName, options?.noFileName);
+  applyIfDefined(overrides, LOGGER_ENV_VARS.noPackageName, options?.noPackageName);
+  applyIfDefined(overrides, LOGGER_ENV_VARS.noLoggerDebug, options?.noLoggerDebug);
+  applyIfDefined(overrides, LOGGER_ENV_VARS.contextKey, options?.contextKey);
+
+  return overrides;
+}
+
+function resolveOptionValue(directValue: any, envVarName: string): any {
+  if (directValue !== undefined) {
+    return directValue;
+  }
+  return getConfiguredEnvValue(envVarName);
+}
+
+function resolveLoggerAdaptToConsoleOptions(options?: LoggerAdaptToConsoleOptions): {
+  logLevel: LOG_LEVEL;
+  debugString: boolean;
+  customOptions: { [key: string]: any } | null;
+  onLog: ((jsonString: string, parsedObject: any) => void) | null;
+  onLogTimeout: number;
+  transformOutput: ((parsedObject: any) => any) | null;
+  redact: RedactOptions | undefined;
+} {
+  return {
+    logLevel: normalizeLogLevelValue(resolveOptionValue(options?.logLevel, LOGGER_ENV_VARS.logLevel), LOG_LEVEL.info),
+    debugString: isTrue(resolveOptionValue(options?.debugString, LOGGER_ENV_VARS.debugString)),
+    customOptions: normalizeCustomOptionsValue(resolveOptionValue(options?.customOptions, LOGGER_ENV_VARS.customOptions)),
+    onLog: normalizeFunctionValue<(jsonString: string, parsedObject: any) => void>(resolveOptionValue(options?.onLog, LOGGER_ENV_VARS.onLog)),
+    onLogTimeout: normalizeTimeoutValue(resolveOptionValue(options?.onLogTimeout, LOGGER_ENV_VARS.onLogTimeout), 5000),
+    transformOutput: normalizeFunctionValue<(parsedObject: any) => any>(resolveOptionValue(options?.transformOutput, LOGGER_ENV_VARS.transformOutput)),
+    redact: normalizeRedactValue(resolveOptionValue(options?.redact, LOGGER_ENV_VARS.redact)),
   };
-  const isTrue = (val: string | undefined) => val != null && val.toLowerCase() === 'true';
+}
+
+export function loadEnvConfig() {
   envConfig = {
-    noNewLineCharacters: isTrue(resolve('CONSOLE_LOG_JSON_NO_NEW_LINE_CHARACTERS')),
-    noNewLineCharactersExceptStack: isTrue(resolve('CONSOLE_LOG_JSON_NO_NEW_LINE_CHARACTERS_EXCEPT_STACK')),
-    noTimeStamp: isTrue(resolve('CONSOLE_LOG_JSON_NO_TIME_STAMP')),
-    disableAutoParse: isTrue(resolve('CONSOLE_LOG_JSON_DISABLE_AUTO_PARSE')),
-    colorize: isTrue(resolve('CONSOLE_LOG_COLORIZE')),
-    noStackForNonError: isTrue(resolve('CONSOLE_LOG_JSON_NO_STACK_FOR_NON_ERROR')),
-    noFileName: isTrue(resolve('CONSOLE_LOG_JSON_NO_FILE_NAME')),
-    noPackageName: isTrue(resolve('CONSOLE_LOG_JSON_NO_PACKAGE_NAME')),
-    noLoggerDebug: isTrue(resolve('CONSOLE_LOG_JSON_NO_LOGGER_DEBUG')),
-    contextKey: resolve('CONSOLE_LOG_JSON_CONTEXT_KEY') || '',
+    noNewLineCharacters: isTrue(getConfiguredEnvValue(LOGGER_ENV_VARS.noNewLineCharacters)),
+    noNewLineCharactersExceptStack: isTrue(getConfiguredEnvValue(LOGGER_ENV_VARS.noNewLineCharactersExceptStack)),
+    noTimeStamp: isTrue(getConfiguredEnvValue(LOGGER_ENV_VARS.noTimeStamp)),
+    disableAutoParse: isTrue(getConfiguredEnvValue(LOGGER_ENV_VARS.disableAutoParse)),
+    colorize: isTrue(getConfiguredEnvValue(LOGGER_ENV_VARS.colorize)),
+    noStackForNonError: isTrue(getConfiguredEnvValue(LOGGER_ENV_VARS.noStackForNonError)),
+    noFileName: isTrue(getConfiguredEnvValue(LOGGER_ENV_VARS.noFileName)),
+    noPackageName: isTrue(getConfiguredEnvValue(LOGGER_ENV_VARS.noPackageName)),
+    noLoggerDebug: isTrue(getConfiguredEnvValue(LOGGER_ENV_VARS.noLoggerDebug)),
+    contextKey: getConfiguredEnvValue(LOGGER_ENV_VARS.contextKey) || '',
   };
   resetNewLineCharacterCache();
   stackMessageRegex = new RegExp(`^Error:[ ](.*?)${NewLineCharacter()}`, 'im');
@@ -545,7 +783,7 @@ export function loadEnvConfig() {
 /**
  * This function adapts a logger to the console.
  *
- * @param {({ logLevel?: LOG_LEVEL; debugString?: boolean; customOptions?: object })} [options] - An optional parameter that can configure log level, debug output, extra context, structured redaction, and lifecycle hooks.
+ * @param {LoggerAdaptToConsoleOptions} [options] - An optional parameter that can configure log level, formatting flags, debug output, extra context, structured redaction, and lifecycle hooks.
  *
  * @example
  * // Default behavior with no options
@@ -563,29 +801,20 @@ export function loadEnvConfig() {
  * // Redact sensitive fields from the final structured log object
  * LoggerAdaptToConsole({ redact: ['password', 'headers.authorization'] });
  */
-export function LoggerAdaptToConsole(options?: {
-  logLevel?: LOG_LEVEL;
-  debugString?: boolean;
-  customOptions?: object;
-  envOptions?: Record<string, string>;
-  onLog?: (jsonString: string, parsedObject: any) => void;
-  onLogTimeout?: number;
-  transformOutput?: (parsedObject: any) => any;
-  redact?: RedactOptions;
-}) {
-  envOptionOverrides = options?.envOptions || {};
-  onLogCallback = options?.onLog || null;
-  onLogTimeoutMs = options?.onLogTimeout || 5000;
-  transformOutputCallback = options?.transformOutput || null;
-  redactor = compileRedactor(options?.redact);
+export function LoggerAdaptToConsole(options?: LoggerAdaptToConsoleOptions) {
+  envOptionOverrides = buildEnvOptionOverrides(options);
+  const resolvedOptions = resolveLoggerAdaptToConsoleOptions(options);
+  onLogCallback = resolvedOptions.onLog;
+  onLogTimeoutMs = resolvedOptions.onLogTimeout;
+  transformOutputCallback = resolvedOptions.transformOutput;
+  redactor = compileRedactor(resolvedOptions.redact);
   loadEnvConfig();
 
-  const defaultOptions = {
-    logLevel: LOG_LEVEL.info,
-    debugString: false,
+  logParams = {
+    logLevel: resolvedOptions.logLevel,
+    debugString: resolvedOptions.debugString,
   };
-  logParams = { ...defaultOptions, ...options };
-  customOptionsReference = options?.customOptions ? (options.customOptions as { [key: string]: any }) : null;
+  customOptionsReference = resolvedOptions.customOptions;
   customOptionKeys = customOptionsReference ? Object.keys(customOptionsReference) : [];
 
   // log package name
@@ -593,7 +822,7 @@ export function LoggerAdaptToConsole(options?: {
   packageNameState = 'uninitialized';
   startPackageNameInitialization();
 
-  Logger.level = logParams.logLevel;
+  Logger.level = resolvedOptions.logLevel;
 
   if (consoleErrorBackup == null) {
     consoleErrorBackup = console.error;
@@ -626,42 +855,42 @@ export function LoggerAdaptToConsole(options?: {
   }
 
   console.error = (...args: any[]) => {
-    return logUsingConsoleJson(args, LOG_LEVEL.error, options?.customOptions);
+    return logUsingConsoleJson(args, LOG_LEVEL.error, resolvedOptions.customOptions || undefined);
   };
   registerInternalCallerFunction(console.error as any);
 
   console.warn = (...args: any[]) => {
-    return logUsingConsoleJson(args, LOG_LEVEL.warn, options?.customOptions);
+    return logUsingConsoleJson(args, LOG_LEVEL.warn, resolvedOptions.customOptions || undefined);
   };
   registerInternalCallerFunction(console.warn as any);
 
   console.info = (...args: any[]) => {
-    return logUsingConsoleJson(args, LOG_LEVEL.info, options?.customOptions);
+    return logUsingConsoleJson(args, LOG_LEVEL.info, resolvedOptions.customOptions || undefined);
   };
   registerInternalCallerFunction(console.info as any);
 
   console.http = (...args: any[]) => {
-    return logUsingConsoleJson(args, LOG_LEVEL.http, options?.customOptions);
+    return logUsingConsoleJson(args, LOG_LEVEL.http, resolvedOptions.customOptions || undefined);
   };
   registerInternalCallerFunction(console.http as any);
 
   console.verbose = (...args: any[]) => {
-    return logUsingConsoleJson(args, LOG_LEVEL.verbose, options?.customOptions);
+    return logUsingConsoleJson(args, LOG_LEVEL.verbose, resolvedOptions.customOptions || undefined);
   };
   registerInternalCallerFunction(console.verbose as any);
 
   console.debug = (...args: any[]) => {
-    return logUsingConsoleJson(args, LOG_LEVEL.debug, options?.customOptions);
+    return logUsingConsoleJson(args, LOG_LEVEL.debug, resolvedOptions.customOptions || undefined);
   };
   registerInternalCallerFunction(console.debug as any);
 
   console.silly = (...args: any[]) => {
-    return logUsingConsoleJson(args, LOG_LEVEL.silly, options?.customOptions);
+    return logUsingConsoleJson(args, LOG_LEVEL.silly, resolvedOptions.customOptions || undefined);
   };
   registerInternalCallerFunction(console.silly as any);
 
   console.log = (...args: any[]) => {
-    return logUsingConsoleJson(args, LOG_LEVEL.info, options?.customOptions);
+    return logUsingConsoleJson(args, LOG_LEVEL.info, resolvedOptions.customOptions || undefined);
   };
   registerInternalCallerFunction(console.log as any);
 }
@@ -681,25 +910,7 @@ function findExplicitLogLevelAndUseIt(args: any[], level: LOG_LEVEL) {
   let foundLevel = false;
   args.forEach((f: any) => {
     if (!foundLevel && f && typeof f === 'object' && Object.keys(f) && Object.keys(f).length > 0 && Object.keys(f)[0].toLowerCase() === 'level') {
-      let specifiedLevelFromParameters: string = f[Object.keys(f)[0]];
-
-      // Normalize alternate log level strings
-      if (specifiedLevelFromParameters.toLowerCase() === 'err') {
-        specifiedLevelFromParameters = LOG_LEVEL.error;
-      }
-      if (specifiedLevelFromParameters.toLowerCase() === 'warning') {
-        specifiedLevelFromParameters = LOG_LEVEL.warn;
-      }
-      if (specifiedLevelFromParameters.toLowerCase() === 'information') {
-        specifiedLevelFromParameters = LOG_LEVEL.info;
-      }
-
-      const maybeLevel: LOG_LEVEL | undefined = (LOG_LEVEL as any)[specifiedLevelFromParameters];
-      if (maybeLevel !== undefined) {
-        level = maybeLevel;
-      } else {
-        level = LOG_LEVEL.info;
-      }
+      level = normalizeLogLevelValue(f[Object.keys(f)[0]], LOG_LEVEL.info);
 
       // Remove this property since we have absorbed it into the log level
       delete f[Object.keys(f)[0]];

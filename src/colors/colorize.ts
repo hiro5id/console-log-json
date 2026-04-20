@@ -120,6 +120,258 @@ function truth(it: any) {
 // TODO:colors: add support for deserializing circual references by incorporating and using 'json-stringify-safe' that i userd here elsewhere but now commented out
 // TODO:colors: add support to toggle colors as well as JSON formatting independently
 
+interface IScannedJsonStringToken {
+  endIndex: number;
+  normalizedStringText: string;
+  tokenText: string;
+  isKey: boolean;
+}
+
+function getJsonString(jsonInput: any, spacing?: number): string {
+  if (typeof jsonInput !== 'string') {
+    return jsonStringifySafe(jsonInput, undefined, spacing);
+  }
+  return jsonStringifySafe(JSON.parse(jsonInput), undefined, spacing);
+}
+
+function isWhitespaceCharacter(character: string): boolean {
+  return character === ' ' || character === '\n' || character === '\r' || character === '\t';
+}
+
+function isDigitCharacter(character: string): boolean {
+  return character >= '0' && character <= '9';
+}
+
+function scanJsonStringToken(json: string, startIndex: number): IScannedJsonStringToken {
+  let stringEndIndex = startIndex + 1;
+
+  while (stringEndIndex < json.length) {
+    const character = json.charAt(stringEndIndex);
+
+    if (character === '\\') {
+      stringEndIndex += 1;
+      if (stringEndIndex < json.length) {
+        stringEndIndex += 1;
+      }
+      continue;
+    }
+
+    if (character === '"') {
+      stringEndIndex += 1;
+      break;
+    }
+
+    stringEndIndex += 1;
+  }
+
+  if (stringEndIndex > json.length) {
+    stringEndIndex = json.length;
+  }
+
+  const stringText = json.slice(startIndex, stringEndIndex);
+  let tokenEndIndex = stringEndIndex;
+
+  while (tokenEndIndex < json.length && isWhitespaceCharacter(json.charAt(tokenEndIndex))) {
+    tokenEndIndex += 1;
+  }
+
+  const isKey = json.charAt(tokenEndIndex) === ':';
+  if (isKey) {
+    tokenEndIndex += 1;
+  }
+
+  return {
+    endIndex: tokenEndIndex,
+    normalizedStringText: stringText.toLowerCase(),
+    tokenText: json.slice(startIndex, tokenEndIndex),
+    isKey,
+  };
+}
+
+function scanJsonNumberEndIndex(json: string, startIndex: number): number {
+  let index = startIndex;
+
+  if (json.charAt(index) === '-') {
+    index += 1;
+  }
+
+  if (json.charAt(index) === '0') {
+    index += 1;
+  } else {
+    while (index < json.length && isDigitCharacter(json.charAt(index))) {
+      index += 1;
+    }
+  }
+
+  if (json.charAt(index) === '.') {
+    index += 1;
+    while (index < json.length && isDigitCharacter(json.charAt(index))) {
+      index += 1;
+    }
+  }
+
+  if (json.charAt(index) === 'e' || json.charAt(index) === 'E') {
+    index += 1;
+    if (json.charAt(index) === '+' || json.charAt(index) === '-') {
+      index += 1;
+    }
+    while (index < json.length && isDigitCharacter(json.charAt(index))) {
+      index += 1;
+    }
+  }
+
+  return index > startIndex ? index : startIndex + 1;
+}
+
+function getKeyColorCode(normalizedStringText: string): ColorItemName {
+  switch (normalizedStringText) {
+    case '"level"':
+      return 'levelKey';
+    case '"message"':
+      return 'messageKey';
+    case '"@filename"':
+      return 'fileNameKey';
+    case '"@logcallstack"':
+      return 'logCallStackKey';
+    case '"@packagename"':
+      return 'packageNameKey';
+    case '"@timestamp"':
+      return 'timestampKey';
+    case '"errcallstack"':
+      return 'errCallStackKey';
+    default:
+      return 'key';
+  }
+}
+
+function getStringValueColorCode(
+  normalizedStringText: string,
+  previousKeyName: string,
+  isErrorLevel: boolean,
+  isWarnLevel: boolean,
+): {
+  colorCode: ColorItemName;
+  isErrorLevel: boolean;
+  isWarnLevel: boolean;
+} {
+  let colorCode: ColorItemName = 'string';
+
+  switch (previousKeyName) {
+    case '"level"':
+      if (normalizedStringText === '"error"') {
+        colorCode = 'errorLevel';
+        isErrorLevel = true;
+      } else if (normalizedStringText === '"warn"') {
+        colorCode = 'warnLevel';
+        isWarnLevel = true;
+      } else {
+        colorCode = 'nonErrorLevel';
+      }
+      break;
+    case '"message"':
+      if (isErrorLevel) {
+        colorCode = 'errorMessage';
+      } else if (isWarnLevel) {
+        colorCode = 'warnLevel';
+      } else {
+        colorCode = 'nonErrorMessage';
+      }
+      break;
+    case '"@filename"':
+      colorCode = 'fileName';
+      break;
+    case '"@logcallstack"':
+      colorCode = 'logCallStack';
+      break;
+    case '"@packagename"':
+      colorCode = 'packageName';
+      break;
+    case '"@timestamp"':
+      colorCode = 'timestamp';
+      break;
+    case '"errcallstack"':
+      colorCode = 'errCallStack';
+      break;
+  }
+
+  return { colorCode, isErrorLevel, isWarnLevel };
+}
+
+function colorizeJsonString(json: string, colors: IColorConfiguration, colorMap: IDefaultColorMap): string {
+  const separatorColor = (colorMap as any)[colors.separator];
+  let previousKeyName = '';
+  let previousTokenWasKey = false;
+  let isErrorLevel = false;
+  let isWarnLevel = false;
+  let lastCopiedIndex = 0;
+  let output = separatorColor;
+  let index = 0;
+
+  while (index < json.length) {
+    const character = json.charAt(index);
+    let tokenEndIndex = -1;
+    let tokenText = '';
+    let colorCode: ColorItemName | undefined;
+
+    if (character === '"') {
+      const scannedToken = scanJsonStringToken(json, index);
+      tokenEndIndex = scannedToken.endIndex;
+      tokenText = scannedToken.tokenText;
+
+      if (scannedToken.isKey) {
+        colorCode = getKeyColorCode(scannedToken.normalizedStringText);
+        previousKeyName = scannedToken.normalizedStringText;
+        previousTokenWasKey = true;
+      } else {
+        const stringColorResult = getStringValueColorCode(scannedToken.normalizedStringText, previousTokenWasKey ? previousKeyName : '', isErrorLevel, isWarnLevel);
+
+        colorCode = stringColorResult.colorCode;
+        isErrorLevel = stringColorResult.isErrorLevel;
+        isWarnLevel = stringColorResult.isWarnLevel;
+        previousTokenWasKey = false;
+      }
+    } else if (character === 't' && json.slice(index, index + 4) === 'true') {
+      tokenEndIndex = index + 4;
+      tokenText = json.slice(index, tokenEndIndex);
+      colorCode = 'boolean';
+      previousTokenWasKey = false;
+    } else if (character === 'f' && json.slice(index, index + 5) === 'false') {
+      tokenEndIndex = index + 5;
+      tokenText = json.slice(index, tokenEndIndex);
+      colorCode = 'boolean';
+      previousTokenWasKey = false;
+    } else if (character === 'n' && json.slice(index, index + 4) === 'null') {
+      tokenEndIndex = index + 4;
+      tokenText = json.slice(index, tokenEndIndex);
+      colorCode = 'null';
+      previousTokenWasKey = false;
+    } else if (character === '-' || isDigitCharacter(character)) {
+      tokenEndIndex = scanJsonNumberEndIndex(json, index);
+      tokenText = json.slice(index, tokenEndIndex);
+      colorCode = 'number';
+      previousTokenWasKey = false;
+    }
+
+    if (colorCode != null && tokenEndIndex > index) {
+      const color = (colorMap as any)[(colors as any)[colorCode]] || '';
+
+      output += json.slice(lastCopiedIndex, index);
+      output += `\x1b[0m${color}${tokenText}${separatorColor}`;
+
+      lastCopiedIndex = tokenEndIndex;
+      index = tokenEndIndex;
+      continue;
+    }
+
+    index += 1;
+  }
+
+  output += json.slice(lastCopiedIndex);
+  output += '\x1b[0m';
+
+  return output;
+}
+
 /**
  * Given an object, it returns its JSON representation colored using
  * ANSI escape characters.
@@ -131,97 +383,11 @@ function truth(it: any) {
  */
 export function colorJson(jsonInput: any, colorsInput: Partial<IColorConfiguration> = defaultColors, colorMap: IDefaultColorMap = defaultColorMap, spacing?: number) {
   const colors = { ...defaultColors, ...colorsInput };
-  let previousMatchedValue: string = '';
-  let isErrorLevel = false;
-  let isWarnLevel = false;
-  let json: string;
+  const json = getJsonString(jsonInput, spacing);
+
   if (supportsColor()) {
-    if (typeof jsonInput !== 'string') json = jsonStringifySafe(jsonInput, undefined, spacing);
-    else json = jsonStringifySafe(JSON.parse(jsonInput), undefined, spacing);
-    return (
-      (colorMap as any)[colors.separator] +
-      json.replace(/("(\\u[a-zA-Z0-9]{4}|\\[^u]|[^\\"])*"(\s*:)?|\b(true|false|null)\b|-?\d+(?:\.\d*)?(?:[eE][+\-]?\d+)?)/g, (match: string) => {
-        let colorCode: ColorItemName = 'number';
-        if (/^"/.test(match)) {
-          if (/:$/.test(match)) {
-            colorCode = 'key';
-            // If key is "level" handle it with special color
-            if (/\"level\"/i.test(match)) {
-              colorCode = 'levelKey';
-            }
-            // If key is "message" handle it with special color
-            if (/\"message\"/i.test(match)) {
-              colorCode = 'messageKey';
-            }
-            if (/\"@filename\"/i.test(match)) {
-              colorCode = 'fileNameKey';
-            }
-            if (/\"@logCallStack\"/i.test(match)) {
-              colorCode = 'logCallStackKey';
-            }
-            if (/\"@packageName\"/i.test(match)) {
-              colorCode = 'packageNameKey';
-            }
-            if (/\"@timestamp\"/i.test(match)) {
-              colorCode = 'timestampKey';
-            }
-            if (/\"errCallStack\"/i.test(match)) {
-              colorCode = 'errCallStackKey';
-            }
-          } else {
-            colorCode = 'string';
-            // If the key is "level" then handle value with special color
-            if (/\"level\"/i.test(previousMatchedValue)) {
-              if (/\"error\"/i.test(match)) {
-                colorCode = 'errorLevel';
-                isErrorLevel = true;
-              } else if (/\"warn\"/i.test(match)) {
-                colorCode = 'warnLevel';
-                isWarnLevel = true;
-              } else {
-                colorCode = 'nonErrorLevel';
-              }
-            }
-            // if the key is "message" then handle value with special color
-            if (/\"message\"/i.test(previousMatchedValue)) {
-              if (isErrorLevel) {
-                colorCode = 'errorMessage';
-              } else if (isWarnLevel) {
-                colorCode = 'warnLevel';
-              } else {
-                colorCode = 'nonErrorMessage';
-              }
-            }
-            if (/\"@filename\"/i.test(previousMatchedValue)) {
-              colorCode = 'fileName';
-            }
-            if (/\"@logCallStack\"/i.test(previousMatchedValue)) {
-              colorCode = 'logCallStack';
-            }
-            if (/\"@packageName\"/i.test(previousMatchedValue)) {
-              colorCode = 'packageName';
-            }
-            if (/\"@timestamp\"/i.test(previousMatchedValue)) {
-              colorCode = 'timestamp';
-            }
-            if (/\"errCallStack\"/i.test(previousMatchedValue)) {
-              colorCode = 'errCallStack';
-            }
-          }
-        } else if (/true|false/.test(match)) {
-          colorCode = 'boolean';
-        } else if (/null/.test(match)) {
-          colorCode = 'null';
-        }
-        const color = (colorMap as any)[(colors as any)[colorCode]] || '';
-        previousMatchedValue = match;
-        return `\x1b[0m${color}${match}${(colorMap as any)[colors.separator]}`;
-      }) +
-      '\x1b[0m'
-    );
-  } else {
-    if (typeof jsonInput !== 'string') json = jsonStringifySafe(jsonInput, undefined, spacing);
-    else json = jsonStringifySafe(JSON.parse(jsonInput), undefined, spacing);
-    return json;
+    return colorizeJsonString(json, colors, colorMap);
   }
+
+  return json;
 }

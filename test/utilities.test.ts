@@ -408,6 +408,7 @@ describe('colorJson', () => {
   process.env.FORCE_NO_COLOR = '';
   process.env.FORCE_COLOR = '';
   process.env.DYNO = '';
+  const stripAnsi = (value: string) => value.replace(/\x1b\[[0-9;]*m/g, '');
 
   afterEach(() => {
     sandbox.restore();
@@ -494,6 +495,25 @@ describe('colorJson', () => {
 
     const result = colorJson({ count: 42 });
     expect(result).to.include('42');
+  });
+
+  it('handles long escaped quote sequences without changing content', () => {
+    sandbox.stub(process.env, 'FORCE_NO_COLOR').value('');
+    sandbox.stub(process.env, 'FORCE_COLOR').value('');
+    sandbox.stub(process.env, 'DYNO').value('');
+
+    const repeatedEscapedQuote = '\\"'.repeat(2048);
+    const result = colorJson({
+      level: 'info',
+      message: repeatedEscapedQuote,
+      detail: repeatedEscapedQuote,
+    });
+
+    expect(result).to.include('\x1b[');
+
+    const parsed = JSON.parse(stripAnsi(result));
+    expect(parsed.message).to.equal(repeatedEscapedQuote);
+    expect(parsed.detail).to.equal(repeatedEscapedQuote);
   });
 });
 

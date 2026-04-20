@@ -6,6 +6,7 @@ export {
   GetLogLevel,
   SetLogLevel,
   LOG_LEVEL,
+  LoggerAdaptToConsoleOptions,
   LoggerAdaptToConsole,
   LoggerRestoreConsole,
   NativeConsoleLog,
