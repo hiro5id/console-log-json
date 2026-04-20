@@ -547,8 +547,8 @@ describe('hash-based key colorization', () => {
     const truecolorPattern = /\x1b\[38;2;[\d;]+m/g;
     const codes1 = result1.match(truecolorPattern);
     const codes2 = result2.match(truecolorPattern);
-    expect(codes1).to.not.be.null;
-    expect(codes2).to.not.be.null;
+    expect(codes1).to.not.equal(null);
+    expect(codes2).to.not.equal(null);
     expect(codes1![0]).to.equal(codes2![0]);
   });
 
@@ -558,8 +558,8 @@ describe('hash-based key colorization', () => {
     const truecolorPattern = /\x1b\[38;2;[\d;]+m/g;
     const codes1 = result1.match(truecolorPattern);
     const codes2 = result2.match(truecolorPattern);
-    expect(codes1).to.not.be.null;
-    expect(codes2).to.not.be.null;
+    expect(codes1).to.not.equal(null);
+    expect(codes2).to.not.equal(null);
     expect(codes1![0]).to.not.equal(codes2![0]);
   });
 
