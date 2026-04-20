@@ -8,7 +8,7 @@ import { jsonStringifySafe, getSerialize } from '../src/json-stringify-safe/stri
 import { safeObjectAssign } from '../src/safe-object-assign';
 import { ErrorWithContext } from '../src/error-with-context';
 import { getCallStack } from '../src/get-call-stack';
-import { colorJson, supportsColor, defaultColorMap, resetBackgroundThemeCache } from '../src/colors/colorize';
+import { colorJson, supportsColor, resetBackgroundThemeCache } from '../src/colors/colorize';
 import sinon from 'sinon';
 
 describe('ToOneLine', () => {
@@ -462,9 +462,10 @@ describe('colorJson', () => {
 
     const errorResult = colorJson({ level: 'error', message: 'err msg' });
     const infoResult = colorJson({ level: 'info', message: 'info msg' });
-    // Both have color but the level value color should differ
-    expect(errorResult).to.include(defaultColorMap.red);
-    expect(infoResult).to.include(defaultColorMap.lightTeal);
+    // Both use hash-based truecolor; the outputs differ because message values differ
+    expect(errorResult).to.match(/\x1b\[38;2;\d+;\d+;\d+m/);
+    expect(infoResult).to.match(/\x1b\[38;2;\d+;\d+;\d+m/);
+    expect(errorResult).to.not.equal(infoResult);
   });
 
   it('handles string input', () => {

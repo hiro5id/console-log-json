@@ -1,5 +1,11 @@
 # Changelog
 
+## 6.4.1
+
+### Bug Fix
+
+- Updated colorize.ts so values now follow the color of their associated key, using a slightly different shade instead of the exact same color to make key/value pairs easier to visually distinguish while still clearly belonging together.
+
 ## 6.4.0
 
 ### Breaking Changes

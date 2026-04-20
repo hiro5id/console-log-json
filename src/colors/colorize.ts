@@ -49,22 +49,15 @@ export const defaultColorMap: IDefaultColorMap = {
 
 export type ColorValue = keyof IDefaultColorMap;
 
+// Key-related slots have been removed — all keys use hash-based colors.
+// These slots are fallbacks for value tokens that appear without a preceding key
+// (e.g. bare values in JSON arrays or at the top level).
 export interface IColorConfiguration {
   separator: ColorValue;
   string: ColorValue;
   number: ColorValue;
   boolean: ColorValue;
   null: ColorValue;
-  errorLevel: ColorValue;
-  nonErrorLevel: ColorValue;
-  nonErrorMessage: ColorValue;
-  errorMessage: ColorValue;
-  warnLevel: ColorValue;
-  fileName: ColorValue;
-  logCallStack: ColorValue;
-  packageName: ColorValue;
-  timestamp: ColorValue;
-  errCallStack: ColorValue;
 }
 
 export type ColorItemName = keyof IColorConfiguration;
@@ -75,16 +68,6 @@ export const defaultColors: IColorConfiguration = {
   number: 'magenta',
   boolean: 'cyan',
   null: 'red',
-  errorLevel: 'red',
-  nonErrorLevel: 'lightTeal',
-  nonErrorMessage: 'lightGreen',
-  errorMessage: 'red',
-  warnLevel: 'yellow',
-  fileName: 'yellow',
-  logCallStack: 'black',
-  packageName: 'yellow',
-  timestamp: 'lightPink',
-  errCallStack: 'lightRed',
 };
 
 export type BackgroundTheme = 'dark' | 'light' | 'unknown';
@@ -155,54 +138,64 @@ function hslToRgb(h: number, s: number, l: number): [number, number, number] {
   let b = 0;
 
   if (h < 60) {
-    r = c;
-    g = x;
-    b = 0;
+    r = c; g = x; b = 0;
   } else if (h < 120) {
-    r = x;
-    g = c;
-    b = 0;
+    r = x; g = c; b = 0;
   } else if (h < 180) {
-    r = 0;
-    g = c;
-    b = x;
+    r = 0; g = c; b = x;
   } else if (h < 240) {
-    r = 0;
-    g = x;
-    b = c;
+    r = 0; g = x; b = c;
   } else if (h < 300) {
-    r = x;
-    g = 0;
-    b = c;
+    r = x; g = 0; b = c;
   } else {
-    r = c;
-    g = 0;
-    b = x;
+    r = c; g = 0; b = x;
   }
 
-  return [Math.round((r + m) * 255), Math.round((g + m) * 255), Math.round((b + m) * 255)];
+  return [
+    Math.round((r + m) * 255),
+    Math.round((g + m) * 255),
+    Math.round((b + m) * 255),
+  ];
 }
 
 function rgbToAnsi(r: number, g: number, b: number): string {
   return `\x1b[38;2;${r};${g};${b}m`;
 }
 
-const keyColorCache = new Map<string, string>();
+// Single cache for both key and value codes — cache key encodes the role.
+const colorCache = new Map<string, string>();
 
+// Keys: vivid/bright — the label that names the pair.
+// Dark bg: high lightness so it stands out on dark terminal.
+// Light bg: low lightness so it is readable on white/light terminal.
 function generateKeyAnsiCode(bareKeyName: string, theme: BackgroundTheme): string {
-  const cacheKey = `${theme}:${bareKeyName}`;
-  const cached = keyColorCache.get(cacheKey);
+  const cacheKey = `k:${theme}:${bareKeyName}`;
+  const cached = colorCache.get(cacheKey);
   if (cached !== undefined) return cached;
 
-  const hash = djb2Hash(bareKeyName);
-  const hue = hash % 360;
+  const hue = djb2Hash(bareKeyName) % 360;
   const isDark = theme !== 'light';
-  const s = isDark ? 0.85 : 0.8;
-  const l = isDark ? 0.72 : 0.32;
-  const [r, g, b] = hslToRgb(hue, s, l);
+  const [r, g, b] = hslToRgb(hue, isDark ? 0.85 : 0.85, isDark ? 0.75 : 0.28);
   const ansi = rgbToAnsi(r, g, b);
 
-  keyColorCache.set(cacheKey, ansi);
+  colorCache.set(cacheKey, ansi);
+  return ansi;
+}
+
+// Values: same hue as their key — same color family so the pair reads as related.
+// Lower saturation and lightness than the key so they are visually softer/dimmer,
+// making key vs. value distinguishable while keeping them clearly paired.
+function generateValueAnsiCode(bareKeyName: string, theme: BackgroundTheme): string {
+  const cacheKey = `v:${theme}:${bareKeyName}`;
+  const cached = colorCache.get(cacheKey);
+  if (cached !== undefined) return cached;
+
+  const hue = djb2Hash(bareKeyName) % 360;
+  const isDark = theme !== 'light';
+  const [r, g, b] = hslToRgb(hue, isDark ? 0.60 : 0.55, isDark ? 0.55 : 0.46);
+  const ansi = rgbToAnsi(r, g, b);
+
+  colorCache.set(cacheKey, ansi);
   return ansi;
 }
 
@@ -309,66 +302,11 @@ function scanJsonNumberEndIndex(json: string, startIndex: number): number {
   return index > startIndex ? index : startIndex + 1;
 }
 
-function getStringValueColorCode(
-  normalizedStringText: string,
-  previousKeyName: string,
-  isErrorLevel: boolean,
-  isWarnLevel: boolean,
-): {
-  colorCode: ColorItemName;
-  isErrorLevel: boolean;
-  isWarnLevel: boolean;
-} {
-  let colorCode: ColorItemName = 'string';
-
-  switch (previousKeyName) {
-    case '"level"':
-      if (normalizedStringText === '"error"') {
-        colorCode = 'errorLevel';
-        isErrorLevel = true;
-      } else if (normalizedStringText === '"warn"') {
-        colorCode = 'warnLevel';
-        isWarnLevel = true;
-      } else {
-        colorCode = 'nonErrorLevel';
-      }
-      break;
-    case '"message"':
-      if (isErrorLevel) {
-        colorCode = 'errorMessage';
-      } else if (isWarnLevel) {
-        colorCode = 'warnLevel';
-      } else {
-        colorCode = 'nonErrorMessage';
-      }
-      break;
-    case '"@filename"':
-      colorCode = 'fileName';
-      break;
-    case '"@logcallstack"':
-      colorCode = 'logCallStack';
-      break;
-    case '"@packagename"':
-      colorCode = 'packageName';
-      break;
-    case '"@timestamp"':
-      colorCode = 'timestamp';
-      break;
-    case '"errcallstack"':
-      colorCode = 'errCallStack';
-      break;
-  }
-
-  return { colorCode, isErrorLevel, isWarnLevel };
-}
-
 function colorizeJsonString(json: string, colors: IColorConfiguration, colorMap: IDefaultColorMap): string {
   const theme = getBackgroundTheme();
   const separatorColor = (colorMap as any)[colors.separator];
-  let previousKeyName = '';
+  let previousBareKeyName = '';
   let previousTokenWasKey = false;
-  let isErrorLevel = false;
-  let isWarnLevel = false;
   let lastCopiedIndex = 0;
   let output = separatorColor;
   let index = 0;
@@ -377,6 +315,7 @@ function colorizeJsonString(json: string, colors: IColorConfiguration, colorMap:
     const character = json.charAt(index);
     let tokenEndIndex = -1;
     let tokenText = '';
+    let directAnsi: string | undefined;
     let colorCode: ColorItemName | undefined;
 
     if (character === '"') {
@@ -386,48 +325,67 @@ function colorizeJsonString(json: string, colors: IColorConfiguration, colorMap:
 
       if (scannedToken.isKey) {
         const bareKeyName = scannedToken.normalizedStringText.slice(1, -1);
-        const keyAnsiCode = generateKeyAnsiCode(bareKeyName, theme);
-        output += json.slice(lastCopiedIndex, index);
-        output += `\x1b[0m${keyAnsiCode}${tokenText}${separatorColor}`;
-        lastCopiedIndex = tokenEndIndex;
-        index = tokenEndIndex;
-        previousKeyName = scannedToken.normalizedStringText;
+        directAnsi = generateKeyAnsiCode(bareKeyName, theme);
+        previousBareKeyName = bareKeyName;
         previousTokenWasKey = true;
-        continue;
       } else {
-        const stringColorResult = getStringValueColorCode(scannedToken.normalizedStringText, previousTokenWasKey ? previousKeyName : '', isErrorLevel, isWarnLevel);
-        colorCode = stringColorResult.colorCode;
-        isErrorLevel = stringColorResult.isErrorLevel;
-        isWarnLevel = stringColorResult.isWarnLevel;
+        if (previousTokenWasKey && previousBareKeyName !== '') {
+          directAnsi = generateValueAnsiCode(previousBareKeyName, theme);
+        } else {
+          colorCode = 'string';
+        }
         previousTokenWasKey = false;
       }
     } else if (character === 't' && json.slice(index, index + 4) === 'true') {
       tokenEndIndex = index + 4;
       tokenText = json.slice(index, tokenEndIndex);
-      colorCode = 'boolean';
+      if (previousTokenWasKey && previousBareKeyName !== '') {
+        directAnsi = generateValueAnsiCode(previousBareKeyName, theme);
+      } else {
+        colorCode = 'boolean';
+      }
       previousTokenWasKey = false;
     } else if (character === 'f' && json.slice(index, index + 5) === 'false') {
       tokenEndIndex = index + 5;
       tokenText = json.slice(index, tokenEndIndex);
-      colorCode = 'boolean';
+      if (previousTokenWasKey && previousBareKeyName !== '') {
+        directAnsi = generateValueAnsiCode(previousBareKeyName, theme);
+      } else {
+        colorCode = 'boolean';
+      }
       previousTokenWasKey = false;
     } else if (character === 'n' && json.slice(index, index + 4) === 'null') {
       tokenEndIndex = index + 4;
       tokenText = json.slice(index, tokenEndIndex);
-      colorCode = 'null';
+      if (previousTokenWasKey && previousBareKeyName !== '') {
+        directAnsi = generateValueAnsiCode(previousBareKeyName, theme);
+      } else {
+        colorCode = 'null';
+      }
       previousTokenWasKey = false;
     } else if (character === '-' || isDigitCharacter(character)) {
       tokenEndIndex = scanJsonNumberEndIndex(json, index);
       tokenText = json.slice(index, tokenEndIndex);
-      colorCode = 'number';
+      if (previousTokenWasKey && previousBareKeyName !== '') {
+        directAnsi = generateValueAnsiCode(previousBareKeyName, theme);
+      } else {
+        colorCode = 'number';
+      }
       previousTokenWasKey = false;
     }
 
-    if (colorCode != null && tokenEndIndex > index) {
-      const color = (colorMap as any)[(colors as any)[colorCode]] || '';
-      output += json.slice(lastCopiedIndex, index);
-      output += `\x1b[0m${color}${tokenText}${separatorColor}`;
-      lastCopiedIndex = tokenEndIndex;
+    if (tokenEndIndex > index) {
+      const color = directAnsi !== undefined
+        ? directAnsi
+        : colorCode !== undefined
+          ? (colorMap as any)[(colors as any)[colorCode]] || ''
+          : '';
+
+      if (color !== '') {
+        output += json.slice(lastCopiedIndex, index);
+        output += `\x1b[0m${color}${tokenText}${separatorColor}`;
+        lastCopiedIndex = tokenEndIndex;
+      }
       index = tokenEndIndex;
       continue;
     }
@@ -450,7 +408,12 @@ function colorizeJsonString(json: string, colors: IColorConfiguration, colorMap:
  * @param {number} [spacing=2] - The indentation spaces.
  * @returns {string} Stringified JSON colored with ANSI escape characters.
  */
-export function colorJson(jsonInput: any, colorsInput: Partial<IColorConfiguration> = defaultColors, colorMap: IDefaultColorMap = defaultColorMap, spacing?: number) {
+export function colorJson(
+  jsonInput: any,
+  colorsInput: Partial<IColorConfiguration> = defaultColors,
+  colorMap: IDefaultColorMap = defaultColorMap,
+  spacing?: number,
+) {
   const colors = { ...defaultColors, ...colorsInput };
   const json = getJsonString(jsonInput, spacing);
 

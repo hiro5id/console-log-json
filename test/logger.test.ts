@@ -1122,9 +1122,7 @@ describe('logger', () => {
     const parsed = JSON.parse(stripAnsi(outputText[0]));
     expect(parsed.level).to.equal('error');
     expect(parsed.message).to.include('this is a test');
-    // error level value uses red semantic color
-    expect(outputText[0]).to.include('\x1b[31m');
-    // keys use hash-based truecolor codes
+    // all tokens use hash-based truecolor codes
     expect(outputText[0]).to.match(/\x1b\[38;2;\d+;\d+;\d+m/);
   });
 
@@ -1145,9 +1143,7 @@ describe('logger', () => {
     const parsed = JSON.parse(stripAnsi(outputText[0]));
     expect(parsed.level).to.equal('info');
     expect(parsed.message).to.include('this is a test');
-    // info level value uses lightTeal semantic color
-    expect(outputText[0]).to.include('\x1b[38;2;31;230;255m');
-    // keys use hash-based truecolor codes
+    // all tokens use hash-based truecolor codes
     expect(outputText[0]).to.match(/\x1b\[38;2;\d+;\d+;\d+m/);
   });
 
@@ -1168,9 +1164,7 @@ describe('logger', () => {
     const parsed = JSON.parse(stripAnsi(outputText[0]));
     expect(parsed.level).to.equal('error');
     expect(parsed.message).to.include('HEY MAN THIS IS AN ERROR!');
-    // error level value uses red semantic color
-    expect(outputText[0]).to.include('\x1b[31m');
-    // keys use hash-based truecolor codes
+    // all tokens use hash-based truecolor codes
     expect(outputText[0]).to.match(/\x1b\[38;2;\d+;\d+;\d+m/);
   });
 

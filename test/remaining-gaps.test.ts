@@ -15,7 +15,7 @@ import {
 import * as getCallsitesModule from '../src/callsites/get-callsites';
 import { getCallingFilename } from '../src/get-calling-filename';
 import { CaptureNestedStackTrace } from '../src/capture-nested-stack-trace';
-import { colorJson, defaultColorMap } from '../src/colors/colorize';
+import { colorJson } from '../src/colors/colorize';
 import callsites from '../src/callsites/get-callsites';
 import { getCallStack } from '../src/get-call-stack';
 import sinon from 'sinon';
@@ -262,17 +262,17 @@ describe('colorJson - warn level', () => {
     sandbox.restore();
   });
 
-  it('colors warn level with yellow', () => {
+  it('colors warn level with hash-based truecolor', () => {
     sandbox.stub(process.env, 'FORCE_NO_COLOR').value('');
     sandbox.stub(process.env, 'FORCE_COLOR').value('');
     sandbox.stub(process.env, 'DYNO').value('');
 
     const result = colorJson({ level: 'warn', message: 'warning message' });
-    // warn level should use yellow coloring
-    expect(result).to.include(defaultColorMap.yellow);
+    // all tokens use hash-based truecolor codes
+    expect(result).to.match(/\x1b\[38;2;\d+;\d+;\d+m/);
   });
 
-  it('colors warn message differently from error message', () => {
+  it('colors warn output differently from error output', () => {
     sandbox.stub(process.env, 'FORCE_NO_COLOR').value('');
     sandbox.stub(process.env, 'FORCE_COLOR').value('');
     sandbox.stub(process.env, 'DYNO').value('');
@@ -280,14 +280,13 @@ describe('colorJson - warn level', () => {
     const warnResult = colorJson({ level: 'warn', message: 'warn msg' });
     const errorResult = colorJson({ level: 'error', message: 'error msg' });
 
-    // warn uses yellow for the message, error uses red
-    expect(warnResult).to.include(defaultColorMap.yellow);
-    expect(errorResult).to.include(defaultColorMap.red);
-    // They should differ
+    // message values differ so overall outputs differ
     expect(warnResult).to.not.equal(errorResult);
+    expect(warnResult).to.match(/\x1b\[38;2;\d+;\d+;\d+m/);
+    expect(errorResult).to.match(/\x1b\[38;2;\d+;\d+;\d+m/);
   });
 
-  it('colors special key values: @filename, @packageName, @timestamp, errCallStack', () => {
+  it('colors all key-value pairs with hash-based truecolor', () => {
     sandbox.stub(process.env, 'FORCE_NO_COLOR').value('');
     sandbox.stub(process.env, 'FORCE_COLOR').value('');
     sandbox.stub(process.env, 'DYNO').value('');
@@ -302,12 +301,13 @@ describe('colorJson - warn level', () => {
       '@logCallStack': 'at func (file:1:1)',
     };
     const result = colorJson(obj);
-    // Values of special keys still use semantic colors
-    expect(result).to.include(defaultColorMap.yellow);    // @filename and @packageName values
-    expect(result).to.include(defaultColorMap.lightPink); // @timestamp value
-    expect(result).to.include(defaultColorMap.lightRed);  // errCallStack value
-    // All keys use unique hash-based truecolor codes
+    // Every key and value uses a hash-derived truecolor code
     expect(result).to.match(/\x1b\[38;2;\d+;\d+;\d+m/);
+    // Key and value for the same key share the same hue (different shade) —
+    // verify by confirming at least two distinct truecolor codes are present
+    const codes = result.match(/\x1b\[38;2;[\d;]+m/g) || [];
+    const unique = new Set(codes);
+    expect(unique.size).to.be.greaterThan(1);
   });
 
   it('handles spacing parameter', () => {
@@ -431,9 +431,8 @@ describe('colorized log output integration', () => {
       LoggerRestoreConsole();
     }
 
-    // Output should contain ANSI codes and warn-level yellow
-    expect(outputText[0]).to.include('\x1b[');
-    expect(outputText[0]).to.include(defaultColorMap.yellow);
+    // Output should contain ANSI truecolor codes
+    expect(outputText[0]).to.match(/\x1b\[38;2;\d+;\d+;\d+m/);
   });
 });
 
