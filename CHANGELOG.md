@@ -11,6 +11,7 @@
 ### Tests
 - Added regression coverage for long escaped-quote payloads in `colorJson(...)`, ensuring colorized output still round-trips without content changes.
 - Added regression coverage for the unified configuration surface, including top-level flag aliases, env-driven log level/debug/custom-options/redaction behavior, and env-resolved hook callbacks.
+- Added end-to-end regression coverage for colorized logger output through the real `LoggerAdaptToConsole(...)` path, including direct top-level `colorize` usage and the `transformOutput + colorize` and `redact + colorize` combinations. The new tests assert both ANSI emission and that the JSON payload remains correct after stripping ANSI codes.
 
 ## 6.3.2
 

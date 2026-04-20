@@ -14,13 +14,17 @@ The output is:
 - compatible with Node.js and browser-like environments
 - extensible via `customOptions`, `envOptions`, `onLog`, `transformOutput`, and `redact`
 
-This document reflects the current implementation in `5.0.0`.
+This document reflects the current 6.x codebase.
+
+For code organization rules and future structure guidance, see [docs/code-structure-conventions.md](docs/code-structure-conventions.md).
 
 ## Runtime Model
 
 The library no longer uses Winston or any other runtime logging framework.
 
-The core logger is an internal singleton in `src/logger.ts` that:
+The core logger runtime is orchestrated in `src/logger.ts`, with focused helper modules under `src/logger-support/`.
+
+Together they:
 
 - checks the configured log level
 - builds a plain JS log object
@@ -80,7 +84,13 @@ stdout
 
 | File | Purpose |
 |------|---------|
-| `src/logger.ts` | Main implementation: console patching, argument parsing, formatting, env config, output writing, interceptors, test stdout capture helpers |
+| `src/logger.ts` | Public logger runtime/orchestration: initialization, runtime state, package-name buffering, exported API, and console patching flow |
+| `src/logger-support/runtime-bootstrap.ts` | Side-effect boundary for source-map support installation, console polyfill, and `Console` type augmentation |
+| `src/logger-support/types.ts` | Logger-specific enums, config types, and env-var name definitions |
+| `src/logger-support/config.ts` | Logger option normalization and environment/config resolution |
+| `src/logger-support/argument-parsing.ts` | Console argument classification and context/error extraction rules |
+| `src/logger-support/formatting.ts` | Final log-object shaping and serialization formatting |
+| `src/logger-support/console-state.ts` | Captured console backups, internal write guard, stdout/native-console output selection |
 | `src/error-with-context.ts` | `ErrorWithContext` class for preserving error stacks while attaching structured context |
 | `src/safe-object-assign.ts` | Safe deep merge used for context merging and duplicate-key handling |
 | `src/format-stack-trace.ts` | Normalizes stack traces into a compact format and strips local package paths when possible |
@@ -101,7 +111,7 @@ stdout
 
 At initialization time it:
 
-1. Stores programmatic `envOptions`, `onLog`, `onLogTimeout`, and `transformOutput`.
+1. Normalizes direct options and env-style overrides.
 2. Compiles `redact` paths if configured.
 3. Calls `loadEnvConfig()` to cache environment-driven behavior.
 4. Locates the package root and package name.
