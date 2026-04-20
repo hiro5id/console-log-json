@@ -8,7 +8,7 @@
 [![All Contributors](https://img.shields.io/badge/all_contributors-5-orange.svg?style=flat-square)](#contributors-)
 <!-- ALL-CONTRIBUTORS-BADGE:END -->
 
-<a href="https://www.npmjs.com/package/console-log-json">![title](docs/images/console-log-json-image.png)</a>
+[![console-log-json](https://raw.githubusercontent.com/hiro5id/console-log-json/master/docs/images/console-log-json-image.png)](https://www.npmjs.com/package/console-log-json)
 
 **Drop-in structured JSON logging for Node.js and the browser. Zero dependencies. No vendor lock-in. One line to set up. TypeScript types included.**
 
@@ -400,7 +400,7 @@ Set the environment variable:
 CONSOLE_LOG_COLORIZE=true
 ```
 
-![colorized example](docs/images/colors_example.png)
+![colorized example](https://raw.githubusercontent.com/hiro5id/console-log-json/master/docs/images/colors_example.png)
 
 ---
 
@@ -581,7 +581,7 @@ LoggerAdaptToConsole({
 ```
 
 - **Formatting and metadata flags** like `noTimeStamp`, `noFileName`, `noStackForNonError`, `contextKey`, and `colorize` now work directly as top-level `LoggerAdaptToConsole(...)` options. Their behavior exactly matches the environment variables of the same meaning.
-- **`envOptions`** accepts the same variable names as the environment variables listed in the [Configuration](#environment-variable-configuration) section. Values passed here override `process.env`, but are themselves overridden by direct top-level options. This is useful when you want env-style names without mutating `process.env`.
+- **`envOptions`** accepts the same variable names as the environment variables listed in the [Configuration](#configuration) section. Values passed here override `process.env`, but are themselves overridden by direct top-level options. This is useful when you want env-style names without mutating `process.env`.
 - **`customOptions`** can now also be supplied through `CONSOLE_LOG_JSON_CUSTOM_OPTIONS` as a JSON object string when configuration must be environment-driven.
 - **`transformOutput`** runs synchronously before each log is written. Receives the parsed log object, returns a modified object. Falls back to original output if the callback throws or returns null. See [Transforming log output](#transforming-log-output-with-transformoutput) for details.
 - **`transformOutput`** and **`onLog`** may also be configured indirectly with `CONSOLE_LOG_JSON_TRANSFORM_OUTPUT` and `CONSOLE_LOG_JSON_ON_LOG` by pointing them at dotted paths on `globalThis`, such as `appLoggerHooks.transformOutput`. These env vars do not evaluate code strings. They only resolve existing functions already attached to `globalThis`. Direct function options are usually clearer and are recommended when possible.
@@ -962,11 +962,11 @@ Guidance:
 
 <!-- ALL-CONTRIBUTORS-LIST:END -->
 
-* *[Adding Contributors...](docs/CONTRIBUTING.md)*
+* *[Adding Contributors...](https://github.com/hiro5id/console-log-json/blob/master/docs/CONTRIBUTING.md)*
 
 ## Changelog
 
-See [CHANGELOG.md](CHANGELOG.md) for release history, breaking changes, and migration guides.
+See [CHANGELOG.md](https://github.com/hiro5id/console-log-json/blob/master/CHANGELOG.md) for release history, breaking changes, and migration guides.
 
 ## License
 
