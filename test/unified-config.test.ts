@@ -20,7 +20,13 @@ const CONFIG_ENV_KEYS = [
   'CONSOLE_LOG_JSON_NO_FILE_NAME',
   'CONSOLE_LOG_JSON_NO_PACKAGE_NAME',
   'CONSOLE_LOG_JSON_NO_STACK_FOR_NON_ERROR',
+  'CONSOLE_LOG_COLORIZE',
+  'FORCE_NO_COLOR',
+  'FORCE_COLOR',
+  'DYNO',
 ] as const;
+
+const stripAnsi = (value: string): string => value.replace(/\x1b\[[0-9;]*m/g, '');
 
 describe('unified configuration surface', () => {
   const savedEnv: Record<string, string | undefined> = {};
@@ -63,6 +69,50 @@ describe('unified configuration surface', () => {
 
     const testObj = JSON.parse(outputText[0]);
     expect(testObj).to.eql({ level: 'info', message: 'minimal' });
+  });
+
+  it('supports top-level colorize with the same behavior as CONSOLE_LOG_COLORIZE', async () => {
+    const { originalWrite, outputText } = overrideStdOut();
+    process.env.FORCE_NO_COLOR = '';
+    process.env.FORCE_COLOR = 'true';
+    process.env.DYNO = '';
+
+    try {
+      LoggerAdaptToConsole({
+        colorize: true,
+        noTimeStamp: true,
+        noFileName: true,
+        noPackageName: true,
+        noStackForNonError: true,
+      });
+      console.log('color alias', { count: 7 });
+    } finally {
+      restoreStdOut(originalWrite);
+    }
+
+    expect(outputText[0]).to.include('\x1b[');
+
+    const testObj = JSON.parse(stripAnsi(outputText[0]));
+    expect(testObj).to.eql({ level: 'info', message: 'color alias', count: 7 });
+  });
+
+  it('top-level noNewLineCharacters also affects stack formatting internals', async () => {
+    const { originalWrite, outputText } = overrideStdOut();
+
+    try {
+      LoggerAdaptToConsole({
+        noNewLineCharacters: true,
+        noTimeStamp: true,
+        noFileName: true,
+        noPackageName: true,
+      });
+      console.error('broken', new Error('line one\nline two'));
+    } finally {
+      restoreStdOut(originalWrite);
+    }
+
+    const normalizedOutput = outputText[0].replace(/\n$/, '');
+    expect(normalizedOutput).to.not.include('\n');
   });
 
   it('CONSOLE_LOG_JSON_LOG_LEVEL configures the runtime log level', async () => {

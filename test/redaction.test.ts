@@ -2,6 +2,8 @@
 import { expect } from 'chai';
 import { LoggerAdaptToConsole, LoggerRestoreConsole, overrideStdOut, restoreStdOut } from '../src';
 
+const stripAnsi = (value: string): string => value.replace(/\x1b\[[0-9;]*m/g, '');
+
 describe('redaction', () => {
   it('redacts configured structured fields without mutating the caller input', () => {
     const { originalWrite, outputText } = overrideStdOut();
@@ -130,5 +132,64 @@ describe('redaction', () => {
     const testObj = JSON.parse(outputText[0]);
     expect(testObj.message).to.equal('still logs');
     expect(testObj.token).to.equal('Redacted');
+  });
+
+  it('preserves redacted JSON semantics when colorize is enabled', () => {
+    const savedEnv = {
+      FORCE_NO_COLOR: process.env.FORCE_NO_COLOR,
+      FORCE_COLOR: process.env.FORCE_COLOR,
+      DYNO: process.env.DYNO,
+    };
+    process.env.FORCE_NO_COLOR = '';
+    process.env.FORCE_COLOR = 'true';
+    process.env.DYNO = '';
+
+    const { originalWrite, outputText } = overrideStdOut();
+    const context = {
+      auth: { token: 'secret-token', type: 'bearer' },
+      nested: { keep: 'visible' },
+    };
+
+    try {
+      LoggerAdaptToConsole({
+        colorize: true,
+        noTimeStamp: true,
+        noFileName: true,
+        noPackageName: true,
+        noStackForNonError: true,
+        redact: ['auth.token'],
+      });
+      console.log('redacted with color', context);
+    } finally {
+      restoreStdOut(originalWrite);
+      LoggerRestoreConsole();
+
+      if (savedEnv.FORCE_NO_COLOR === undefined) {
+        delete process.env.FORCE_NO_COLOR;
+      } else {
+        process.env.FORCE_NO_COLOR = savedEnv.FORCE_NO_COLOR;
+      }
+
+      if (savedEnv.FORCE_COLOR === undefined) {
+        delete process.env.FORCE_COLOR;
+      } else {
+        process.env.FORCE_COLOR = savedEnv.FORCE_COLOR;
+      }
+
+      if (savedEnv.DYNO === undefined) {
+        delete process.env.DYNO;
+      } else {
+        process.env.DYNO = savedEnv.DYNO;
+      }
+    }
+
+    expect(outputText[0]).to.include('\x1b[');
+
+    const testObj = JSON.parse(stripAnsi(outputText[0]));
+    expect(testObj.message).to.equal('redacted with color');
+    expect(testObj.auth.token).to.equal('Redacted');
+    expect(testObj.auth.type).to.equal('bearer');
+    expect(testObj.nested.keep).to.equal('visible');
+    expect(context.auth.token).to.equal('secret-token');
   });
 });

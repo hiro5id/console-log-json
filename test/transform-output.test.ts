@@ -7,6 +7,8 @@ import {
   restoreStdOut,
 } from '../src';
 
+const stripAnsi = (value: string): string => value.replace(/\x1b\[[0-9;]*m/g, '');
+
 describe('transformOutput', () => {
   it('modifies the log output', async () => {
     const { originalWrite, outputText } = overrideStdOut();
@@ -280,5 +282,66 @@ describe('transformOutput', () => {
 
     const testObj = JSON.parse(outputText[0]);
     expect(testObj).to.eql({ level: 'info', message: 'default' });
+  });
+
+  it('preserves transformed JSON semantics when colorize is enabled', async () => {
+    const savedEnv = {
+      FORCE_NO_COLOR: process.env.FORCE_NO_COLOR,
+      FORCE_COLOR: process.env.FORCE_COLOR,
+      DYNO: process.env.DYNO,
+    };
+    process.env.FORCE_NO_COLOR = '';
+    process.env.FORCE_COLOR = 'true';
+    process.env.DYNO = '';
+
+    const { originalWrite, outputText } = overrideStdOut();
+
+    try {
+      LoggerAdaptToConsole({
+        colorize: true,
+        noTimeStamp: true,
+        noFileName: true,
+        noPackageName: true,
+        noStackForNonError: true,
+        transformOutput: (obj) => {
+          obj.custom = 'injected';
+          obj.severity = obj.level;
+          return obj;
+        },
+      });
+      console.log('transformed with color', { count: 42 });
+    } finally {
+      restoreStdOut(originalWrite);
+      LoggerRestoreConsole();
+
+      if (savedEnv.FORCE_NO_COLOR === undefined) {
+        delete process.env.FORCE_NO_COLOR;
+      } else {
+        process.env.FORCE_NO_COLOR = savedEnv.FORCE_NO_COLOR;
+      }
+
+      if (savedEnv.FORCE_COLOR === undefined) {
+        delete process.env.FORCE_COLOR;
+      } else {
+        process.env.FORCE_COLOR = savedEnv.FORCE_COLOR;
+      }
+
+      if (savedEnv.DYNO === undefined) {
+        delete process.env.DYNO;
+      } else {
+        process.env.DYNO = savedEnv.DYNO;
+      }
+    }
+
+    expect(outputText[0]).to.include('\x1b[');
+
+    const testObj = JSON.parse(stripAnsi(outputText[0]));
+    expect(testObj).to.eql({
+      level: 'info',
+      message: 'transformed with color',
+      count: 42,
+      custom: 'injected',
+      severity: 'info',
+    });
   });
 });
