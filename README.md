@@ -402,6 +402,18 @@ CONSOLE_LOG_COLORIZE=true
 
 ![colorized example](https://raw.githubusercontent.com/hiro5id/console-log-json/master/docs/images/colors_example.png)
 
+**Per-property key colors.** Every JSON property key gets its own unique ANSI truecolor derived from a hash of the key name. The same key name always appears in the same color across all log lines — `userId` is always the same hue, `orderId` is always a different hue, regardless of call site or log level. This makes it easy to scan across many log entries and visually track a specific field.
+
+**Automatic background detection.** The colorizer detects whether your terminal has a dark or light background and picks foreground colors with appropriate lightness for readability. Dark terminals get bright colors; light terminals get darker tones. Detection checks `COLORFGBG`, `TERM_PROGRAM`, `WT_SESSION`, and `VTE_VERSION` environment variables, in that order, and defaults to dark-background behavior when no signal is found.
+
+To override detection explicitly:
+```bash
+CONSOLE_LOG_COLORIZE_BACKGROUND=light   # force light-background palette
+CONSOLE_LOG_COLORIZE_BACKGROUND=dark    # force dark-background palette
+```
+
+**Value colors stay semantic.** While key colors are hash-based, value colors remain meaningful: `error` level is red, `warn` is yellow, `info` messages use green, `@timestamp` values use pink, and so on. These semantics are unaffected by background detection.
+
 ---
 
 ## Supported Console Methods
@@ -470,6 +482,7 @@ This means you can keep environment-specific defaults in deployment config while
 | Variable | Default | Effect |
 |---|---|---|
 | `CONSOLE_LOG_COLORIZE=true` | `false` | Enable ANSI-colored JSON output. **Turn this on for local development** -- it makes JSON logs much easier to scan in a terminal. Leave it off in production because log ingestion services (LogDNA, DataDog, CloudWatch) don't render ANSI codes and they add noise to stored logs. |
+| `CONSOLE_LOG_COLORIZE_BACKGROUND=dark\|light` | *(auto-detected)* | Force a specific color palette for colorized output. When not set, the colorizer detects the terminal background from `COLORFGBG`, `TERM_PROGRAM`, `WT_SESSION`, and `VTE_VERSION`. Set to `dark` or `light` to override detection — useful in CI or when auto-detection is wrong for your terminal. Has no effect when `CONSOLE_LOG_COLORIZE` is not enabled. |
 | `CONSOLE_LOG_JSON_NO_NEW_LINE_CHARACTERS=true` | `false` | Remove all `\n` characters from the log output, including in stack traces. **Turn this on** if your log aggregator splits on newlines and you're seeing stack traces show up as separate log events. The trade-off is that stack traces become harder to read in raw form. |
 | `CONSOLE_LOG_JSON_NO_NEW_LINE_CHARACTERS_EXCEPT_STACK=true` | `false` | A middle ground -- removes newlines from the log envelope but keeps them inside stack traces. Useful when your log tool handles multi-line values within a JSON field but splits on newlines between entries. |
 

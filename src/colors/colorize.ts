@@ -55,23 +55,15 @@ export interface IColorConfiguration {
   number: ColorValue;
   boolean: ColorValue;
   null: ColorValue;
-  key: ColorValue;
-  levelKey: ColorValue;
-  messageKey: ColorValue;
   errorLevel: ColorValue;
   nonErrorLevel: ColorValue;
   nonErrorMessage: ColorValue;
   errorMessage: ColorValue;
   warnLevel: ColorValue;
-  fileNameKey: ColorValue;
   fileName: ColorValue;
-  logCallStackKey: ColorValue;
   logCallStack: ColorValue;
-  packageNameKey: ColorValue;
   packageName: ColorValue;
-  timestampKey: ColorValue;
   timestamp: ColorValue;
-  errCallStackKey: ColorValue;
   errCallStack: ColorValue;
 }
 
@@ -83,25 +75,19 @@ export const defaultColors: IColorConfiguration = {
   number: 'magenta',
   boolean: 'cyan',
   null: 'red',
-  key: 'purple',
-  levelKey: 'teal',
-  messageKey: 'darkGreen',
   errorLevel: 'red',
   nonErrorLevel: 'lightTeal',
   nonErrorMessage: 'lightGreen',
   errorMessage: 'red',
   warnLevel: 'yellow',
-  fileNameKey: 'darkYellow',
   fileName: 'yellow',
-  logCallStackKey: 'blue',
   logCallStack: 'black',
-  packageNameKey: 'darkYellow',
   packageName: 'yellow',
-  timestampKey: 'pink',
   timestamp: 'lightPink',
-  errCallStackKey: 'darkRed',
   errCallStack: 'lightRed',
 };
+
+export type BackgroundTheme = 'dark' | 'light' | 'unknown';
 
 // TODO: this is super beta, consider using Sindre's supports-colors
 export function supportsColor() {
@@ -111,14 +97,114 @@ export function supportsColor() {
   return (!onHeroku && !forceNoColor) || forceColor;
 }
 
-// also counts 'false' as false
 function truth(it: any) {
   return it && it !== 'false' ? true : false;
 }
 
-// TODO:colors: support colorizing specific fields like "message"
-// TODO:colors: add support for deserializing circual references by incorporating and using 'json-stringify-safe' that i userd here elsewhere but now commented out
-// TODO:colors: add support to toggle colors as well as JSON formatting independently
+let cachedBackgroundTheme: BackgroundTheme | null = null;
+
+export function resetBackgroundThemeCache(): void {
+  cachedBackgroundTheme = null;
+}
+
+function detectBackgroundTheme(): BackgroundTheme {
+  const override = getEnv('CONSOLE_LOG_COLORIZE_BACKGROUND');
+  if (override === 'dark' || override === 'd') return 'dark';
+  if (override === 'light' || override === 'l') return 'light';
+
+  const colorFgBg = getEnv('COLORFGBG');
+  if (colorFgBg != null) {
+    const parts = colorFgBg.split(';');
+    const bgIndex = parseInt(parts[parts.length - 1], 10);
+    if (!isNaN(bgIndex)) {
+      return bgIndex <= 6 ? 'dark' : 'light';
+    }
+  }
+
+  const termProgram = getEnv('TERM_PROGRAM');
+  if (termProgram === 'Apple_Terminal') return 'light';
+  if (termProgram === 'vscode') return 'dark';
+
+  if (truth(getEnv('WT_SESSION'))) return 'dark';
+  if (truth(getEnv('VTE_VERSION'))) return 'dark';
+
+  return 'unknown';
+}
+
+function getBackgroundTheme(): BackgroundTheme {
+  if (cachedBackgroundTheme === null) {
+    cachedBackgroundTheme = detectBackgroundTheme();
+  }
+  return cachedBackgroundTheme;
+}
+
+function djb2Hash(str: string): number {
+  let hash = 5381;
+  for (let i = 0; i < str.length; i++) {
+    hash = ((hash << 5) + hash + str.charCodeAt(i)) >>> 0;
+  }
+  return hash;
+}
+
+function hslToRgb(h: number, s: number, l: number): [number, number, number] {
+  const c = (1 - Math.abs(2 * l - 1)) * s;
+  const x = c * (1 - Math.abs(((h / 60) % 2) - 1));
+  const m = l - c / 2;
+  let r = 0;
+  let g = 0;
+  let b = 0;
+
+  if (h < 60) {
+    r = c;
+    g = x;
+    b = 0;
+  } else if (h < 120) {
+    r = x;
+    g = c;
+    b = 0;
+  } else if (h < 180) {
+    r = 0;
+    g = c;
+    b = x;
+  } else if (h < 240) {
+    r = 0;
+    g = x;
+    b = c;
+  } else if (h < 300) {
+    r = x;
+    g = 0;
+    b = c;
+  } else {
+    r = c;
+    g = 0;
+    b = x;
+  }
+
+  return [Math.round((r + m) * 255), Math.round((g + m) * 255), Math.round((b + m) * 255)];
+}
+
+function rgbToAnsi(r: number, g: number, b: number): string {
+  return `\x1b[38;2;${r};${g};${b}m`;
+}
+
+const keyColorCache = new Map<string, string>();
+
+function generateKeyAnsiCode(bareKeyName: string, theme: BackgroundTheme): string {
+  const cacheKey = `${theme}:${bareKeyName}`;
+  const cached = keyColorCache.get(cacheKey);
+  if (cached !== undefined) return cached;
+
+  const hash = djb2Hash(bareKeyName);
+  const hue = hash % 360;
+  const isDark = theme !== 'light';
+  const s = isDark ? 0.85 : 0.8;
+  const l = isDark ? 0.72 : 0.32;
+  const [r, g, b] = hslToRgb(hue, s, l);
+  const ansi = rgbToAnsi(r, g, b);
+
+  keyColorCache.set(cacheKey, ansi);
+  return ansi;
+}
 
 interface IScannedJsonStringToken {
   endIndex: number;
@@ -223,27 +309,6 @@ function scanJsonNumberEndIndex(json: string, startIndex: number): number {
   return index > startIndex ? index : startIndex + 1;
 }
 
-function getKeyColorCode(normalizedStringText: string): ColorItemName {
-  switch (normalizedStringText) {
-    case '"level"':
-      return 'levelKey';
-    case '"message"':
-      return 'messageKey';
-    case '"@filename"':
-      return 'fileNameKey';
-    case '"@logcallstack"':
-      return 'logCallStackKey';
-    case '"@packagename"':
-      return 'packageNameKey';
-    case '"@timestamp"':
-      return 'timestampKey';
-    case '"errcallstack"':
-      return 'errCallStackKey';
-    default:
-      return 'key';
-  }
-}
-
 function getStringValueColorCode(
   normalizedStringText: string,
   previousKeyName: string,
@@ -298,6 +363,7 @@ function getStringValueColorCode(
 }
 
 function colorizeJsonString(json: string, colors: IColorConfiguration, colorMap: IDefaultColorMap): string {
+  const theme = getBackgroundTheme();
   const separatorColor = (colorMap as any)[colors.separator];
   let previousKeyName = '';
   let previousTokenWasKey = false;
@@ -319,12 +385,17 @@ function colorizeJsonString(json: string, colors: IColorConfiguration, colorMap:
       tokenText = scannedToken.tokenText;
 
       if (scannedToken.isKey) {
-        colorCode = getKeyColorCode(scannedToken.normalizedStringText);
+        const bareKeyName = scannedToken.normalizedStringText.slice(1, -1);
+        const keyAnsiCode = generateKeyAnsiCode(bareKeyName, theme);
+        output += json.slice(lastCopiedIndex, index);
+        output += `\x1b[0m${keyAnsiCode}${tokenText}${separatorColor}`;
+        lastCopiedIndex = tokenEndIndex;
+        index = tokenEndIndex;
         previousKeyName = scannedToken.normalizedStringText;
         previousTokenWasKey = true;
+        continue;
       } else {
         const stringColorResult = getStringValueColorCode(scannedToken.normalizedStringText, previousTokenWasKey ? previousKeyName : '', isErrorLevel, isWarnLevel);
-
         colorCode = stringColorResult.colorCode;
         isErrorLevel = stringColorResult.isErrorLevel;
         isWarnLevel = stringColorResult.isWarnLevel;
@@ -354,10 +425,8 @@ function colorizeJsonString(json: string, colors: IColorConfiguration, colorMap:
 
     if (colorCode != null && tokenEndIndex > index) {
       const color = (colorMap as any)[(colors as any)[colorCode]] || '';
-
       output += json.slice(lastCopiedIndex, index);
       output += `\x1b[0m${color}${tokenText}${separatorColor}`;
-
       lastCopiedIndex = tokenEndIndex;
       index = tokenEndIndex;
       continue;

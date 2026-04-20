@@ -287,7 +287,7 @@ describe('colorJson - warn level', () => {
     expect(warnResult).to.not.equal(errorResult);
   });
 
-  it('colors special keys: @filename, @packageName, @timestamp, errCallStack', () => {
+  it('colors special key values: @filename, @packageName, @timestamp, errCallStack', () => {
     sandbox.stub(process.env, 'FORCE_NO_COLOR').value('');
     sandbox.stub(process.env, 'FORCE_COLOR').value('');
     sandbox.stub(process.env, 'DYNO').value('');
@@ -302,11 +302,12 @@ describe('colorJson - warn level', () => {
       '@logCallStack': 'at func (file:1:1)',
     };
     const result = colorJson(obj);
-    // Should contain color codes for the special keys
-    expect(result).to.include(defaultColorMap.darkYellow); // fileNameKey, packageNameKey
-    expect(result).to.include(defaultColorMap.pink); // timestampKey
-    expect(result).to.include(defaultColorMap.darkRed); // errCallStackKey
-    expect(result).to.include(defaultColorMap.blue); // logCallStackKey
+    // Values of special keys still use semantic colors
+    expect(result).to.include(defaultColorMap.yellow);    // @filename and @packageName values
+    expect(result).to.include(defaultColorMap.lightPink); // @timestamp value
+    expect(result).to.include(defaultColorMap.lightRed);  // errCallStack value
+    // All keys use unique hash-based truecolor codes
+    expect(result).to.match(/\x1b\[38;2;\d+;\d+;\d+m/);
   });
 
   it('handles spacing parameter', () => {

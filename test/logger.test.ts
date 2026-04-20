@@ -1117,9 +1117,15 @@ describe('logger', () => {
     LoggerRestoreConsole();
 
     console.log(outputText[0]);
-    
-    // const testObj = JSON.parse(outputText[0]);
-    expect(outputText[0].startsWith("\u001b[30m{\u001b[0m\u001b[38;2;26;175;192m\"level\":\u001b[30m\u001b[0m\u001b[31m\"error\"\u001b[30m,\u001b[0m\u001b[38;2;36;119;36m\"message\":\u001b[30m\u001b[0m\u001b[31m\"this is a test - more messages\"\u001b[30m,\u001b[0m\u001b[38;2;159;147;45m\"@filename\":\u001b[30m\u001b[0m\u001b[33m\"")).eql(true);
+
+    const stripAnsi = (s: string) => s.replace(/\x1b\[[0-9;]*m/g, '');
+    const parsed = JSON.parse(stripAnsi(outputText[0]));
+    expect(parsed.level).to.equal('error');
+    expect(parsed.message).to.include('this is a test');
+    // error level value uses red semantic color
+    expect(outputText[0]).to.include('\x1b[31m');
+    // keys use hash-based truecolor codes
+    expect(outputText[0]).to.match(/\x1b\[38;2;\d+;\d+;\d+m/);
   });
 
 
@@ -1134,10 +1140,16 @@ describe('logger', () => {
     LoggerRestoreConsole();
 
     console.log(outputText[0]);
-    
-    // const testObj = JSON.parse(outputText[0]);
-    expect(outputText[0].startsWith("\u001b[30m{\u001b[0m\u001b[38;2;26;175;192m\"level\":\u001b[30m\u001b[0m\u001b[38;2;31;230;255m\"info\"\u001b[30m,\u001b[0m\u001b[38;2;36;119;36m\"message\":\u001b[30m\u001b[0m\u001b[38;2;0;255;127m\"this is a test - more messages\"\u001b[30m,\u001b[0m\u001b[38;2;159;147;45m\"@filename\":\u001b[30m\u001b[0m\u001b[33m\"")).eql(true);
-  });  
+
+    const stripAnsi = (s: string) => s.replace(/\x1b\[[0-9;]*m/g, '');
+    const parsed = JSON.parse(stripAnsi(outputText[0]));
+    expect(parsed.level).to.equal('info');
+    expect(parsed.message).to.include('this is a test');
+    // info level value uses lightTeal semantic color
+    expect(outputText[0]).to.include('\x1b[38;2;31;230;255m');
+    // keys use hash-based truecolor codes
+    expect(outputText[0]).to.match(/\x1b\[38;2;\d+;\d+;\d+m/);
+  });
 
   it('color console.log logs with error object', async () => {
     sandbox.stub(process.env, 'CONSOLE_LOG_COLORIZE').value('TRUE');
@@ -1151,10 +1163,16 @@ describe('logger', () => {
     LoggerRestoreConsole();
 
     console.log(outputText[0]);
-    
-    // const testObj = JSON.parse(outputText[0]);
-    expect(outputText[0].startsWith("\u001b[30m{\u001b[0m\u001b[38;2;26;175;192m\"level\":\u001b[30m\u001b[0m\u001b[31m\"error\"\u001b[30m,\u001b[0m\u001b[38;2;36;119;36m\"message\":\u001b[30m\u001b[0m\u001b[31m\"this is a test - more messages  - HEY MAN THIS IS AN ERROR!\"\u001b[30m,\u001b[0m\u001b[38;2;135;38;162m\"@errorObjectName\":\u001b[30m\u001b[0m\u001b[37m\"Error\"\u001b[30m,\u001b[0m\u001b[38;2;159;147;45m\"@filename\":\u001b[30m\u001b[0m\u001b[33m\"")).eql(true);
-  });    
+
+    const stripAnsi = (s: string) => s.replace(/\x1b\[[0-9;]*m/g, '');
+    const parsed = JSON.parse(stripAnsi(outputText[0]));
+    expect(parsed.level).to.equal('error');
+    expect(parsed.message).to.include('HEY MAN THIS IS AN ERROR!');
+    // error level value uses red semantic color
+    expect(outputText[0]).to.include('\x1b[31m');
+    // keys use hash-based truecolor codes
+    expect(outputText[0]).to.match(/\x1b\[38;2;\d+;\d+;\d+m/);
+  });
 
   // Todo: test multiple nested ErrorWithContext objects to ensure proper stacktrace and error messages
 });

@@ -1,17 +1,27 @@
 # Changelog
 
-## Next Version In Progress
+## 6.4.0
+
+### Breaking Changes
+- **`IColorConfiguration` key slots removed.** The interface no longer includes `key`, `levelKey`, `messageKey`, `fileNameKey`, `logCallStackKey`, `packageNameKey`, `timestampKey`, or `errCallStackKey`. These slots were used to assign a single fixed color to all keys of each type. They are replaced by hash-based coloring (see below). If you were reading or writing these slots on a custom `IColorConfiguration`, remove those references. Value-coloring slots (`errorLevel`, `warnLevel`, `nonErrorMessage`, `fileName`, `timestamp`, `errCallStack`, etc.) are unchanged.
+
+### New Features
+- **Unique per-property key colors derived from property name.** Every JSON key now gets its own distinct ANSI truecolor (24-bit RGB) derived from a djb2 hash of the key name. The same key name always produces the same color across all log lines, regardless of call site, log level, or log order. This makes it easy to visually track specific fields like `userId` or `requestId` across many log entries — each field consistently appears in its own color.
+- **Terminal background auto-detection.** When `CONSOLE_LOG_COLORIZE=true`, the colorizer now detects whether the terminal background is dark or light and adjusts key colors accordingly. Dark backgrounds (the most common developer setup) get bright, high-lightness colors. Light backgrounds get darker, more readable tones. Detection checks, in order: `CONSOLE_LOG_COLORIZE_BACKGROUND` env var override, `COLORFGBG` (xterm/rxvt/Konsole), `TERM_PROGRAM` (`Apple_Terminal` → light, `vscode` → dark), `WT_SESSION` (Windows Terminal → dark), `VTE_VERSION` (GNOME Terminal → dark). Falls back to dark-background behavior when no signal is found.
+- **`CONSOLE_LOG_COLORIZE_BACKGROUND` override.** Set to `dark` or `light` to force a specific color palette regardless of terminal detection. Useful in CI environments, scripts, or when auto-detection is wrong.
 
 ### Security Fixes
 - Replaced the regex-based `colorJson(...)` token matcher with a linear JSON scanner, removing the polynomial-time escaped-string path flagged by CodeQL while preserving existing ANSI color behavior.
 
 ### Improvements
 - Unified the logger configuration model so settings can be supplied either as direct `LoggerAdaptToConsole({...})` options or as environment variables. This adds top-level programmatic aliases for the existing env-backed flags and adds env-var forms for log level, debug-string capture, static custom fields, redaction, hook timeout, and advanced hook references.
+- Key colors are cached per name and theme across log calls, so repeated keys (e.g. `level`, `message`, `userId`) pay the hash cost only once per process lifetime.
 
 ### Tests
 - Added regression coverage for long escaped-quote payloads in `colorJson(...)`, ensuring colorized output still round-trips without content changes.
 - Added regression coverage for the unified configuration surface, including top-level flag aliases, env-driven log level/debug/custom-options/redaction behavior, and env-resolved hook callbacks.
 - Added end-to-end regression coverage for colorized logger output through the real `LoggerAdaptToConsole(...)` path, including direct top-level `colorize` usage and the `transformOutput + colorize` and `redact + colorize` combinations. The new tests assert both ANSI emission and that the JSON payload remains correct after stripping ANSI codes.
+- Added hash-based key color tests: same key name produces same color across calls, different key names produce different colors, truecolor codes are emitted, light and dark themes produce visually distinct colors (verified by RGB sum thresholds).
 
 ## 6.3.2
 

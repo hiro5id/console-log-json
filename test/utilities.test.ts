@@ -8,7 +8,7 @@ import { jsonStringifySafe, getSerialize } from '../src/json-stringify-safe/stri
 import { safeObjectAssign } from '../src/safe-object-assign';
 import { ErrorWithContext } from '../src/error-with-context';
 import { getCallStack } from '../src/get-call-stack';
-import { colorJson, supportsColor, defaultColorMap } from '../src/colors/colorize';
+import { colorJson, supportsColor, defaultColorMap, resetBackgroundThemeCache } from '../src/colors/colorize';
 import sinon from 'sinon';
 
 describe('ToOneLine', () => {
@@ -514,6 +514,88 @@ describe('colorJson', () => {
     const parsed = JSON.parse(stripAnsi(result));
     expect(parsed.message).to.equal(repeatedEscapedQuote);
     expect(parsed.detail).to.equal(repeatedEscapedQuote);
+  });
+});
+
+describe('hash-based key colorization', () => {
+  const sandbox = sinon.createSandbox();
+  process.env.FORCE_NO_COLOR = '';
+  process.env.FORCE_COLOR = '';
+  process.env.DYNO = '';
+
+  beforeEach(() => {
+    sandbox.stub(process.env, 'FORCE_NO_COLOR').value('');
+    sandbox.stub(process.env, 'FORCE_COLOR').value('');
+    sandbox.stub(process.env, 'DYNO').value('');
+    resetBackgroundThemeCache();
+  });
+
+  afterEach(() => {
+    sandbox.restore();
+    delete process.env.CONSOLE_LOG_COLORIZE_BACKGROUND;
+    resetBackgroundThemeCache();
+  });
+
+  it('uses truecolor ANSI codes for keys', () => {
+    const result = colorJson({ myCustomKey: 'value' });
+    expect(result).to.match(/\x1b\[38;2;\d+;\d+;\d+m/);
+  });
+
+  it('same key name produces same color across separate calls', () => {
+    const result1 = colorJson({ userId: 'abc' });
+    const result2 = colorJson({ userId: 'xyz' });
+    const truecolorPattern = /\x1b\[38;2;[\d;]+m/g;
+    const codes1 = result1.match(truecolorPattern);
+    const codes2 = result2.match(truecolorPattern);
+    expect(codes1).to.not.be.null;
+    expect(codes2).to.not.be.null;
+    expect(codes1![0]).to.equal(codes2![0]);
+  });
+
+  it('different key names produce different colors', () => {
+    const result1 = colorJson({ userId: 'abc' });
+    const result2 = colorJson({ orderId: 'abc' });
+    const truecolorPattern = /\x1b\[38;2;[\d;]+m/g;
+    const codes1 = result1.match(truecolorPattern);
+    const codes2 = result2.match(truecolorPattern);
+    expect(codes1).to.not.be.null;
+    expect(codes2).to.not.be.null;
+    expect(codes1![0]).to.not.equal(codes2![0]);
+  });
+
+  it('light background theme produces different key colors than dark', () => {
+    process.env.CONSOLE_LOG_COLORIZE_BACKGROUND = 'dark';
+    resetBackgroundThemeCache();
+    const darkResult = colorJson({ userId: 'abc' });
+
+    process.env.CONSOLE_LOG_COLORIZE_BACKGROUND = 'light';
+    resetBackgroundThemeCache();
+    const lightResult = colorJson({ userId: 'abc' });
+
+    expect(darkResult).to.not.equal(lightResult);
+  });
+
+  it('CONSOLE_LOG_COLORIZE_BACKGROUND=light uses lower lightness colors', () => {
+    process.env.CONSOLE_LOG_COLORIZE_BACKGROUND = 'light';
+    resetBackgroundThemeCache();
+    const result = colorJson({ someKey: 'value' });
+    // Light theme: l=0.32 produces darker RGB values (sum < dark theme sum)
+    const match = result.match(/\x1b\[38;2;(\d+);(\d+);(\d+)m/);
+    expect(match).to.not.equal(null);
+    const sum = parseInt(match![1], 10) + parseInt(match![2], 10) + parseInt(match![3], 10);
+    // Dark theme l=0.72 yields bright colors; light theme l=0.32 yields dark colors
+    // Bright (dark bg): sum should be > 400; Dark (light bg): sum should be < 350
+    expect(sum).to.be.lessThan(350);
+  });
+
+  it('CONSOLE_LOG_COLORIZE_BACKGROUND=dark uses higher lightness colors', () => {
+    process.env.CONSOLE_LOG_COLORIZE_BACKGROUND = 'dark';
+    resetBackgroundThemeCache();
+    const result = colorJson({ someKey: 'value' });
+    const match = result.match(/\x1b\[38;2;(\d+);(\d+);(\d+)m/);
+    expect(match).to.not.equal(null);
+    const sum = parseInt(match![1], 10) + parseInt(match![2], 10) + parseInt(match![3], 10);
+    expect(sum).to.be.greaterThan(400);
   });
 });
 

@@ -30,6 +30,8 @@ npm-debug.log
 yarn-error.log
 testem.log
 /.trunk
+SESSION_HANDOFF.md
+.claude
 
 # System Files
 .DS_Store
