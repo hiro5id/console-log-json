@@ -1,4 +1,4 @@
-FROM node:20-bullseye
+FROM node:20-bookworm
 
 # node may come with an older version of npm. Ensure we have a specific npm.
 #RUN npm install -g npm@6.14.14
@@ -9,15 +9,16 @@ FROM node:20-bullseye
 
 ################################################################################
 # Install prerequisites
-RUN apt update
-RUN apt install -y \
+# Keep `apt update` in the same RUN as `apt install` so a cached layer never
+# leaves us with a stale package index (which causes 404s on old package versions).
+RUN apt update && apt install -y \
     curl \
     git \
     xdg-utils
 
 ################################################################################
 # Install Chromium for headless browser tests (puppeteer-core)
-RUN apt install -y chromium --no-install-recommends
+RUN apt update && apt install -y chromium --no-install-recommends
 ENV CHROME_PATH=/usr/bin/chromium
 
 
