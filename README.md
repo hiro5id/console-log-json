@@ -10,7 +10,7 @@
 
 [![console-log-json](https://raw.githubusercontent.com/hiro5id/console-log-json/master/docs/images/console-log-json-image.png)](https://www.npmjs.com/package/console-log-json)
 
-**Drop-in structured JSON logging for Node.js and the browser. Zero dependencies. No vendor lock-in. One line to set up. TypeScript types included.**
+**Drop-in structured JSON logging for Node.js and the browser. Zero required dependencies. No vendor lock-in. One line to set up. TypeScript types included.**
 
 Replace `console.log()` with production-grade JSON output -- no code changes required across your entire codebase, and no logger API to couple your application to.
 
@@ -23,7 +23,7 @@ console.log("user signed in", { userId: 42, plan: "pro" });
 ```
 
 ```json
-{"level":"info","message":"user signed in","plan":"pro","userId":42,"@timestamp":"2025-01-15T08:30:00.000Z","@filename":"src/auth/login.ts","@packageName":"my-app"}
+{"level":"info","message":"user signed in","@filename":"my-app/src/auth/login.ts","@logCallStack":"at login (/my-app/src/auth/login.ts:12:11)\n    at ...","@packageName":"my-app","plan":"pro","userId":42,"@timestamp":"2025-01-15T08:30:00.000Z"}
 ```
 
 ---
@@ -38,7 +38,7 @@ console-log-json is built for developers who already have `console.*` calls thro
 - Useful in everyday development and production: easier debugging, searchable logs, cleaner ingestion in DataDog, Splunk, OpenSearch, CloudWatch, and ELK.
 - Works across Node.js and browser builds, with support for ESM, CommonJS, and bundled frontend apps.
 - Power-user features include redaction, output transforms, log interception hooks, log-level control, and env-var configuration.
-- Designed to be operationally safe: zero runtime dependencies, crash-safe fallbacks, and compatibility with older Node.js runtimes (`>=10`).
+- Designed to be operationally safe: no required runtime dependencies, crash-safe fallbacks, and compatibility with older Node.js runtimes (`>=10` for CommonJS, `>=12.20` for ES module imports).
 
 ## Contents
 
@@ -65,16 +65,18 @@ This library is a strong fit when you want structured logging to become part of 
 |---|---|---|
 | **Setup** | 1 line, drop-in | Rewrite every log call |
 | **Application coupling** | Standard `console.*` API | Special logger instance / library API |
-| **Dependencies** | Zero | 5-30+ transitive deps |
+| **Dependencies** | Zero required (one optional) | 5-30+ transitive deps |
 | **Browser support** | Yes | No (Node only) |
 | **Argument handling** | Throw anything in any order | Strict API signatures |
 | **Stack traces** | Automatic, single-line | Manual formatting |
 | **Source file tracking** | Automatic `@filename` on every log | Not built-in |
 | **Crash safety** | Logger errors never crash your app | Depends on config |
 
-### Zero dependencies
+### Zero required dependencies
 
-No `winston`. No `pino`. No `bunyan`. No transitive dependency tree to audit, no supply chain risk, no version conflicts. The entire library is self-contained.
+No `winston`. No `pino`. No `bunyan`. No dependency tree to audit and no version conflicts. The logger itself is self-contained.
+
+The one exception is an **optional** dependency, [`source-map-support`](https://www.npmjs.com/package/source-map-support), which npm installs by default. On Node.js it maps stack-trace lines back to your TypeScript sources. If it's missing (for example with `npm install --omit=optional`, or in the browser), the logger works the same, with stack traces pointing at the compiled JavaScript.
 
 ### Drop-in replacement -- no code changes needed
 
@@ -103,7 +105,7 @@ Every log entry is a single line of JSON. Stack traces, nested objects, multi-li
 Every log entry automatically includes contextual information that would be tedious and error-prone to add manually:
 
 - **`@timestamp`** -- ISO 8601 UTC timestamp. Essential for correlating events across services, tracking the order of operations during incident response, and querying logs by time range. Always in UTC so there's no timezone ambiguity across distributed systems.
-- **`@filename`** -- the best-effort source file that generated the log. In normal Node.js and unbundled browser builds, this usually points to the caller you care about. If a consumer bundles `console-log-json` together with app code into a single browser file, there may be no reliable boundary in the stack between library frames and app frames, so `@filename` can fall back to `<unknown>` or a bundle path.
+- **`@filename`** -- the best-effort source file that generated the log, as a path starting at your project's folder name (for example `my-app/src/auth/login.ts`). In normal Node.js and unbundled browser builds, this usually points to the caller you care about. If a consumer bundles `console-log-json` together with app code into a single browser file, there may be no reliable boundary in the stack between library frames and app frames, so `@filename` can fall back to `<unknown>` or a bundle path.
 - **`@logCallStack`** -- the full call stack at the point of logging. Shows you not just *where* the log was called, but *how the code got there*. Invaluable for tracing execution paths through middleware chains, event handlers, and deeply nested function calls.
 - **`@packageName`** -- the npm package name from `package.json`. In monorepos or microservice architectures where multiple packages log to the same stream, this tells you which service or package produced the log without relying on container labels or deployment metadata. In Node.js, this works in both CommonJS and ESM projects. If the package name cannot be determined, the field is omitted rather than emitting a placeholder value.
 
@@ -166,6 +168,8 @@ LoggerAdaptToConsole();
 
 That's it. Every `console.log()` in your codebase now outputs JSON.
 
+CommonJS `require` works on Node.js 10 and later. ES module `import` needs Node.js 12.20 or later.
+
 In Node ESM projects, very early startup logs may be buffered briefly while `@packageName` is resolved from `package.json`, then emitted normally.
 
 ### Restore original console (optional)
@@ -188,7 +192,7 @@ console.log("server started on port 3000");
 ```
 
 ```json
-{"level":"info","message":"server started on port 3000","@timestamp":"2025-01-15T08:30:00.000Z","@filename":"src/index.ts","@packageName":"my-api"}
+{"level":"info","message":"server started on port 3000","@filename":"my-api/src/index.ts","@logCallStack":"at ...","@packageName":"my-api","@timestamp":"2025-01-15T08:30:00.000Z"}
 ```
 
 ### Message with context
@@ -234,7 +238,7 @@ try {
 ```
 
 ```json
-{"level":"error","message":"connection refused","operation":"getUser","table":"users","userId":42,"errCallStack":"Error: connection refused\n    at ...\nCaused By: Error: connection refused\n    at ...","@timestamp":"..."}
+{"level":"error","message":"connection refused","@errorObjectName":"Error","errCallStack":"Error: connection refused\n    at ...\nCaused By: Error: connection refused\n    at ...","operation":"getUser","table":"users","userId":42,"@timestamp":"..."}
 ```
 
 Now when you see this error in your log dashboard, you can immediately filter by `userId: 42` or `table: "users"` to understand the scope of the problem. You can nest multiple `ErrorWithContext` wrappings -- each layer adds context, and the full causal chain is preserved with `Caused By:` in the stack trace.
@@ -300,7 +304,7 @@ console.log('{"event":"webhook","source":"stripe","type":"payment.succeeded"}');
 ```
 
 ```json
-{"level":"info","message":"<auto-parsed-json-string-see-@autoParsedJson-property>","@autoParsedJson":{"event":"webhook","source":"stripe","type":"payment.succeeded"},"@timestamp":"..."}
+{"level":"info","message":"<auto-parsed-json-string-see-@autoParsedJson-property>","@timestamp":"...","@autoParsedJson":{"event":"webhook","source":"stripe","type":"payment.succeeded"}}
 ```
 
 Now you can query `@autoParsedJson.source = "stripe"` in your log dashboard instead of doing substring searches on a raw message. This can be disabled with `CONSOLE_LOG_JSON_DISABLE_AUTO_PARSE=true` if you prefer the raw string.
@@ -664,7 +668,7 @@ console.log("button clicked", { component: "Header", action: "menu-toggle" });
 
 Output in the browser DevTools console:
 ```json
-{"level":"info","message":"button clicked","component":"Header","action":"menu-toggle","@filename":"<unknown>","@logCallStack":"at handleClick (src/components/Header.tsx:15:3)","@timestamp":"..."}
+{"level":"info","message":"button clicked","@filename":"<unknown>","@logCallStack":"at handleClick (src/components/Header.tsx:15:3)","action":"menu-toggle","component":"Header","@timestamp":"..."}
 ```
 
 The `browser` field in `package.json` tells bundlers (webpack, vite, esbuild, etc.) to stub out Node-specific modules automatically. No extra configuration needed.
@@ -792,8 +796,8 @@ console.log("page loaded", { route: "/dashboard", loadTime: 1.2 });
 
 | Feature | Node.js | Browser |
 |---|---|---|
-| `@filename` | Source file path (e.g. `src/index.ts`) | `<unknown>` (no filesystem) |
-| `@packageName` | From `package.json` | Empty (no `package.json`) |
+| `@filename` | Source file path (e.g. `my-app/src/index.ts`) | `<unknown>` (no filesystem) |
+| `@packageName` | From `package.json` | Omitted (no `package.json`) |
 | `.env` loading | Not performed by the library | Not performed by the library |
 | Stack traces | V8 format with source maps | Browser-native format (source maps work in DevTools) |
 | Output destination | `process.stdout` (JSON string) | Browser `console.log` (visible in DevTools) |
@@ -833,7 +837,7 @@ The `onLog` callback is designed to be safe and non-blocking:
 
 - **Runs asynchronously** — the `console.log()` call returns immediately. The callback runs in the next microtask on Node.js, and on the next timer tick in browsers, so it never blocks your application.
 - **Crash-safe** — if your callback throws an error, it's silently caught. The logger continues working normally and your application is unaffected.
-- **Timeout protected** — callbacks that hang are abandoned after 5 seconds (configurable via `onLogTimeout` in milliseconds). A hung callback never keeps your process from exiting.
+- **Timeout protected** — callbacks that hang are abandoned after 5 seconds (configurable via `onLogTimeout` in milliseconds). The timeout itself never keeps your process from exiting, but work your callback started, such as an in-flight network request, keeps Node.js running until it finishes, so logs being shipped aren't cut off.
 - **Safe to log from** — a `console.log()` made inside `onLog` or `transformOutput` is written normally, but the hooks are not run again for it, so a hook that logs can't loop forever. On Node.js this includes logs made after an `await` inside an async `onLog`. In browsers only the synchronous part is covered: a log made after an `await` runs `onLog` again, once per timer tick, so avoid logging from inside an async `onLog` there.
 - **Does not affect output** — the log is written to the console before the callback runs. Your callback receives a copy of the parsed data, so modifications don't affect the logged output.
 
@@ -874,7 +878,7 @@ console.log("deploy complete", { service: "payment-api" });
 ```
 
 ```json
-{"status":"info","message":"deploy complete","service":"payment-api","version":"2.1.0","environment":"production","timestamp":"..."}
+{"message":"deploy complete","service":"payment-api","status":"info","timestamp":"...","version":"2.1.0","environment":"production"}
 ```
 
 The transform is crash-safe: if your callback throws an error or returns `null`/non-object, the original unmodified log output is used as a fallback. Your logs never break, even with a buggy transform.
@@ -922,7 +926,7 @@ console.log("checkout failed", {
 ```
 
 ```json
-{"level":"info","message":"checkout failed","password":"Redacted","headers":{"authorization":"Redacted"},"payment":{"card":{"number":"Redacted","brand":"visa"}},"@timestamp":"..."}
+{"level":"info","message":"checkout failed","headers":{"authorization":"Redacted"},"password":"Redacted","payment":{"card":{"brand":"visa","number":"Redacted"}},"@timestamp":"..."}
 ```
 
 For nested arrays and keys with hyphens, use bracket and wildcard syntax:

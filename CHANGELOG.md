@@ -1,6 +1,29 @@
 # Changelog
 
-## 6.5.0
+## 6.5.1
+
+Two stack-trace formatting fixes change what gets logged. Check the upgrade notes if you search, alert on, or snapshot-test `errCallStack` or `@logCallStack`.
+
+### Upgrade notes
+
+| Change | Before | After |
+|---|---|---|
+| `Caused By:` in `errCallStack` for `ErrorWithContext` errors | glued to the previous frame: `...loader.js:1:1)Caused By: Error: ...` | on its own line: `...loader.js:1:1)\nCaused By: Error: ...` (or ` - Caused By:` with `noNewLineCharacters`) |
+| First frame of `@logCallStack` | `" fn (file.js:1:1)\n    at ..."` (leading space, no `at`) | `"at fn (file.js:1:1)\n    at ..."`, like every other frame |
+
+### Bug Fix
+
+- **`Caused By:` starts on its own line** in `errCallStack` instead of being glued to the last frame of the outer stack.
+- **`@logCallStack` starts with `at`** like the rest of its frames, instead of a leading space.
+- **Node.js 10 and 11:** `CONSOLE_LOG_JSON_ON_LOG` and `CONSOLE_LOG_JSON_TRANSFORM_OUTPUT` resolve hook functions from the global object. These Node versions have no `globalThis`, so the hooks were silently ignored.
+
+### Other
+
+- **CI runs the packed package on Node.js 10, 12, 14, 16 and 18** (Linux and Windows), alongside the full test suite on Node.js 20, 22, 24 and 26, so the `engines` range (`node >=10`) is tested.
+- **README corrections:** `@filename` examples show the project folder (`my-app/src/index.ts`), example outputs match the real key order, the optional `source-map-support` dependency is documented, and the Node.js versions for CommonJS (10+) and ES module imports (12.20+) are stated.
+- **Releases are published from GitHub Actions** with npm Trusted Publishing, so packages now carry npm provenance.
+
+## 6.5.0 - deployed
 
 This release fixes a large set of bugs. No exports or options were removed, but several fixes change what gets logged. Read the upgrade notes if you search, alert on, or snapshot-test log output.
 
@@ -66,13 +89,13 @@ Other
 - **`SetLogLevel()` accepts the same spellings as the `logLevel` option** (`'WARN'`, `' warning '`).
 - **Colorized output is readable on dark terminals**, and arrays are colored consistently.
 
-## 6.4.1
+## 6.4.1 - deployed
 
 ### Bug Fix
 
 - Updated colorize.ts so values now follow the color of their associated key, using a slightly different shade instead of the exact same color to make key/value pairs easier to visually distinguish while still clearly belonging together.
 
-## 6.4.0
+## 6.4.0 - deployed
 
 ### Breaking Changes
 - **`IColorConfiguration` key slots removed.** The interface no longer includes `key`, `levelKey`, `messageKey`, `fileNameKey`, `logCallStackKey`, `packageNameKey`, `timestampKey`, or `errCallStackKey`. These slots were used to assign a single fixed color to all keys of each type. They are replaced by hash-based coloring (see below). If you were reading or writing these slots on a custom `IColorConfiguration`, remove those references. Value-coloring slots (`errorLevel`, `warnLevel`, `nonErrorMessage`, `fileName`, `timestamp`, `errCallStack`, etc.) are unchanged.
@@ -95,7 +118,7 @@ Other
 - Added end-to-end regression coverage for colorized logger output through the real `LoggerAdaptToConsole(...)` path, including direct top-level `colorize` usage and the `transformOutput + colorize` and `redact + colorize` combinations. The new tests assert both ANSI emission and that the JSON payload remains correct after stripping ANSI codes.
 - Added hash-based key color tests: same key name produces same color across calls, different key names produce different colors, truecolor codes are emitted, light and dark themes produce visually distinct colors (verified by RGB sum thresholds).
 
-## 6.3.2
+## 6.3.2 - deployed
 
 ### Bug Fixes
 - Hardened browser-like host detection so the logger treats `globalThis.document` and `window.document` as DOM signals when deciding whether `process.stdout.write(...)` is trustworthy. This closes another `esm.sh`-style recursion path where a browser host exposes a fake Node `stdout` shim through `tty.mjs`.
@@ -103,13 +126,13 @@ Other
 ### Tests
 - Added regression coverage for browser-like hosts that expose DOM only through `window.document`, ensuring the logger still avoids fake `stdout` writes in that shape.
 
-## 6.3.1
+## 6.3.1 - deployed
 
 ### Bug Fixes
 - Added a second defensive safeguard for browser-style hosts where even the saved original `console.log(...)` feeds back into the patched console path. Re-entrant feedback during the logger's own write/fallback emission is now dropped instead of recursively re-logging logger output.
 
 
-## 6.3.0
+## 6.3.0 - deployed
 
 ### Security Fixes
 - Upgraded dev-dependency np package version to 11.1.0
@@ -128,7 +151,7 @@ Other
 - Added regression coverage for browser-style saved-console feedback loops, both in the Node-simulated compatibility tests and in the real browser bundle tests.
 - Updated the Jest test suite to use ESM-safe imports where needed so the upgraded Jest/Chai toolchain runs cleanly end to end.
 
-## 6.2.1
+## 6.2.1 - deployed
 
 ### Bug Fixes
 
@@ -138,7 +161,7 @@ Other
 
 - **Added regression coverage for bare-error logging without extra context.** Updated error-only expectations and added an explicit end-to-end console-path test to ensure the emitted `message` stays clean when no leading string message is provided.
 
-## 6.2.0
+## 6.2.0 - deployed
 
 ### Bug Fixes
 
@@ -152,7 +175,7 @@ Other
 - **Added end-to-end regression coverage for the reported Node ESM startup case.** The test suite now verifies `@packageName`, `@filename`, and `@logCallStack` behavior with a temporary ESM consumer setup that mirrors the installed package layout under `node_modules/console-log-json/dist/esm/index.mjs`.
 - **Added stack-parser regressions for packaged ESM frames and internal helper trimming.** Browser/stack compatibility tests now cover installed-package frame skipping, bare `Error` headers, and removal of leading internal logger helper frames from `@logCallStack`.
 
-## 6.0.0
+## 6.0.0 - deployed
 
 ### Breaking Changes
 
@@ -205,7 +228,7 @@ Other
   - best-effort `@filename` semantics in bundled browsers
   - the new `redact` API with examples and guidance
 
-## 4.0.0
+## 4.0.0 - deployed
 
 ### Breaking Changes
 

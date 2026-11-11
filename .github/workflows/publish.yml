@@ -4,18 +4,20 @@ name: Publish
 # No npm token is stored anywhere; npm trusts this workflow file + the `npm-publish` environment.
 # See https://docs.npmjs.com/trusted-publishers
 #
-# The version comes from CHANGELOG.md: the first `## x.y.z` heading is the version that gets released,
-# and the text under it becomes the GitHub release notes.
-# Before running: add a `## <new version>` section at the top of CHANGELOG.md and merge it to master.
+# The version comes from CHANGELOG.md: the one `## x.y.z` heading NOT marked ` - deployed` is the version
+# that gets released, and the text under it becomes the GitHub release notes. The release commit marks
+# that heading `## x.y.z - deployed`; it is only pushed after npm publish succeeds.
+# Before running: add a `## <new version>` section at the top of CHANGELOG.md, merge it to master,
+# and wait for CI on that commit to pass.
 
 on:
   workflow_dispatch:
     inputs:
       dist_tag:
-        description: npm dist-tag
+        description: npm dist-tag. Leave empty for automatic (latest for x.y.z, next for x.y.z-rc.1 and other pre-releases)
         type: string
-        required: true
-        default: latest
+        required: false
+        default: ''
       dry_run:
         description: Dry run (npm publish --dry-run, no push, no GitHub release)
         type: boolean
@@ -38,21 +40,43 @@ jobs:
     permissions:
       contents: write # push release commit + tag, create GitHub release
       id-token: write # OIDC token for npm trusted publishing (also enables provenance)
+      checks: read # confirm CI passed on the commit being released
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
-      - uses: actions/setup-node@v4
+      # No dependency cache in the release job: a poisoned cache entry would end up in the published package.
+      - uses: actions/setup-node@v7
         with:
           node-version: 24.x
           registry-url: https://registry.npmjs.org
-          cache: npm
+          package-manager-cache: false
 
       # Trusted publishing requires npm >= 11.5.1
       - name: Update npm
         run: npm install -g npm@^11.5.1 && npm --version
+
+      - name: Check CI passed on this commit
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          SHA: ${{ github.sha }}
+        run: |
+          RUNS=$(gh api "repos/$REPO/commits/$SHA/check-runs?per_page=100" \
+            --jq '.check_runs[] | select(.name != "Publish to npm") | "\(.name)\t\(.status)\t\(.conclusion)"')
+          if [ -z "$RUNS" ]; then
+            echo "::error::No CI results for $SHA. Wait for the Test workflow to run on this commit."
+            exit 1
+          fi
+          echo "$RUNS"
+          BAD=$(echo "$RUNS" | awk -F'\t' '$2 != "completed" || ($3 != "success" && $3 != "skipped" && $3 != "neutral")')
+          if [ -n "$BAD" ]; then
+            echo "::error::CI has not passed on $SHA (pending or failed checks listed below). Wait for it to finish or fix it, then run again."
+            echo "$BAD"
+            exit 1
+          fi
 
       - name: Configure git
         run: |
@@ -62,12 +86,15 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      # Accepted heading forms: "## 6.5.0", "## v6.5.0", "## [6.5.0]", "## 6.5.0 (2026-11-20)", "## 7.0.0-rc.1".
       - name: Read version from CHANGELOG
         id: version
+        env:
+          DIST_TAG_INPUT: ${{ inputs.dist_tag }}
         run: |
-          VERSION=$(sed -nE 's/^## ([0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?)[[:space:]]*$/\1/p' CHANGELOG.md | head -n 1)
-          if [ -z "$VERSION" ]; then
-            echo "::error::No '## x.y.z' heading found in CHANGELOG.md"
+          if ! VERSION=$(node scripts/changelog.js next 2> "$RUNNER_TEMP/changelog-error.txt"); then
+            echo "::error::$(head -n 1 "$RUNNER_TEMP/changelog-error.txt")"
+            cat "$RUNNER_TEMP/changelog-error.txt"
             exit 1
           fi
           CURRENT=$(node -p "require('./package.json').version")
@@ -81,13 +108,39 @@ jobs:
             echo "::error::Tag v$VERSION already exists"
             exit 1
           fi
-          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
-          echo "Releasing v$VERSION (was $CURRENT)"
+          PACKAGE_NAME=$(node -p "require('./package.json').name")
+          if [ -n "$(npm view "$PACKAGE_NAME@$VERSION" version 2>/dev/null)" ]; then
+            echo "::error::$PACKAGE_NAME@$VERSION is already on npm. Add a new '## x.y.z' section to CHANGELOG.md for the next release."
+            exit 1
+          fi
 
-      - name: Set package version
+          DIST_TAG=$(echo "$DIST_TAG_INPUT" | tr -d '[:space:]')
+          if [ -z "$DIST_TAG" ]; then
+            case "$VERSION" in *-*) DIST_TAG=next ;; *) DIST_TAG=latest ;; esac
+          fi
+          if ! echo "$DIST_TAG" | grep -Eq '^[a-z][a-z0-9._-]*$'; then
+            echo "::error::dist_tag '$DIST_TAG' is not a valid tag name (use a word like latest, next, beta; not a version number)"
+            exit 1
+          fi
+          case "$VERSION" in *-*)
+            if [ "$DIST_TAG" = "latest" ]; then
+              echo "::error::$VERSION is a pre-release; publishing it as 'latest' would install it for everyone. Leave dist_tag empty (uses 'next') or pick another tag."
+              exit 1
+            fi ;;
+          esac
+
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "dist_tag=$DIST_TAG" >> "$GITHUB_OUTPUT"
+          echo "Releasing v$VERSION (was $CURRENT) with dist-tag '$DIST_TAG'"
+
+      - name: Set package version and mark CHANGELOG deployed
         env:
           VERSION: ${{ steps.version.outputs.version }}
-        run: npm version "$VERSION" --no-git-tag-version --ignore-scripts
+        run: |
+          # Save the notes before the heading changes.
+          node scripts/changelog.js notes "$VERSION" > "$RUNNER_TEMP/notes.md"
+          npm version "$VERSION" --no-git-tag-version --ignore-scripts
+          node scripts/changelog.js mark "$VERSION"
 
       - name: Commit and tag
         env:
@@ -100,7 +153,7 @@ jobs:
       # Provenance is generated automatically when publishing via trusted publishing.
       - name: Publish
         env:
-          DIST_TAG: ${{ inputs.dist_tag }}
+          DIST_TAG: ${{ steps.version.outputs.dist_tag }}
           DRY_RUN: ${{ inputs.dry_run }}
         run: |
           if [ "$DRY_RUN" = "true" ]; then
@@ -118,9 +171,11 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           VERSION: ${{ steps.version.outputs.version }}
-          DIST_TAG: ${{ inputs.dist_tag }}
+          DIST_TAG: ${{ steps.version.outputs.dist_tag }}
         run: |
-          awk -v h="## $VERSION" '$0 == h {f=1; next} f && /^## / {exit} f' CHANGELOG.md > "$RUNNER_TEMP/notes.md"
+          if [ ! -s "$RUNNER_TEMP/notes.md" ] || [ "$(tr -d '[:space:]' < "$RUNNER_TEMP/notes.md")" = "" ]; then
+            echo "::warning::No release notes found under '## $VERSION' in CHANGELOG.md"
+          fi
           PRERELEASE=""
           case "$VERSION" in *-*) PRERELEASE="--prerelease" ;; esac
           LATEST=""

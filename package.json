@@ -1,7 +1,7 @@
 {
   "name": "console-log-json",
   "version": "6.5.0",
-  "description": "Drop-in structured JSON logging for Node.js and the browser. Zero dependencies. Replaces console.log() with single-line JSON output including stack traces, timestamps, and source file tracking. Works with DataDog, Splunk, LogDNA, OpenSearch, CloudWatch, and ELK.",
+  "description": "Drop-in structured JSON logging for Node.js and the browser. Zero required dependencies. Replaces console.log() with single-line JSON output including stack traces, timestamps, and source file tracking. Works with DataDog, Splunk, LogDNA, OpenSearch, CloudWatch, and ELK.",
   "private": false,
   "types": "dist/index.d.ts",
   "main": "dist/index.js",
@@ -76,8 +76,7 @@
     "lint": "tslint -p tsconfig.json",
     "install:prod": "npm ci",
     "prune:prod": "npm prune --production",
-    "refresh-package-locks": "npm run clean && find . -iname package-lock.json -delete && npm install",
-    "interactive-publish": "npm run build && np"
+    "refresh-package-locks": "npm run clean && find . -iname package-lock.json -delete && npm install"
   },
   "repository": {
     "type": "git",
@@ -98,7 +97,6 @@
     "esbuild": "0.28.0",
     "jest": "30.3.0",
     "jest-util": "30.3.0",
-    "np": "11.1.0",
     "prettier": "3.8.3",
     "puppeteer-core": "24.41.0",
     "sinon": "21.1.2",

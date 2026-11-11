@@ -355,18 +355,21 @@ Tests run directly from TypeScript through Jest:
 
 - `npm test` -> `jest`
 - some tests use the built output (`npm pack` of `dist/`, and child processes running `dist/index.js` / `dist/esm/index.mjs`), so run `npm run build` first
-- CI (`.github/workflows/test.yml`) builds and tests on Linux, macOS and Windows across supported Node versions
+- CI (`.github/workflows/test.yml`) runs the full suite on Linux, macOS and Windows on Node 20, 22, 24 and 26
+- Jest 30 and TypeScript 6 can't run on older Node, so the `compat` job packs the package and runs `scripts/compat-smoke.js` on Node 10, 12, 14, 16 and 18 (Linux and Windows). It is plain dependency-free JavaScript: keep it Node 10 compatible (no `?.`, `??`, `fs.rmSync`)
+- `engines` stays at `node >=10`, so library code must not depend on newer runtime APIs without a fallback (for example `globalThis` needs a `global` fallback for Node 10/11)
 
 ## Releasing
 
 Releases are published from GitHub Actions with npm Trusted Publishing (OIDC). No npm token is stored anywhere.
 
-1. Add a `## x.y.z` section at the top of `CHANGELOG.md` and merge it to `master`. That heading sets the release version.
-2. Go to Actions → **Publish** → Run workflow. Optionally set a `dist_tag` (default `latest`) and `dry_run`.
+1. Add a `## x.y.z` section at the top of `CHANGELOG.md` and merge it to `master`. Published versions are marked `## x.y.z - deployed`; the one heading without that marker is the version that gets released (`## v6.5.0`, `## [6.5.0]` and `## 6.5.0 (2026-11-20)` also work). Don't add ` - deployed` yourself.
+2. Wait for CI on that commit to pass. The publish workflow refuses to run otherwise.
+3. Go to Actions → **Publish** → Run workflow. Leave `dist_tag` empty for `latest` (or `next` for a pre-release like `7.0.0-rc.1`). Use `dry_run` to check without publishing.
 
-The workflow (`.github/workflows/publish.yml`) reads the version from the first `## x.y.z` heading in `CHANGELOG.md`. It fails if that version isn't newer than `package.json` or is already tagged. Then it sets the version, commits and tags, and runs `npm publish`. `prepublishOnly` builds and tests first, and provenance is attached automatically. After the publish succeeds, it pushes the commit and tag to `master` and creates a GitHub Release from the CHANGELOG section.
+The workflow (`.github/workflows/publish.yml`) reads the version from the `## x.y.z` heading in `CHANGELOG.md` that isn't marked ` - deployed` (`node scripts/changelog.js next`). It fails if there is no such heading or more than one, or if that version isn't newer than `package.json`, is already tagged, or is a pre-release sent to `latest`. Then it sets the version, marks the heading ` - deployed`, commits and tags, and runs `npm publish`. `prepublishOnly` builds and tests first, and provenance is attached automatically. Only after the publish succeeds does it push the commit and tag to `master` (pull before your next change), so the ` - deployed` marker only reaches `master` for versions that are really on npm. Finally it creates a GitHub Release from the CHANGELOG section.
 
-This depends on the npm package's Trusted Publisher settings (repo `hiro5id/console-log-json`, workflow `publish.yml`, environment `npm-publish`) and on a GitHub environment `npm-publish` that only `master` can deploy to. `npm run interactive-publish` (np) is still available as a local fallback.
+This depends on the npm package's Trusted Publisher settings (repo `hiro5id/console-log-json`, workflow `publish.yml`, environment `npm-publish`) and on a GitHub environment `npm-publish` that only `master` can deploy to. This workflow is the only release path; there is no local publish script.
 
 ## Dependencies
 
