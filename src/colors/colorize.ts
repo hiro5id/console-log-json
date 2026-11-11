@@ -85,13 +85,24 @@ function truth(it: any) {
 }
 
 let cachedBackgroundTheme: BackgroundTheme | null = null;
+let configuredBackground: string | undefined;
 
 export function resetBackgroundThemeCache(): void {
   cachedBackgroundTheme = null;
 }
 
+/**
+ * Set by LoggerAdaptToConsole() from the colorizeBackground option (or its env var / envOptions).
+ * Undefined falls back to reading CONSOLE_LOG_COLORIZE_BACKGROUND directly.
+ */
+export function configureBackgroundTheme(background?: string): void {
+  configuredBackground = background;
+  cachedBackgroundTheme = null;
+}
+
 function detectBackgroundTheme(): BackgroundTheme {
-  const override = getEnv('CONSOLE_LOG_COLORIZE_BACKGROUND');
+  const rawOverride = configuredBackground !== undefined ? configuredBackground : getEnv('CONSOLE_LOG_COLORIZE_BACKGROUND');
+  const override = typeof rawOverride === 'string' ? rawOverride.trim().toLowerCase() : undefined;
   if (override === 'dark' || override === 'd') return 'dark';
   if (override === 'light' || override === 'l') return 'light';
 

@@ -11,7 +11,7 @@ import {
   overrideStdOut,
   restoreStdOut,
   SetLogLevel,
-} from '../src';
+} from './support/logger';
 import * as getCallsitesModule from '../src/callsites/get-callsites';
 import { getCallingFilename } from '../src/get-calling-filename';
 import { CaptureNestedStackTrace } from '../src/capture-nested-stack-trace';

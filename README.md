@@ -80,7 +80,7 @@ The one exception is an **optional** dependency, [`source-map-support`](https://
 
 ### Drop-in replacement -- no code changes needed
 
-Call `LoggerAdaptToConsole()` once at startup. Every `console.log()`, `console.error()`, `console.warn()`, `console.info()`, `console.debug()` across your entire codebase -- including third-party libraries -- instantly outputs structured JSON. No find-and-replace. No import changes.
+Call `LoggerAdaptToConsole()` once at startup. Every `console.log()`, `console.error()`, `console.warn()`, `console.info()`, `console.debug()` across your entire codebase -- including third-party libraries -- instantly outputs structured JSON. So do `console.trace()`, `console.table()`, `console.dir()`, `console.assert()`, `console.count()` and `console.time()` (see [Supported Console Methods](#supported-console-methods)). No find-and-replace. No import changes.
 
 That same design keeps your application code decoupled from the logger. Unlike libraries that require a dedicated logger instance such as `logger.info(...)`, your code continues to use the platform-standard console API. If you later decide to remove `console-log-json` or replace it with something else, the change is typically concentrated at initialization instead of spread across the whole application.
 
@@ -98,7 +98,7 @@ console.log("request failed", 500, new Error("timeout"), { endpoint: "/api/users
 
 ### Single-line JSON for log ingestion
 
-Every log entry is a single line of JSON. Stack traces, nested objects, multi-line error messages -- all flattened to one line. This is the format that log management tools like **DataDog**, **LogDNA**, **Splunk**, **OpenSearch**, **CloudWatch**, and **ELK** are designed to ingest. The output uses standard field names (`level`, `message`, `@timestamp`) that most tools recognize automatically or with minimal field mapping. No more multi-line log entries getting split into separate events or interleaved with other logs.
+Every log entry is a single line of JSON, ending with one `\n`. Stack traces, nested objects, multi-line error messages -- all flattened to one line (newlines inside values are escaped as `\n`, as JSON requires). This is the format that log management tools like **DataDog**, **LogDNA**, **Splunk**, **OpenSearch**, **CloudWatch**, and **ELK** are designed to ingest. The output uses standard field names (`level`, `message`, `@timestamp`) that most tools recognize automatically or with minimal field mapping. No more multi-line log entries getting split into separate events or interleaved with other logs.
 
 ### Automatic metadata on every log
 
@@ -205,7 +205,7 @@ console.log("order placed", { orderId: "ORD-123", total: 59.99, items: 3 });
 {"level":"info","message":"order placed","items":3,"orderId":"ORD-123","total":59.99,"@timestamp":"..."}
 ```
 
-Context properties are extracted to the top level and sorted alphabetically for consistent, easy-to-parse output.
+Context properties are extracted to the top level and sorted alphabetically, nested objects included, for consistent, easy-to-parse output.
 
 ### Error with context
 
@@ -267,6 +267,23 @@ console.log("login attempt", userInfo, requestInfo);
 {"level":"info","message":"login attempt","firstName":"Homer","ip":"10.0.0.1","lastName":"Simpson","method":"POST","@timestamp":"..."}
 ```
 
+### Key collisions
+
+Nothing is silently overwritten. When two objects have the same key, the first one keeps the name and later ones get an `_` prefix (`_a`, then `__a`, and so on). Keys are compared case-insensitively.
+
+```js
+console.log("x", { a: 1 }, { a: 2 }, { A: 3 });
+```
+
+```json
+{"level":"info","message":"x","__A":3,"_a":2,"a":1,"@timestamp":"..."}
+```
+
+- **Context passed to the call beats `customOptions`.** With `customOptions: { service: "api" }`, `console.log("x", { service: "mine" })` logs `"service":"mine","_service":"api"`. With [`contextKey`](#nesting-context-under-a-single-key-clean-top-level-schema) set they can't collide, because call context is nested and `customOptions` stay at the top level.
+- **A `level` field that isn't a log level** (e.g. `{ level: 5 }`) is kept as `_level`, since `level` holds the log level.
+- **A `message` string field** is joined onto the message instead (see [Reserved `message` handling](#reserved-message-handling)).
+- **Redaction covers the renamed copies:** the path `password` also redacts `_password`, `__password`, ...
+
 ### Circular references are handled safely
 
 In real applications, objects with circular references are common -- Express request objects, Mongoose documents, socket instances, DOM nodes. Most loggers choke on these with `TypeError: Converting circular structure to JSON`. console-log-json handles them gracefully.
@@ -278,8 +295,10 @@ console.log("circular", obj);
 ```
 
 ```json
-{"level":"info","message":"circular","name":"test","self":"[Circular ~]","@timestamp":"..."}
+{"level":"info","message":"circular","name":"test","self":{"name":"test","self":"[Circular ~.self]"},"@timestamp":"..."}
 ```
+
+The object is copied until a reference repeats; the repeat becomes a `[Circular ~<path>]` marker naming where the object was first seen.
 
 ### Explicit log level override
 
@@ -293,7 +312,15 @@ console.log({ level: "warn" }, "disk usage at 90%", { partition: "/dev/sda1" });
 {"level":"warn","message":"disk usage at 90%","partition":"/dev/sda1","@timestamp":"..."}
 ```
 
-Supports `error`, `err`, `warn`, `warning`, `info`, `information`, `http`, `verbose`, `debug`, `silly`. Aliases like `err` and `warning` are normalized automatically.
+Supports `error`, `err`, `warn`, `warning`, `info`, `information`, `http`, `verbose`, `debug`, `silly`, in any letter case. Aliases like `err` and `warning` are normalized automatically.
+
+Rules:
+
+- `level` must be the object's **first** key. Other keys in the same object are kept as context.
+- Only the **first** matching object counts.
+- The override **wins over an Error**: `console.log({ level: "warn" }, new Error("degraded"))` is logged at `warn`, with `errCallStack`. Without an override, any Error makes the log `error`.
+- The override is also what [log level filtering](#log-level-filtering) checks.
+- A value that isn't a log level (e.g. `{ level: 5 }`) is not an override; it is kept as data (see [Key collisions](#key-collisions)). A `level` property on an Error object is never an override.
 
 ### JSON string auto-parsing
 
@@ -331,6 +358,31 @@ console.log({ message: { key: 'value' } });
 
 ```json
 {"level":"info","message":"<no-message-was-passed-to-console-log>","@messageObject":{"key":"value"},"@timestamp":"..."}
+```
+
+### Placeholder messages
+
+Every entry has a `message`. When there isn't a real one, the logger writes a fixed placeholder you can search for:
+
+| Placeholder | When |
+|---|---|
+| `<nothing-was-passed-to-console-log>` | The call had no message and no data: `console.log()`, `console.log("")`, `console.log({})`. |
+| `<value-passed-to-console-log-json-was-null>` | The only arguments were `null` or `undefined`: `console.log(null)`. |
+| `<no-message-was-passed-to-console-log>` | There is data but no message: `console.log({ userId: 1 })`, `console.dir(obj)`, or a `message` object moved to `@messageObject`. |
+| `<no-error-message-was-passed-to-console-log>` | The same, for an error log: `console.error(new Error(""))`. |
+| `<auto-parsed-json-string-see-@autoParsedJson-property>` | The message was a JSON string and was moved to `@autoParsedJson` (see [JSON string auto-parsing](#json-string-auto-parsing)). |
+| `<console-table>` | A `console.table()` call; the data is in `@table`. |
+
+### BigInt values
+
+JSON has no BigInt type, so BigInt values are written as strings, with every digit kept. A BigInt argument becomes part of the message, like a number:
+
+```js
+console.log("balance", 10n, { total: 9007199254740993n });
+```
+
+```json
+{"level":"info","message":"balance - 10","total":"9007199254740993","@timestamp":"..."}
 ```
 
 ### Static properties on every log (service name, environment, etc.)
@@ -379,7 +431,16 @@ console.log('order placed', { orderId: 'ORD-1', total: 59.99 }, { items: 3 });
 {"level":"info","message":"order placed","context":{"items":3,"orderId":"ORD-1","total":59.99},"@timestamp":"..."}
 ```
 
-Now the top level has a fixed, predictable schema: `level`, `message`, `context`, `@timestamp`, `@filename`, `@packageName`. Your DataDog filters and OpenSearch index mappings won't break when a developer adds a new context property. You can still query individual fields with `context.orderId` in tools that support nested field access.
+Now the top level has a fixed, predictable schema. Your DataDog filters and OpenSearch index mappings won't break when a developer adds a new context property. You can still query individual fields with `context.orderId` in tools that support nested field access.
+
+What stays at the top level:
+
+- `level`, `message`, `@timestamp`
+- the logger's metadata: `@filename`, `@logCallStack`, `@packageName`
+- error fields: `errCallStack`, `@errorObjectName`
+- `@messageObject`, `@autoParsedJson`, and the fields of the [extended console methods](#supported-console-methods) (`@table`, `@count`, `@label`, `@durationMs`)
+- your [`customOptions`](#static-properties-on-every-log-service-name-environment-etc), so `service` stays filterable as `service`, not `context.service`
+- whatever `transformOutput` adds
 
 The key name is configurable -- use `context`, `data`, `metadata`, or whatever fits your team's conventions.
 
@@ -416,7 +477,17 @@ CONSOLE_LOG_COLORIZE_BACKGROUND=light   # force light-background palette
 CONSOLE_LOG_COLORIZE_BACKGROUND=dark    # force dark-background palette
 ```
 
+Or in code: `LoggerAdaptToConsole({ colorize: true, colorizeBackground: "light" })`. `envOptions` accepts `CONSOLE_LOG_COLORIZE_BACKGROUND` too. The values `d` and `l` are accepted as short forms, in any letter case.
+
 **Value colors stay semantic.** While key colors are hash-based, value colors remain meaningful: `error` level is red, `warn` is yellow, `info` messages use green, `@timestamp` values use pink, and so on. These semantics are unaffected by background detection.
+
+**Standard color variables.** With `CONSOLE_LOG_COLORIZE=true`, the colorizer also follows these common conventions. They are read from `process.env` only.
+
+| Variable | Effect |
+|---|---|
+| `DYNO` | Set on Heroku. Turns color off, since Heroku's log viewer doesn't render ANSI codes. |
+| `FORCE_NO_COLOR` | Any value except `false` turns color off. |
+| `FORCE_COLOR` | Any value except `false` turns color on, even on Heroku or with `FORCE_NO_COLOR`. |
 
 ---
 
@@ -433,6 +504,22 @@ CONSOLE_LOG_COLORIZE_BACKGROUND=dark    # force dark-background palette
 | `console.debug()` | debug |
 | `console.silly()` | silly |
 
+The other console methods that print something are patched too, so they produce the same JSON in Node.js and in browsers:
+
+| Method | Level | Output |
+|---|---|---|
+| `console.trace(...args)` | info | Like `console.log`, and `@logCallStack` is always included, even with `noStackForNonError`. With no arguments the message is `Trace`. |
+| `console.table(data, columns?)` | info | Message `<console-table>`, with the data under `@table` (only the listed `columns`, if given). Data that isn't an object is logged like `console.log(data)`. |
+| `console.dir(obj)` / `console.dirxml(...args)` | info | Same as `console.log`. `util.inspect` options such as `depth` are ignored. |
+| `console.assert(condition, ...args)` | error | Nothing when `condition` is truthy. Otherwise message `Assertion failed - <your message>`. |
+| `console.count(label?)` | info | Message `default: 1`, with `@label` and `@count`. `console.countReset(label?)` resets it. |
+| `console.time(label?)` / `timeLog` / `timeEnd` | info | `time` logs nothing. `timeLog` and `timeEnd` log `label: 1.234ms`, with `@label` and `@durationMs`. `timeLog` adds any extra arguments as usual. |
+| `console.group(...label)` / `groupCollapsed` | info | Logs the label (nothing when there is none). Nesting isn't tracked, and `console.groupEnd()` does nothing. |
+
+Misuse logs a `warn`, as Node.js does: `timeEnd` or `countReset` for an unknown label, or `time` for a label that is already running. Counters and timers are kept by the logger, not the native console.
+
+`console.clear()`, `console.profile()` and other methods that don't print a log line are left alone. `LoggerRestoreConsole()` restores every patched method.
+
 ---
 
 ## Configuration
@@ -443,7 +530,7 @@ There are three practical ways to configure the logger:
 - Use `envOptions` when you want env-style names without mutating `process.env`.
 - Use real environment variables when deployment should control behavior.
 
-Every configurable setting can now be supplied in either of these ways:
+Every logger setting can be supplied in either of these ways (the [standard color variables](#colorized-output-for-local-development) `FORCE_COLOR`, `FORCE_NO_COLOR` and `DYNO` are the only env-only exceptions):
 
 - **Directly in `LoggerAdaptToConsole({...})`** using normal camelCase option names like `noTimeStamp`, `contextKey`, `logLevel`, `customOptions`, or `redact`
 - **Through environment variables** using the corresponding `CONSOLE_LOG_*` names
@@ -457,6 +544,12 @@ When both are present, precedence is:
 
 This means you can keep environment-specific defaults in deployment config while still overriding individual settings explicitly in code when needed.
 
+Settings are read when `LoggerAdaptToConsole()` runs, not when the module is imported, so `process.env` changes made before that call are picked up.
+
+### Calling `LoggerAdaptToConsole()` again
+
+You can call it again at any time to reconfigure, for example in tests. Each call **replaces** the whole configuration rather than merging with the previous call: options you leave out go back to their environment-variable or built-in value, and a level set with `SetLogLevel()` is reset. Calling it twice with the same options gives the same result as calling it once; console methods are never wrapped twice, and `LoggerRestoreConsole()` still restores the original ones.
+
 ### Direct Option <-> Env Var Mapping
 
 | Direct `LoggerAdaptToConsole({...})` option | Environment variable | Notes |
@@ -465,8 +558,9 @@ This means you can keep environment-specific defaults in deployment config while
 | `debugString` | `CONSOLE_LOG_JSON_DEBUG_STRING` | Boolean setting. |
 | `customOptions` | `CONSOLE_LOG_JSON_CUSTOM_OPTIONS` | Env form must be a JSON object string. |
 | `colorize` | `CONSOLE_LOG_COLORIZE` | Boolean setting. |
+| `colorizeBackground` | `CONSOLE_LOG_COLORIZE_BACKGROUND` | `dark` or `light`. Auto-detected when not set. |
 | `noNewLineCharacters` | `CONSOLE_LOG_JSON_NO_NEW_LINE_CHARACTERS` | Boolean setting. |
-| `noNewLineCharactersExceptStack` | `CONSOLE_LOG_JSON_NO_NEW_LINE_CHARACTERS_EXCEPT_STACK` | Boolean setting. |
+| `noNewLineCharactersExceptStack` | `CONSOLE_LOG_JSON_NO_NEW_LINE_CHARACTERS_EXCEPT_STACK` | **Deprecated, no effect** since 7.0.0. |
 | `noTimeStamp` | `CONSOLE_LOG_JSON_NO_TIME_STAMP` | Boolean setting. |
 | `disableAutoParse` | `CONSOLE_LOG_JSON_DISABLE_AUTO_PARSE` | Boolean setting. |
 | `noStackForNonError` | `CONSOLE_LOG_JSON_NO_STACK_FOR_NON_ERROR` | Boolean setting. |
@@ -486,9 +580,9 @@ This means you can keep environment-specific defaults in deployment config while
 | Variable | Default | Effect |
 |---|---|---|
 | `CONSOLE_LOG_COLORIZE=true` | `false` | Enable ANSI-colored JSON output. **Turn this on for local development** -- it makes JSON logs much easier to scan in a terminal. Leave it off in production because log ingestion services (LogDNA, DataDog, CloudWatch) don't render ANSI codes and they add noise to stored logs. |
-| `CONSOLE_LOG_COLORIZE_BACKGROUND=dark\|light` | *(auto-detected)* | Force a specific color palette for colorized output. When not set, the colorizer detects the terminal background from `COLORFGBG`, `TERM_PROGRAM`, `WT_SESSION`, and `VTE_VERSION`. Set to `dark` or `light` to override detection — useful in CI or when auto-detection is wrong for your terminal. Has no effect when `CONSOLE_LOG_COLORIZE` is not enabled. |
-| `CONSOLE_LOG_JSON_NO_NEW_LINE_CHARACTERS=true` | `false` | Remove all `\n` characters from the log output, including in stack traces. **Turn this on** if your log aggregator splits on newlines and you're seeing stack traces show up as separate log events. The trade-off is that stack traces become harder to read in raw form. |
-| `CONSOLE_LOG_JSON_NO_NEW_LINE_CHARACTERS_EXCEPT_STACK=true` | `false` | A middle ground -- removes newlines from the log envelope but keeps them inside stack traces. Useful when your log tool handles multi-line values within a JSON field but splits on newlines between entries. |
+| `CONSOLE_LOG_COLORIZE_BACKGROUND=dark\|light` | *(auto-detected)* | Force a specific color palette for colorized output (direct option: `colorizeBackground`). When not set, the colorizer detects the terminal background from `COLORFGBG`, `TERM_PROGRAM`, `WT_SESSION`, and `VTE_VERSION`. Set to `dark` or `light` to override detection — useful in CI or when auto-detection is wrong for your terminal. Has no effect when `CONSOLE_LOG_COLORIZE` is not enabled. |
+| `CONSOLE_LOG_JSON_NO_NEW_LINE_CHARACTERS=true` | `false` | Join stack-trace frames in `errCallStack` and `@logCallStack` with ` - ` instead of `\n`. The JSON line itself never contains a raw newline either way (newlines inside values are escaped); this only changes the escaped `\n` between frames. Turn it on if a downstream tool unescapes values and then splits on newlines, or you just prefer one-line stacks. |
+| `CONSOLE_LOG_JSON_NO_NEW_LINE_CHARACTERS_EXCEPT_STACK=true` | `false` | **Deprecated, no effect.** Before 7.0.0 its only effect was removing the blank line after each entry; that blank line is gone for everyone now. Still accepted so existing configs don't break. |
 
 ### Controlling metadata fields
 
@@ -499,7 +593,7 @@ These let you reduce log volume and noise. In high-throughput production systems
 | `CONSOLE_LOG_JSON_NO_FILE_NAME=true` | `false` | Omit `@filename`. Turn this on if you don't need source file tracking -- for example, in a small service where the package name alone is enough context, or in the browser where it shows `<unknown>` anyway. |
 | `CONSOLE_LOG_JSON_NO_PACKAGE_NAME=true` | `false` | Omit `@packageName`. Turn this on in single-package projects where the package name is redundant -- every log comes from the same service. |
 | `CONSOLE_LOG_JSON_NO_TIME_STAMP=true` | `false` | Omit `@timestamp`. Turn this on only if your log transport adds its own timestamp (e.g., CloudWatch automatically timestamps every log entry). Avoids duplicate timestamp fields. |
-| `CONSOLE_LOG_JSON_NO_STACK_FOR_NON_ERROR=true` | `false` | Omit `@logCallStack` for non-error logs. **This is the single most impactful option for reducing log size.** Call stacks on every `console.log("user signed in")` are rarely useful -- you typically only need them when debugging errors. Turning this on also improves performance (see below). |
+| `CONSOLE_LOG_JSON_NO_STACK_FOR_NON_ERROR=true` | `false` | Omit `@logCallStack` for non-error logs. Error logs (`console.error`, a logged Error, or `{ level: "error" }`) keep it, and so does `console.trace`. **This is the single most impactful option for reducing log size.** Call stacks on every `console.log("user signed in")` are rarely useful -- you typically only need them when debugging errors. Turning this on also improves performance (see below). |
 | `CONSOLE_LOG_JSON_NO_LOGGER_DEBUG=true` | `false` | Omit `_loggerDebug`. This field is only present when `debugString: true` is passed to `LoggerAdaptToConsole()` and is used for debugging the logger itself. Most users will never see this field. |
 
 ### Message handling
@@ -524,7 +618,7 @@ These are the settings that were previously only available as direct `LoggerAdap
 | `CONSOLE_LOG_JSON_DEBUG_STRING=true` | `false` | Enables `_loggerDebug`, which captures the raw argument serialization used while building a log line. Mainly useful when debugging the logger itself. |
 | `CONSOLE_LOG_JSON_CUSTOM_OPTIONS='{"service":"billing-api","region":"ca-central-1"}'` | *(empty)* | Adds the same static structured properties to every log entry that `customOptions` adds in code. Must be a JSON object string. |
 | `CONSOLE_LOG_JSON_REDACT='["password","headers.authorization"]'` | *(empty)* | Supplies the same redaction config as the `redact` option. Accepts either a JSON array/object string or a simple comma-separated path list. |
-| `CONSOLE_LOG_JSON_ON_LOG_TIMEOUT=10000` | `5000` | Sets the timeout, in milliseconds, for the `onLog` callback before it is abandoned. |
+| `CONSOLE_LOG_JSON_ON_LOG_TIMEOUT=10000` | `5000` | Milliseconds after which the `signal` passed to `onLog` is aborted. |
 | `CONSOLE_LOG_JSON_ON_LOG=appLoggerHooks.onLog` | *(empty)* | Resolves `onLog` from a dotted path on `globalThis`. This avoids `eval` while still allowing env-driven hook wiring in advanced setups. |
 | `CONSOLE_LOG_JSON_TRANSFORM_OUTPUT=appLoggerHooks.transformOutput` | *(empty)* | Resolves `transformOutput` from a dotted path on `globalThis`. Useful when configuration must be environment-driven but the transform function itself lives in application code. |
 
@@ -561,7 +655,7 @@ At startup, the logger walks the dotted path on `globalThis` and uses the resolv
 
 ### Performance tip
 
-Setting both `CONSOLE_LOG_JSON_NO_FILE_NAME=true` and `CONSOLE_LOG_JSON_NO_STACK_FOR_NON_ERROR=true` skips stack trace capture entirely for non-error logs. This eliminates the most expensive operation in the logging pipeline (creating an Error object to capture the stack), reducing per-log overhead to near-zero. **Recommended for high-throughput production services** where you're logging hundreds or thousands of events per second and don't need source file tracking on every info/debug log. Error logs always capture the full stack regardless of these settings.
+Setting both `CONSOLE_LOG_JSON_NO_FILE_NAME=true` and `CONSOLE_LOG_JSON_NO_STACK_FOR_NON_ERROR=true` skips stack trace capture entirely for non-error logs. This eliminates the most expensive operation in the logging pipeline (creating an Error object to capture the stack), reducing per-log overhead to near-zero. **Recommended for high-throughput production services** where you're logging hundreds or thousands of events per second and don't need source file tracking on every info/debug log. Error logs (and `console.trace`) still capture `@logCallStack`, and a logged Error always has its own `errCallStack`.
 
 ---
 
@@ -577,8 +671,9 @@ LoggerAdaptToConsole({
   debugString?: boolean,                 // Include raw debug string in output (default: false)
   customOptions?: object,                // Static key-value pairs added to every log entry
   colorize?: boolean,                    // Same behavior as CONSOLE_LOG_COLORIZE
+  colorizeBackground?: "dark" | "light", // Same behavior as CONSOLE_LOG_COLORIZE_BACKGROUND
   noNewLineCharacters?: boolean,         // Same behavior as CONSOLE_LOG_JSON_NO_NEW_LINE_CHARACTERS
-  noNewLineCharactersExceptStack?: boolean, // Same behavior as CONSOLE_LOG_JSON_NO_NEW_LINE_CHARACTERS_EXCEPT_STACK
+  noNewLineCharactersExceptStack?: boolean, // Deprecated, no effect
   noTimeStamp?: boolean,                 // Same behavior as CONSOLE_LOG_JSON_NO_TIME_STAMP
   disableAutoParse?: boolean,            // Same behavior as CONSOLE_LOG_JSON_DISABLE_AUTO_PARSE
   noStackForNonError?: boolean,          // Same behavior as CONSOLE_LOG_JSON_NO_STACK_FOR_NON_ERROR
@@ -587,8 +682,8 @@ LoggerAdaptToConsole({
   noLoggerDebug?: boolean,               // Same behavior as CONSOLE_LOG_JSON_NO_LOGGER_DEBUG
   contextKey?: string,                   // Same behavior as CONSOLE_LOG_JSON_CONTEXT_KEY
   envOptions?: Record<string, any>,      // Env-style overrides (same names as env vars, takes precedence over process.env)
-  onLog?: ((jsonString: string, parsedObject: any) => void) | string,  // Function or dotted global path
-  onLogTimeout?: number,                 // Max time in ms for onLog callback (default: 5000)
+  onLog?: ((jsonString: string, parsedObject: any, context: { signal?: AbortSignal }) => void) | string,  // Function or dotted global path
+  onLogTimeout?: number,                 // ms until context.signal aborts (default: 5000)
   transformOutput?: ((parsedObject: any) => any) | string, // Function or dotted global path
   redact?: string[] | {                  // Redact sensitive structured fields
     paths: string[],
@@ -600,15 +695,17 @@ LoggerAdaptToConsole({
 - **Formatting and metadata flags** like `noTimeStamp`, `noFileName`, `noStackForNonError`, `contextKey`, and `colorize` now work directly as top-level `LoggerAdaptToConsole(...)` options. Their behavior exactly matches the environment variables of the same meaning.
 - **`envOptions`** accepts the same variable names as the environment variables listed in the [Configuration](#configuration) section. Values passed here override `process.env`, but are themselves overridden by direct top-level options. This is useful when you want env-style names without mutating `process.env`.
 - **`customOptions`** can now also be supplied through `CONSOLE_LOG_JSON_CUSTOM_OPTIONS` as a JSON object string when configuration must be environment-driven.
-- **`transformOutput`** runs synchronously before each log is written. Receives the parsed log object, returns a modified object. Falls back to original output if the callback throws or returns null. See [Transforming log output](#transforming-log-output-with-transformoutput) for details.
+- **`transformOutput`** runs synchronously before each log is written. Receives a copy of the log object, returns a modified object. Falls back to the original output if the callback throws or returns null. See [Transforming log output](#transforming-log-output-with-transformoutput) for details.
 - **`transformOutput`** and **`onLog`** may also be configured indirectly with `CONSOLE_LOG_JSON_TRANSFORM_OUTPUT` and `CONSOLE_LOG_JSON_ON_LOG` by pointing them at dotted paths on `globalThis`, such as `appLoggerHooks.transformOutput`. These env vars do not evaluate code strings. They only resolve existing functions already attached to `globalThis`. Direct function options are usually clearer and are recommended when possible.
 - **`redact`** redacts structured fields by path after `transformOutput` and before the log is written. The shorthand array form uses `"Redacted"` as the replacement value. Invalid redact paths are ignored rather than breaking logging, and the original caller-owned objects are left unchanged. The same config can also be supplied through `CONSOLE_LOG_JSON_REDACT`.
 - **`onLog`** runs asynchronously after each log is written. Receives the formatted JSON string and a parsed copy of the log object. If `transformOutput` and `redact` are also set, `onLog` sees the final transformed and redacted result. See [Intercepting logs](#intercepting-logs-with-onlog) for details.
-- **`onLogTimeout`** sets the maximum time in milliseconds that the `onLog` callback is allowed to run before being abandoned. Defaults to 5000ms.
+- **`onLogTimeout`** sets how many milliseconds after the call `onLog`'s `context.signal` is aborted. Defaults to 5000ms. JavaScript can't stop a running function, so the callback has to pass the signal on (for example to `fetch`) for the timeout to cut anything off.
+- Calling `LoggerAdaptToConsole()` again replaces the whole configuration. See [Calling `LoggerAdaptToConsole()` again](#calling-loggeradapttoconsole-again).
+- TypeScript: the `LoggerAdaptToConsoleOptions`, `OnLogCallback` and `OnLogContext` types are exported.
 
 ### `LoggerRestoreConsole()`
 
-Restore original `console` methods. Useful for testing.
+Restore the original `console` methods, including every [extended method](#supported-console-methods). Useful for testing.
 
 ### `GetLogLevel()` / `SetLogLevel(level)`
 
@@ -719,7 +816,7 @@ LoggerAdaptToConsole({
 
 The `envOptions` parameter accepts the same variable names as the environment variables. Values passed here take precedence over `process.env`, but direct top-level options still win over both.
 
-**Option 3: Set configuration before import (useful for bundlers)**
+**Option 3: Replace `process.env` at build time (bundler `define`)**
 
 Most bundlers (webpack, vite) support `define` to replace `process.env` at build time:
 
@@ -748,28 +845,7 @@ module.exports = {
 }
 ```
 
-**Option 4: Set `process.env` at runtime before initializing**
-
-If your bundler doesn't support `define`, you can set up a minimal `process.env` before importing the logger:
-
-```js
-// Set up process.env for the browser (before importing console-log-json)
-if (typeof process === 'undefined') {
-  window.process = { env: {} };
-} else if (!process.env) {
-  process.env = {};
-}
-
-// Now configure
-process.env.CONSOLE_LOG_JSON_DISABLE_AUTO_PARSE = 'true';
-process.env.CONSOLE_LOG_JSON_NO_STACK_FOR_NON_ERROR = 'true';
-process.env.CONSOLE_LOG_JSON_NO_FILE_NAME = 'true';
-process.env.CONSOLE_LOG_JSON_CONTEXT_KEY = 'context';
-
-// Then initialize
-import { LoggerAdaptToConsole } from "console-log-json";
-LoggerAdaptToConsole();
-```
+`process.env` is read when `LoggerAdaptToConsole()` runs, not when the module is imported. If your page sets `process.env` values at runtime, set them before that call.
 
 ### Recommended browser configuration
 
@@ -800,8 +876,8 @@ console.log("page loaded", { route: "/dashboard", loadTime: 1.2 });
 | `@packageName` | From `package.json` | Omitted (no `package.json`) |
 | `.env` loading | Not performed by the library | Not performed by the library |
 | Stack traces | V8 format with source maps | Browser-native format (source maps work in DevTools) |
-| Output destination | `process.stdout` (JSON string) | Browser `console.log` (visible in DevTools) |
-| Environment variables | `process.env` | Set via bundler `define` or manual `process.env` setup |
+| Output destination | `process.stdout` (one JSON line per entry) | The original browser `console.log` (one message per entry, visible in DevTools) |
+| Environment variables | `process.env` | Set via bundler `define`, or use direct options / `envOptions` |
 | Colors (`CONSOLE_LOG_COLORIZE`) | ANSI codes for terminal | ANSI codes (visible in Node-based tools, not in browser DevTools) |
 
 ## Advanced Usage
@@ -837,15 +913,15 @@ The `onLog` callback is designed to be safe and non-blocking:
 
 - **Runs asynchronously** — the `console.log()` call returns immediately. The callback runs in the next microtask on Node.js, and on the next timer tick in browsers, so it never blocks your application.
 - **Crash-safe** — if your callback throws an error, it's silently caught. The logger continues working normally and your application is unaffected.
-- **Timeout protected** — callbacks that hang are abandoned after 5 seconds (configurable via `onLogTimeout` in milliseconds). The timeout itself never keeps your process from exiting, but work your callback started, such as an in-flight network request, keeps Node.js running until it finishes, so logs being shipped aren't cut off.
+- **Timeout signal** — the callback's third argument is `{ signal }`, an `AbortSignal` that aborts after 5 seconds (configurable via `onLogTimeout` in milliseconds). JavaScript can't stop a running function, so pass the signal to the work you start, e.g. `fetch(url, { signal })`, and that work is cancelled at the timeout. Nothing waits on the callback either way, and the timer never keeps your process from exiting. Work your callback started, such as an in-flight network request, keeps Node.js running until it finishes or is aborted, so logs being shipped aren't cut off. `signal` is `undefined` where `AbortController` doesn't exist (Node.js 10–14).
 - **Safe to log from** — a `console.log()` made inside `onLog` or `transformOutput` is written normally, but the hooks are not run again for it, so a hook that logs can't loop forever. On Node.js this includes logs made after an `await` inside an async `onLog`. In browsers only the synchronous part is covered: a log made after an `await` runs `onLog` again, once per timer tick, so avoid logging from inside an async `onLog` there.
 - **Does not affect output** — the log is written to the console before the callback runs. Your callback receives a copy of the parsed data, so modifications don't affect the logged output.
 
 ```js
-// Customize the timeout (default: 5000ms)
+// Give up on shipping a log after 10 seconds (default: 5000ms)
 LoggerAdaptToConsole({
-  onLog: async (jsonString, parsedObject) => {
-    await fetch('/api/logs', { method: 'POST', body: jsonString });
+  onLog: async (jsonString, parsedObject, { signal }) => {
+    await fetch('/api/logs', { method: 'POST', body: jsonString, signal });
   },
   onLogTimeout: 10000  // 10 seconds
 });
@@ -855,7 +931,7 @@ This works identically in Node.js and the browser.
 
 ### Transforming log output with `transformOutput`
 
-Use `transformOutput` to modify the log object before it's written. This lets you rename fields, add properties, remove fields, or completely reshape the output to match your log aggregator's expected schema.
+Use `transformOutput` to modify the log object before it's written. The callback receives a copy, so you can change it in place and return it. This lets you rename fields, add properties, remove fields, or completely reshape the output to match your log aggregator's expected schema.
 
 ```js
 LoggerAdaptToConsole({
@@ -881,7 +957,7 @@ console.log("deploy complete", { service: "payment-api" });
 {"message":"deploy complete","service":"payment-api","status":"info","timestamp":"...","version":"2.1.0","environment":"production"}
 ```
 
-The transform is crash-safe: if your callback throws an error or returns `null`/non-object, the original unmodified log output is used as a fallback. Your logs never break, even with a buggy transform.
+The transform is crash-safe: if your callback throws an error or returns `null`/non-object, the original unmodified log output is used as a fallback, even if the callback changed its copy before throwing. Your logs never break, even with a buggy transform.
 
 ```js
 LoggerAdaptToConsole({

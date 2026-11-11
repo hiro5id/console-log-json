@@ -1,5 +1,53 @@
 # Changelog
 
+## 7.0.0
+
+This major release makes the code do what the README says, and documents what it didn't cover. Internal helpers are no longer exported, more console methods are patched, and several output details change. Read the upgrade notes if you import anything besides the documented API, or if you search, alert on, or snapshot-test log output.
+
+### Upgrade notes
+
+| Change | Before | After |
+|---|---|---|
+| Exports `FormatErrorObject`, `loadEnvConfig`, `logUsingConsoleJson`, `overrideStdOut`, `restoreStdOut` | exported | **removed**. They were internal and test helpers. The public API is `LoggerAdaptToConsole`, `LoggerRestoreConsole`, `GetLogLevel`, `SetLogLevel`, `NativeConsoleLog`, `ErrorWithContext`, `LOG_LEVEL` and the option types |
+| End of each log entry on Node.js | `{...}\n\n` (a blank line after every entry) | `{...}\n` |
+| End of each log entry in browsers | the message had a trailing `\n` | no trailing newline |
+| `noNewLineCharactersExceptStack` / `CONSOLE_LOG_JSON_NO_NEW_LINE_CHARACTERS_EXCEPT_STACK` | removed the blank line | **deprecated, no effect** (the blank line is gone for everyone). Still accepted |
+| `noStackForNonError` on error logs | `@logCallStack` removed from every log | removed only from non-error logs. Error logs and `console.trace` keep it |
+| `customOptions` with `contextKey` | nested under the context key: `"context":{"service":"api",...}` | at the top level: `"service":"api","context":{...}` |
+| `{ level }` override together with an Error, e.g. `console.log({ level: 'warn' }, err)` | logged at `error` | logged at `warn`, with `errCallStack`. Level filtering uses the override too |
+| An Error logged with `console.log`/`console.warn` while `logLevel` is above that method's level | filtered by the method's level, so it could be dropped even though it was written as `error` | filtered as `error` |
+| An Error with its own `level` property | the property could be taken as a level override | it is data; the log is `error` |
+| `console.trace(...)` on Node.js | `level: error`, stack inside `message` (`"Trace: msg\n    at ..."`) | `level: info`, message `msg`, stack in `@logCallStack` |
+| `console.table(data)` on Node.js | an ASCII-box string in `message` | message `<console-table>`, data in `@table` |
+| `console.dir(obj)` on Node.js | printed with `util.inspect`, not JSON | JSON, like `console.log(obj)` |
+| `console.assert`, `count`, `countReset`, `time`, `timeLog`, `timeEnd`, `group`, `groupCollapsed`, `dirxml` | Node.js: JSON with plain-text messages; browsers: native output | JSON everywhere, with `@label`, `@count`, `@durationMs`. `assert` failures are `error`. `groupEnd` does nothing |
+| An Error with an empty message, e.g. `console.error(new Error(''))` | no `message` field when metadata was on | `"message":"<no-error-message-was-passed-to-console-log>"` |
+| `onLog` callback | 2 arguments; `onLogTimeout` had no effect | 3rd argument `{ signal }`, an `AbortSignal` that aborts after `onLogTimeout` ms. Two-argument callbacks keep working |
+| `transformOutput` that changes its argument and then throws | the changes leaked into the "fallback" output | the callback gets a copy; the fallback is really unmodified |
+
+### Features
+
+- **More console methods emit JSON.** `trace`, `table`, `dir`, `dirxml`, `assert`, `count`, `countReset`, `time`, `timeLog`, `timeEnd`, `group` and `groupCollapsed` are patched explicitly, with the same output in Node.js and browsers. `LoggerRestoreConsole()` restores them all.
+- **`onLog` gets an abort signal.** `onLog(jsonString, parsedObject, { signal })`: pass `signal` to `fetch` (or anything else that takes one) and the work is cancelled after `onLogTimeout`. `signal` is undefined on Node.js 10–14, which have no `AbortController`. New exported types: `OnLogCallback`, `OnLogContext`.
+- **`colorizeBackground` option.** `CONSOLE_LOG_COLORIZE_BACKGROUND` can now also be set as a direct option or through `envOptions`, like every other setting.
+
+### Bug Fix
+
+- **Bundler `define` now configures the logger.** The README's vite/webpack `define: { 'process.env.CONSOLE_LOG_JSON_...': '"true"' }` example never worked, because the logger read `process.env[name]` and bundlers only replace static `process.env.NAME` expressions. Each `CONSOLE_LOG_*` variable is now also read statically.
+- **Every entry has a `message`.** An Error with an empty message no longer produces a log without one.
+- **Nested context keys are always sorted.** They were sorted only when the log merged several objects (as it does with the default metadata on), so with `noFileName`, `noPackageName` and `noStackForNonError` all set, nested keys kept their original order.
+- **`noStackForNonError` matches its name**, and the `{ level }` override, `customOptions` and `transformOutput` fixes listed above.
+
+### Documentation
+
+- README examples corrected: circular references (`[Circular ~.self]`), `transformOutput` fallback, newline options, `contextKey` top-level fields.
+- New README sections: key collisions (`_` prefix), placeholder messages, BigInt values, the standard color variables (`FORCE_COLOR`, `FORCE_NO_COLOR`, `DYNO`), the extended console methods, and calling `LoggerAdaptToConsole()` more than once (each call replaces the configuration).
+- Removed the browser "set `process.env` before import" option: ES module imports are hoisted, so the ordering it showed wasn't real. Settings are read when `LoggerAdaptToConsole()` runs.
+
+### Other
+
+- **Release workflow:** the release commit and tag are pushed atomically, and a run fails before publishing if `master` moved since it started. For v6.5.1, `master` moved during the run: the tag was pushed but the release commit (version bump and ` - deployed` marker) was rejected, and had to be merged into `master` by hand.
+
 ## 6.5.1 - deployed
 
 Two stack-trace formatting fixes change what gets logged. Check the upgrade notes if you search, alert on, or snapshot-test `errCallStack` or `@logCallStack`.

@@ -5,7 +5,7 @@ import * as esbuild from 'esbuild';
 import * as path from 'path';
 import * as fs from 'fs';
 import puppeteer from 'puppeteer-core';
-import { LoggerAdaptToConsole, LoggerRestoreConsole, overrideStdOut, restoreStdOut } from '../src';
+import { LoggerAdaptToConsole, LoggerRestoreConsole, overrideStdOut, restoreStdOut } from './support/logger';
 
 // Find Chrome/Chromium across platforms
 function findChrome(): string | null {
@@ -332,6 +332,74 @@ describeBrowser('Real browser tests (headless Chrome)', () => {
     // 'restored' should appear as plain text, not JSON
     const plainLogs = logs.filter((l) => l === 'restored');
     expect(plainLogs.length).to.equal(1);
+  });
+
+  it('trace, table, dir, assert, count and time produce structured JSON in browser', async () => {
+    const logs = await runInBrowser(`
+      ConsoleLogJson.LoggerAdaptToConsole({ noTimeStamp: true, noFileName: true, noStackForNonError: true });
+      console.trace('checkpoint');
+      console.table([{ a: 1, b: 2 }], ['a']);
+      console.dir({ x: 1 });
+      console.assert(false, 'broken');
+      console.count('c');
+      console.time('t');
+      console.timeEnd('t');
+      ConsoleLogJson.LoggerRestoreConsole();
+    `);
+
+    const parsed = logs.filter((l) => l.startsWith('{')).map((l) => JSON.parse(l));
+    expect(parsed.map((log) => log.message)).to.deep.equal([
+      'checkpoint',
+      '<console-table>',
+      '<no-message-was-passed-to-console-log>',
+      'Assertion failed - broken',
+      'c: 1',
+      parsed[5].message,
+    ]);
+    expect(parsed[0]['@logCallStack']).to.be.a('string');
+    expect(parsed[1]['@table']).to.deep.equal([{ a: 1 }]);
+    expect(parsed[2].x).to.equal(1);
+    expect(parsed[3].level).to.equal('error');
+    expect(parsed[4]['@count']).to.equal(1);
+    expect(parsed[5]['@durationMs']).to.be.a('number');
+    // Each entry is one console message with no trailing newline.
+    expect(logs.every((l) => !l.endsWith('\n'))).to.equal(true);
+  });
+
+  it('picks up settings replaced at build time with bundler define', async () => {
+    // Like the README's vite/webpack example: only the logger's variables are defined,
+    // so the page has no \`process\` at all.
+    const definedBundlePath = path.join(PROJECT_ROOT, 'dist', 'browser-test-define-bundle.js');
+    await esbuild.build({
+      entryPoints: [SRC_INDEX],
+      bundle: true,
+      outfile: definedBundlePath,
+      platform: 'browser',
+      format: 'iife',
+      globalName: 'ConsoleLogJson',
+      define: {
+        'process.env.CONSOLE_LOG_JSON_NO_TIME_STAMP': '"true"',
+        'process.env.CONSOLE_LOG_JSON_NO_FILE_NAME': '"true"',
+        'process.env.CONSOLE_LOG_JSON_CONTEXT_KEY': '"context"',
+      },
+    });
+
+    const logs: string[] = [];
+    page.on('console', (msg: any) => logs.push(msg.text()));
+    await page.setContent('<html><body></body></html>');
+    await page.evaluate(fs.readFileSync(definedBundlePath, 'utf8'));
+    await page.evaluate(`
+      ConsoleLogJson.LoggerAdaptToConsole();
+      console.log('defined', { id: 1 });
+      ConsoleLogJson.LoggerRestoreConsole();
+    `);
+    page.removeAllListeners('console');
+    fs.rmSync(definedBundlePath, { force: true });
+
+    const parsed = JSON.parse(logs.filter((l) => l.startsWith('{'))[0]);
+    expect(parsed['@timestamp']).to.equal(undefined);
+    expect(parsed['@filename']).to.equal(undefined);
+    expect(parsed.context).to.deep.equal({ id: 1 });
   });
 
   it('@filename shows <unknown> in browser (no filesystem)', async () => {

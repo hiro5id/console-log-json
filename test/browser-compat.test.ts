@@ -13,7 +13,7 @@ import { sortObject } from '../src/sort-object';
 import { safeObjectAssign } from '../src/safe-object-assign';
 import { jsonStringifySafe } from '../src/json-stringify-safe/stringify-safe';
 import { colorJson, supportsColor } from '../src/colors/colorize';
-import { FormatErrorObject, loadEnvConfig, restoreStdOut } from '../src';
+import { FormatErrorObject, loadEnvConfig, restoreStdOut } from './support/logger';
 import sinon from 'sinon';
 import { stubEnv } from './support/env';
 

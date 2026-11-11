@@ -5,7 +5,7 @@ import {
   LoggerRestoreConsole,
   overrideStdOut,
   restoreStdOut,
-} from '../src';
+} from './support/logger';
 
 describe('envOptions (programmatic configuration)', () => {
   it('CONSOLE_LOG_JSON_NO_TIME_STAMP via envOptions', async () => {

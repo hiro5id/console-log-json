@@ -11,7 +11,7 @@ import {
   overrideStdOut,
   restoreStdOut,
   SetLogLevel,
-} from '../src';
+} from './support/logger';
 import sinon from 'sinon';
 import { stubEnv } from './support/env';
 
@@ -60,8 +60,8 @@ describe('logger', () => {
 
     expect(JSON.parse(logOutput).errCallStack.startsWith('Error: error object\n    at ')).eql(true, 'starts with specific text');
 
-    // Ensure that the normal new lines are included at the end of the string
-    expect(logOutput.endsWith('\n\n')).eql(true);
+    // Each entry ends with exactly one newline, with no blank line after it
+    expect(logOutput.endsWith('}\n')).eql(true);
   });
 
   it('does not log new line characters if configured', async () => {
@@ -978,7 +978,8 @@ describe('logger', () => {
         age: 25,
         firstName: 'homer',
         lastName: 'simpson',
-        level: 'error',
+        // The explicit { level: 'warn' } override wins over the Error.
+        level: 'warn',
         location: 'mars',
         message: 'hello world - permuted failure',
       });

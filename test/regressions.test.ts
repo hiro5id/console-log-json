@@ -15,7 +15,7 @@ import {
   overrideStdOut,
   restoreStdOut,
   SetLogLevel,
-} from '../src';
+} from './support/logger';
 import { getParentDir } from '../src/get-app-root';
 import { stripParentDir } from '../src/get-calling-filename';
 import { jsonStringifySafe } from '../src/json-stringify-safe/stringify-safe';

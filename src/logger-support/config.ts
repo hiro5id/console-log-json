@@ -1,13 +1,15 @@
+import { configureBackgroundTheme } from '../colors/colorize';
 import { getEnv } from '../get-env';
 import { configureNewLineCharacter } from '../new-line-character';
 import { RedactOptions } from '../redact';
-import { LOGGER_ENV_VARS, LOG_LEVEL, LOG_LEVEL_PRIORITY, LoggerAdaptToConsoleOptions, LoggerEnvironmentConfig, ResolvedLoggerAdaptToConsoleOptions } from './types';
+import { LOGGER_ENV_VARS, LOG_LEVEL, LOG_LEVEL_PRIORITY, LoggerAdaptToConsoleOptions, LoggerEnvironmentConfig, OnLogCallback, ResolvedLoggerAdaptToConsoleOptions } from './types';
 
 type AnyFunction = (...args: any[]) => any;
 type ConfiguredEnvValueGetter = (envVarName: string) => any;
 
 export function createDefaultLoggerEnvironmentConfig(): LoggerEnvironmentConfig {
   return {
+    colorizeBackground: '',
     noNewLineCharacters: false,
     noNewLineCharactersExceptStack: false,
     noTimeStamp: false,
@@ -32,6 +34,7 @@ export function createConfiguredEnvValueGetter(envOptionOverrides: Record<string
 
 export function loadLoggerEnvironmentConfig(getConfiguredEnvValue: ConfiguredEnvValueGetter): LoggerEnvironmentConfig {
   const config = {
+    colorizeBackground: normalizeStringValue(getConfiguredEnvValue(LOGGER_ENV_VARS.colorizeBackground)),
     noNewLineCharacters: isTrue(getConfiguredEnvValue(LOGGER_ENV_VARS.noNewLineCharacters)),
     noNewLineCharactersExceptStack: isTrue(getConfiguredEnvValue(LOGGER_ENV_VARS.noNewLineCharactersExceptStack)),
     noTimeStamp: isTrue(getConfiguredEnvValue(LOGGER_ENV_VARS.noTimeStamp)),
@@ -45,6 +48,7 @@ export function loadLoggerEnvironmentConfig(getConfiguredEnvValue: ConfiguredEnv
   };
 
   configureNewLineCharacter(config.noNewLineCharacters);
+  configureBackgroundTheme(config.colorizeBackground.length > 0 ? config.colorizeBackground : undefined);
   return config;
 }
 
@@ -52,6 +56,7 @@ export function buildEnvOptionOverrides(options?: LoggerAdaptToConsoleOptions): 
   const overrides: Record<string, any> = { ...(options?.envOptions || {}) };
 
   applyIfDefined(overrides, LOGGER_ENV_VARS.colorize, options?.colorize);
+  applyIfDefined(overrides, LOGGER_ENV_VARS.colorizeBackground, options?.colorizeBackground);
   applyIfDefined(overrides, LOGGER_ENV_VARS.noNewLineCharacters, options?.noNewLineCharacters);
   applyIfDefined(overrides, LOGGER_ENV_VARS.noNewLineCharactersExceptStack, options?.noNewLineCharactersExceptStack);
   applyIfDefined(overrides, LOGGER_ENV_VARS.noTimeStamp, options?.noTimeStamp);
@@ -73,7 +78,7 @@ export function resolveLoggerAdaptToConsoleOptions(
     logLevel: normalizeLogLevelValue(resolveOptionValue(options?.logLevel, LOGGER_ENV_VARS.logLevel, getConfiguredEnvValue), LOG_LEVEL.info),
     debugString: isTrue(resolveOptionValue(options?.debugString, LOGGER_ENV_VARS.debugString, getConfiguredEnvValue)),
     customOptions: normalizeCustomOptionsValue(resolveOptionValue(options?.customOptions, LOGGER_ENV_VARS.customOptions, getConfiguredEnvValue)),
-    onLog: normalizeFunctionValue<(jsonString: string, parsedObject: any) => void>(resolveOptionValue(options?.onLog, LOGGER_ENV_VARS.onLog, getConfiguredEnvValue)),
+    onLog: normalizeFunctionValue<OnLogCallback>(resolveOptionValue(options?.onLog, LOGGER_ENV_VARS.onLog, getConfiguredEnvValue)),
     onLogTimeout: normalizeTimeoutValue(resolveOptionValue(options?.onLogTimeout, LOGGER_ENV_VARS.onLogTimeout, getConfiguredEnvValue), 5000),
     transformOutput: normalizeFunctionValue<(parsedObject: any) => any>(resolveOptionValue(options?.transformOutput, LOGGER_ENV_VARS.transformOutput, getConfiguredEnvValue)),
     redact: normalizeRedactValue(resolveOptionValue(options?.redact, LOGGER_ENV_VARS.redact, getConfiguredEnvValue)),
@@ -114,6 +119,10 @@ function applyIfDefined(target: Record<string, any>, envVarName: string, value: 
   if (value !== undefined) {
     target[envVarName] = value;
   }
+}
+
+function normalizeStringValue(value: any): string {
+  return typeof value === 'string' ? value.trim() : '';
 }
 
 function isTrue(value: any): boolean {

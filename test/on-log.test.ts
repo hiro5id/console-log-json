@@ -5,7 +5,7 @@ import {
   LoggerRestoreConsole,
   overrideStdOut,
   restoreStdOut,
-} from '../src';
+} from './support/logger';
 
 describe('onLog interceptor', () => {
   it('receives the formatted JSON string and parsed object', (done) => {

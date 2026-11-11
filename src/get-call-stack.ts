@@ -11,6 +11,7 @@ const INTERNAL_STACK_PATTERNS = [
   /LoggerAdaptToConsole\.console\./,
   /getCallingFilename/,
   /getCallStack/,
+  /consoleJson[A-Z]\w*/, // the extended console methods in console-methods.ts
 ];
 
 /**

@@ -44,6 +44,7 @@ export const LOG_LEVEL_PRIORITY: Record<string, number> = {
 
 export const LOGGER_ENV_VARS = {
   colorize: 'CONSOLE_LOG_COLORIZE',
+  colorizeBackground: 'CONSOLE_LOG_COLORIZE_BACKGROUND',
   noNewLineCharacters: 'CONSOLE_LOG_JSON_NO_NEW_LINE_CHARACTERS',
   noNewLineCharactersExceptStack: 'CONSOLE_LOG_JSON_NO_NEW_LINE_CHARACTERS_EXCEPT_STACK',
   noTimeStamp: 'CONSOLE_LOG_JSON_NO_TIME_STAMP',
@@ -63,6 +64,7 @@ export const LOGGER_ENV_VARS = {
 };
 
 export interface LoggerEnvironmentConfig {
+  colorizeBackground: string;
   noNewLineCharacters: boolean;
   noNewLineCharactersExceptStack: boolean;
   noTimeStamp: boolean;
@@ -75,12 +77,26 @@ export interface LoggerEnvironmentConfig {
   contextKey: string;
 }
 
+/** Third argument of the onLog callback. */
+export interface OnLogContext {
+  /**
+   * Aborted after `onLogTimeout` ms. Pass it to work the callback starts, e.g. `fetch(url, { signal })`.
+   * Undefined where AbortController is not available (Node.js < 15).
+   */
+  signal?: AbortSignal;
+}
+
+export type OnLogCallback = (jsonString: string, parsedObject: any, context: OnLogContext) => void;
+
 export interface LoggerAdaptToConsoleOptions {
   logLevel?: LOG_LEVEL | string;
   debugString?: boolean;
   customOptions?: { [key: string]: any };
   colorize?: boolean;
+  /** Palette for colorized output. Auto-detected from the terminal when not set. */
+  colorizeBackground?: 'dark' | 'light';
   noNewLineCharacters?: boolean;
+  /** @deprecated No effect since 7.0.0: log entries no longer end with a blank line, and stack traces keep their newlines by default. */
   noNewLineCharactersExceptStack?: boolean;
   noTimeStamp?: boolean;
   disableAutoParse?: boolean;
@@ -90,7 +106,7 @@ export interface LoggerAdaptToConsoleOptions {
   noLoggerDebug?: boolean;
   contextKey?: string;
   envOptions?: Record<string, any>;
-  onLog?: ((jsonString: string, parsedObject: any) => void) | string;
+  onLog?: OnLogCallback | string;
   onLogTimeout?: number;
   transformOutput?: ((parsedObject: any) => any) | string;
   redact?: RedactOptions | string;
@@ -100,7 +116,7 @@ export interface ResolvedLoggerAdaptToConsoleOptions {
   logLevel: LOG_LEVEL;
   debugString: boolean;
   customOptions: { [key: string]: any } | null;
-  onLog: ((jsonString: string, parsedObject: any) => void) | null;
+  onLog: OnLogCallback | null;
   onLogTimeout: number;
   transformOutput: ((parsedObject: any) => any) | null;
   redact: RedactOptions | undefined;
