@@ -1,6 +1,6 @@
 # Changelog
 
-## 7.0.0
+## 7.0.0 - deployed
 
 This major release makes the code do what the README says, and documents what it didn't cover. Internal helpers are no longer exported, more console methods are patched, and several output details change. Read the upgrade notes if you import anything besides the documented API, or if you search, alert on, or snapshot-test log output.
 
