@@ -77,12 +77,11 @@
     "install:prod": "npm ci",
     "prune:prod": "npm prune --production",
     "refresh-package-locks": "npm run clean && find . -iname package-lock.json -delete && npm install",
-    "interactive-publish": "npm run build && np",
-    "install-latest-npm": "npm install -g npm@9"
+    "interactive-publish": "npm run build && np"
   },
   "repository": {
     "type": "git",
-    "url": "git@github.com:hiro5id/console-log-json.git"
+    "url": "git+https://github.com/hiro5id/console-log-json.git"
   },
   "//#### dependencies-documentation": {
     "": ""

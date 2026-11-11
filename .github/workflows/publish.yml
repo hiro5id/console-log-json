@@ -1,0 +1,146 @@
+name: Publish
+
+# Manually triggered release to npm using Trusted Publishing (OIDC).
+# No npm token is stored anywhere; npm trusts this workflow file + the `npm-publish` environment.
+# See https://docs.npmjs.com/trusted-publishers
+#
+# Before running: add a `## <new version>` section to CHANGELOG.md and merge it to master.
+
+on:
+  workflow_dispatch:
+    inputs:
+      bump:
+        description: Version bump
+        type: choice
+        required: true
+        default: patch
+        options: [patch, minor, major, prerelease, exact]
+      version:
+        description: Exact version (only used when bump = exact), e.g. 7.0.0-rc.1
+        type: string
+        required: false
+      dist_tag:
+        description: npm dist-tag
+        type: string
+        required: true
+        default: latest
+      dry_run:
+        description: Dry run (npm publish --dry-run, no push, no GitHub release)
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: publish
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    name: Publish to npm
+    if: github.ref == 'refs/heads/master'
+    runs-on: ubuntu-latest
+    environment: npm-publish
+    timeout-minutes: 30
+    permissions:
+      contents: write # push release commit + tag, create GitHub release
+      id-token: write # OIDC token for npm trusted publishing (also enables provenance)
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.x
+          registry-url: https://registry.npmjs.org
+          cache: npm
+
+      # Trusted publishing requires npm >= 11.5.1
+      - name: Update npm
+        run: npm install -g npm@^11.5.1 && npm --version
+
+      - name: Configure git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Bump version
+        id: version
+        env:
+          BUMP: ${{ inputs.bump }}
+          EXACT_VERSION: ${{ inputs.version }}
+        run: |
+          if [ "$BUMP" = "exact" ]; then
+            if ! echo "$EXACT_VERSION" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$'; then
+              echo "::error::bump=exact requires a valid semver 'version' input (got '$EXACT_VERSION')"
+              exit 1
+            fi
+            TARGET="$EXACT_VERSION"
+          elif [ "$BUMP" = "prerelease" ]; then
+            TARGET="prerelease --preid=rc"
+          else
+            TARGET="$BUMP"
+          fi
+          # shellcheck disable=SC2086
+          npm version $TARGET --no-git-tag-version --ignore-scripts
+          VERSION=$(node -p "require('./package.json').version")
+          if git rev-parse -q --verify "refs/tags/v$VERSION" >/dev/null; then
+            echo "::error::Tag v$VERSION already exists"
+            exit 1
+          fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "Releasing v$VERSION"
+
+      - name: Check CHANGELOG has an entry
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          if ! grep -Fxq "## $VERSION" CHANGELOG.md; then
+            echo "::error::CHANGELOG.md has no '## $VERSION' heading. Add release notes first."
+            exit 1
+          fi
+
+      - name: Commit and tag
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          git commit -am "release: v$VERSION"
+          git tag -a "v$VERSION" -m "v$VERSION"
+
+      # prepublishOnly runs: clean dist -> npm ci -> build -> test -> prune devDependencies.
+      # Provenance is generated automatically when publishing via trusted publishing.
+      - name: Publish
+        env:
+          DIST_TAG: ${{ inputs.dist_tag }}
+          DRY_RUN: ${{ inputs.dry_run }}
+        run: |
+          if [ "$DRY_RUN" = "true" ]; then
+            npm publish --tag "$DIST_TAG" --dry-run
+          else
+            npm publish --tag "$DIST_TAG"
+          fi
+
+      - name: Push commit and tag
+        if: ${{ !inputs.dry_run }}
+        run: git push origin HEAD:master --follow-tags
+
+      - name: Create GitHub release
+        if: ${{ !inputs.dry_run }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ steps.version.outputs.version }}
+          DIST_TAG: ${{ inputs.dist_tag }}
+        run: |
+          awk -v h="## $VERSION" '$0 == h {f=1; next} f && /^## / {exit} f' CHANGELOG.md > "$RUNNER_TEMP/notes.md"
+          PRERELEASE=""
+          case "$VERSION" in *-*) PRERELEASE="--prerelease" ;; esac
+          LATEST=""
+          [ "$DIST_TAG" != "latest" ] && LATEST="--latest=false"
+          # shellcheck disable=SC2086
+          gh release create "v$VERSION" --title "v$VERSION" --notes-file "$RUNNER_TEMP/notes.md" $PRERELEASE $LATEST
