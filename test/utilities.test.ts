@@ -10,6 +10,7 @@ import { ErrorWithContext } from '../src/error-with-context';
 import { getCallStack } from '../src/get-call-stack';
 import { colorJson, supportsColor, resetBackgroundThemeCache } from '../src/colors/colorize';
 import sinon from 'sinon';
+import { stubEnv } from './support/env';
 
 describe('ToOneLine', () => {
   it('removes \\n characters', () => {
@@ -89,19 +90,19 @@ describe('NewLineCharacter', () => {
   });
 
   it('returns " - " when CONSOLE_LOG_JSON_NO_NEW_LINE_CHARACTERS is true', () => {
-    sandbox.stub(process.env, 'CONSOLE_LOG_JSON_NO_NEW_LINE_CHARACTERS').value('true');
+    stubEnv('CONSOLE_LOG_JSON_NO_NEW_LINE_CHARACTERS', 'true');
     resetNewLineCharacterCache();
     expect(NewLineCharacter()).to.equal(' - ');
   });
 
   it('returns " - " when CONSOLE_LOG_JSON_NO_NEW_LINE_CHARACTERS is TRUE (case insensitive)', () => {
-    sandbox.stub(process.env, 'CONSOLE_LOG_JSON_NO_NEW_LINE_CHARACTERS').value('TRUE');
+    stubEnv('CONSOLE_LOG_JSON_NO_NEW_LINE_CHARACTERS', 'TRUE');
     resetNewLineCharacterCache();
     expect(NewLineCharacter()).to.equal(' - ');
   });
 
   it('returns \\n when env var is set to something other than true', () => {
-    sandbox.stub(process.env, 'CONSOLE_LOG_JSON_NO_NEW_LINE_CHARACTERS').value('yes');
+    stubEnv('CONSOLE_LOG_JSON_NO_NEW_LINE_CHARACTERS', 'yes');
     resetNewLineCharacterCache();
     expect(NewLineCharacter()).to.equal('\n');
   });
@@ -416,9 +417,9 @@ describe('colorJson', () => {
 
   it('returns colored JSON when colors are supported', () => {
     // Ensure no env vars that would disable color
-    sandbox.stub(process.env, 'FORCE_NO_COLOR').value('');
-    sandbox.stub(process.env, 'FORCE_COLOR').value('');
-    sandbox.stub(process.env, 'DYNO').value('');
+    stubEnv('FORCE_NO_COLOR', '');
+    stubEnv('FORCE_COLOR', '');
+    stubEnv('DYNO', '');
 
     const result = colorJson({ level: 'info', message: 'test' });
     // Should contain ANSI escape codes
@@ -426,9 +427,9 @@ describe('colorJson', () => {
   });
 
   it('returns plain JSON when FORCE_NO_COLOR is set', () => {
-    sandbox.stub(process.env, 'FORCE_NO_COLOR').value('true');
-    sandbox.stub(process.env, 'FORCE_COLOR').value('');
-    sandbox.stub(process.env, 'DYNO').value('');
+    stubEnv('FORCE_NO_COLOR', 'true');
+    stubEnv('FORCE_COLOR', '');
+    stubEnv('DYNO', '');
 
     const result = colorJson({ level: 'info', message: 'test' });
     // Should be plain JSON without ANSI codes
@@ -438,27 +439,27 @@ describe('colorJson', () => {
   });
 
   it('returns colored JSON when FORCE_COLOR overrides DYNO', () => {
-    sandbox.stub(process.env, 'FORCE_NO_COLOR').value('');
-    sandbox.stub(process.env, 'FORCE_COLOR').value('true');
-    sandbox.stub(process.env, 'DYNO').value('true');
+    stubEnv('FORCE_NO_COLOR', '');
+    stubEnv('FORCE_COLOR', 'true');
+    stubEnv('DYNO', 'true');
 
     const result = colorJson({ level: 'info', message: 'test' });
     expect(result).to.include('\x1b[');
   });
 
   it('returns plain JSON on Heroku (DYNO set)', () => {
-    sandbox.stub(process.env, 'FORCE_NO_COLOR').value('');
-    sandbox.stub(process.env, 'FORCE_COLOR').value('');
-    sandbox.stub(process.env, 'DYNO').value('web.1');
+    stubEnv('FORCE_NO_COLOR', '');
+    stubEnv('FORCE_COLOR', '');
+    stubEnv('DYNO', 'web.1');
 
     const result = colorJson({ level: 'info', message: 'test' });
     expect(result).to.not.include('\x1b[');
   });
 
   it('colors error level differently from info level', () => {
-    sandbox.stub(process.env, 'FORCE_NO_COLOR').value('');
-    sandbox.stub(process.env, 'FORCE_COLOR').value('');
-    sandbox.stub(process.env, 'DYNO').value('');
+    stubEnv('FORCE_NO_COLOR', '');
+    stubEnv('FORCE_COLOR', '');
+    stubEnv('DYNO', '');
 
     const errorResult = colorJson({ level: 'error', message: 'err msg' });
     const infoResult = colorJson({ level: 'info', message: 'info msg' });
@@ -469,9 +470,9 @@ describe('colorJson', () => {
   });
 
   it('handles string input', () => {
-    sandbox.stub(process.env, 'FORCE_NO_COLOR').value('true');
-    sandbox.stub(process.env, 'FORCE_COLOR').value('');
-    sandbox.stub(process.env, 'DYNO').value('');
+    stubEnv('FORCE_NO_COLOR', 'true');
+    stubEnv('FORCE_COLOR', '');
+    stubEnv('DYNO', '');
 
     const result = colorJson('{"level":"info","message":"test"}');
     const parsed = JSON.parse(result);
@@ -479,9 +480,9 @@ describe('colorJson', () => {
   });
 
   it('handles boolean and null values', () => {
-    sandbox.stub(process.env, 'FORCE_NO_COLOR').value('');
-    sandbox.stub(process.env, 'FORCE_COLOR').value('');
-    sandbox.stub(process.env, 'DYNO').value('');
+    stubEnv('FORCE_NO_COLOR', '');
+    stubEnv('FORCE_COLOR', '');
+    stubEnv('DYNO', '');
 
     const result = colorJson({ active: true, deleted: false, extra: null });
     expect(result).to.include('true');
@@ -490,18 +491,18 @@ describe('colorJson', () => {
   });
 
   it('handles numeric values', () => {
-    sandbox.stub(process.env, 'FORCE_NO_COLOR').value('');
-    sandbox.stub(process.env, 'FORCE_COLOR').value('');
-    sandbox.stub(process.env, 'DYNO').value('');
+    stubEnv('FORCE_NO_COLOR', '');
+    stubEnv('FORCE_COLOR', '');
+    stubEnv('DYNO', '');
 
     const result = colorJson({ count: 42 });
     expect(result).to.include('42');
   });
 
   it('handles long escaped quote sequences without changing content', () => {
-    sandbox.stub(process.env, 'FORCE_NO_COLOR').value('');
-    sandbox.stub(process.env, 'FORCE_COLOR').value('');
-    sandbox.stub(process.env, 'DYNO').value('');
+    stubEnv('FORCE_NO_COLOR', '');
+    stubEnv('FORCE_COLOR', '');
+    stubEnv('DYNO', '');
 
     const repeatedEscapedQuote = '\\"'.repeat(2048);
     const result = colorJson({
@@ -525,9 +526,9 @@ describe('hash-based key colorization', () => {
   process.env.DYNO = '';
 
   beforeEach(() => {
-    sandbox.stub(process.env, 'FORCE_NO_COLOR').value('');
-    sandbox.stub(process.env, 'FORCE_COLOR').value('');
-    sandbox.stub(process.env, 'DYNO').value('');
+    stubEnv('FORCE_NO_COLOR', '');
+    stubEnv('FORCE_COLOR', '');
+    stubEnv('DYNO', '');
     resetBackgroundThemeCache();
   });
 
@@ -611,37 +612,37 @@ describe('supportsColor', () => {
   });
 
   it('returns true by default (no special env vars)', () => {
-    sandbox.stub(process.env, 'FORCE_NO_COLOR').value('');
-    sandbox.stub(process.env, 'FORCE_COLOR').value('');
-    sandbox.stub(process.env, 'DYNO').value('');
+    stubEnv('FORCE_NO_COLOR', '');
+    stubEnv('FORCE_COLOR', '');
+    stubEnv('DYNO', '');
     expect(supportsColor()).to.equal(true);
   });
 
   it('returns false when FORCE_NO_COLOR is set', () => {
-    sandbox.stub(process.env, 'FORCE_NO_COLOR').value('true');
-    sandbox.stub(process.env, 'FORCE_COLOR').value('');
-    sandbox.stub(process.env, 'DYNO').value('');
+    stubEnv('FORCE_NO_COLOR', 'true');
+    stubEnv('FORCE_COLOR', '');
+    stubEnv('DYNO', '');
     expect(supportsColor()).to.equal(false);
   });
 
   it('returns false when DYNO is set', () => {
-    sandbox.stub(process.env, 'FORCE_NO_COLOR').value('');
-    sandbox.stub(process.env, 'FORCE_COLOR').value('');
-    sandbox.stub(process.env, 'DYNO').value('web.1');
+    stubEnv('FORCE_NO_COLOR', '');
+    stubEnv('FORCE_COLOR', '');
+    stubEnv('DYNO', 'web.1');
     expect(supportsColor()).to.equal(false);
   });
 
   it('returns true when FORCE_COLOR overrides DYNO', () => {
-    sandbox.stub(process.env, 'FORCE_NO_COLOR').value('');
-    sandbox.stub(process.env, 'FORCE_COLOR').value('true');
-    sandbox.stub(process.env, 'DYNO').value('web.1');
+    stubEnv('FORCE_NO_COLOR', '');
+    stubEnv('FORCE_COLOR', 'true');
+    stubEnv('DYNO', 'web.1');
     expect(supportsColor()).to.equal(true);
   });
 
   it('treats "false" as falsy for FORCE_NO_COLOR', () => {
-    sandbox.stub(process.env, 'FORCE_NO_COLOR').value('false');
-    sandbox.stub(process.env, 'FORCE_COLOR').value('');
-    sandbox.stub(process.env, 'DYNO').value('');
+    stubEnv('FORCE_NO_COLOR', 'false');
+    stubEnv('FORCE_COLOR', '');
+    stubEnv('DYNO', '');
     expect(supportsColor()).to.equal(true);
   });
 });

@@ -13,6 +13,7 @@ import {
   SetLogLevel,
 } from '../src';
 import sinon from 'sinon';
+import { stubEnv } from './support/env';
 
 describe('logger', () => {
   const sandbox = sinon.createSandbox();
@@ -64,7 +65,7 @@ describe('logger', () => {
   });
 
   it('does not log new line characters if configured', async () => {
-    sandbox.stub(process.env, 'CONSOLE_LOG_JSON_NO_NEW_LINE_CHARACTERS').value('TRUE');
+    stubEnv('CONSOLE_LOG_JSON_NO_NEW_LINE_CHARACTERS', 'TRUE');
     const { originalWrite, outputText } = overrideStdOut();
     LoggerAdaptToConsole();
     try {
@@ -99,7 +100,7 @@ describe('logger', () => {
   });
 
   it('does not log new line characters if configured and regular error is thrown', async () => {
-    sandbox.stub(process.env, 'CONSOLE_LOG_JSON_NO_NEW_LINE_CHARACTERS').value('TRUE');
+    stubEnv('CONSOLE_LOG_JSON_NO_NEW_LINE_CHARACTERS', 'TRUE');
     const { originalWrite, outputText } = overrideStdOut();
     LoggerAdaptToConsole();
     try {
@@ -134,7 +135,7 @@ describe('logger', () => {
   });
 
   it(`omits log call stack if configured in environment variable`, async () => {
-    sandbox.stub(process.env, 'CONSOLE_LOG_JSON_NO_STACK_FOR_NON_ERROR').value('TRUE');
+    stubEnv('CONSOLE_LOG_JSON_NO_STACK_FOR_NON_ERROR', 'TRUE');
     const { originalWrite, outputText } = overrideStdOut();
     LoggerAdaptToConsole();
     try {
@@ -177,10 +178,10 @@ describe('logger', () => {
   });
 
   it(`omits multiple bits if configured in environment variable`, async () => {
-    sandbox.stub(process.env, 'CONSOLE_LOG_JSON_NO_FILE_NAME').value('TRUE');
-    sandbox.stub(process.env, 'CONSOLE_LOG_JSON_NO_PACKAGE_NAME').value('TRUE');
-    sandbox.stub(process.env, 'CONSOLE_LOG_JSON_NO_TIME_STAMP').value('TRUE');
-    sandbox.stub(process.env, 'CONSOLE_LOG_JSON_NO_STACK_FOR_NON_ERROR').value('TRUE');
+    stubEnv('CONSOLE_LOG_JSON_NO_FILE_NAME', 'TRUE');
+    stubEnv('CONSOLE_LOG_JSON_NO_PACKAGE_NAME', 'TRUE');
+    stubEnv('CONSOLE_LOG_JSON_NO_TIME_STAMP', 'TRUE');
+    stubEnv('CONSOLE_LOG_JSON_NO_STACK_FOR_NON_ERROR', 'TRUE');
 
     const { originalWrite, outputText } = overrideStdOut();
     LoggerAdaptToConsole();
@@ -553,7 +554,7 @@ describe('logger', () => {
   });
 
   it('If the CONSOLE_LOG_JSON_DISABLE_AUTO_PARSE definition is enabled, the automatic JSON parser will not run.', async () => {
-    sandbox.stub(process.env, 'CONSOLE_LOG_JSON_DISABLE_AUTO_PARSE').value('TRUE');
+    stubEnv('CONSOLE_LOG_JSON_DISABLE_AUTO_PARSE', 'TRUE');
     const { originalWrite, outputText } = overrideStdOut();
     LoggerAdaptToConsole();
 
@@ -1107,7 +1108,7 @@ describe('logger', () => {
   });
 
   it('color console.log logs as error when explicitly provided with level:err parameter', async () => {
-    sandbox.stub(process.env, 'CONSOLE_LOG_COLORIZE').value('TRUE');
+    stubEnv('CONSOLE_LOG_COLORIZE', 'TRUE');
     const { originalWrite, outputText } = overrideStdOut();
     LoggerAdaptToConsole();
 
@@ -1128,7 +1129,7 @@ describe('logger', () => {
 
 
   it('color console.log logs as normal', async () => {
-    sandbox.stub(process.env, 'CONSOLE_LOG_COLORIZE').value('TRUE');
+    stubEnv('CONSOLE_LOG_COLORIZE', 'TRUE');
     const { originalWrite, outputText } = overrideStdOut();
     LoggerAdaptToConsole();
 
@@ -1148,7 +1149,7 @@ describe('logger', () => {
   });
 
   it('color console.log logs with error object', async () => {
-    sandbox.stub(process.env, 'CONSOLE_LOG_COLORIZE').value('TRUE');
+    stubEnv('CONSOLE_LOG_COLORIZE', 'TRUE');
     const { originalWrite, outputText } = overrideStdOut();
     LoggerAdaptToConsole();
 

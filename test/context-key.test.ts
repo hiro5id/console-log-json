@@ -7,6 +7,7 @@ import {
   restoreStdOut,
 } from '../src';
 import sinon from 'sinon';
+import { stubEnv } from './support/env';
 
 describe('CONSOLE_LOG_JSON_CONTEXT_KEY', () => {
   const sandbox = sinon.createSandbox();
@@ -24,11 +25,11 @@ describe('CONSOLE_LOG_JSON_CONTEXT_KEY', () => {
   });
 
   it('nests context properties under the specified key', async () => {
-    sandbox.stub(process.env, 'CONSOLE_LOG_JSON_CONTEXT_KEY').value('context');
-    sandbox.stub(process.env, 'CONSOLE_LOG_JSON_NO_STACK_FOR_NON_ERROR').value('TRUE');
-    sandbox.stub(process.env, 'CONSOLE_LOG_JSON_NO_FILE_NAME').value('TRUE');
-    sandbox.stub(process.env, 'CONSOLE_LOG_JSON_NO_PACKAGE_NAME').value('TRUE');
-    sandbox.stub(process.env, 'CONSOLE_LOG_JSON_NO_TIME_STAMP').value('TRUE');
+    stubEnv('CONSOLE_LOG_JSON_CONTEXT_KEY', 'context');
+    stubEnv('CONSOLE_LOG_JSON_NO_STACK_FOR_NON_ERROR', 'TRUE');
+    stubEnv('CONSOLE_LOG_JSON_NO_FILE_NAME', 'TRUE');
+    stubEnv('CONSOLE_LOG_JSON_NO_PACKAGE_NAME', 'TRUE');
+    stubEnv('CONSOLE_LOG_JSON_NO_TIME_STAMP', 'TRUE');
     const { originalWrite, outputText } = overrideStdOut();
     LoggerAdaptToConsole();
 
@@ -49,11 +50,11 @@ describe('CONSOLE_LOG_JSON_CONTEXT_KEY', () => {
   });
 
   it('merges multiple objects under the context key', async () => {
-    sandbox.stub(process.env, 'CONSOLE_LOG_JSON_CONTEXT_KEY').value('context');
-    sandbox.stub(process.env, 'CONSOLE_LOG_JSON_NO_STACK_FOR_NON_ERROR').value('TRUE');
-    sandbox.stub(process.env, 'CONSOLE_LOG_JSON_NO_FILE_NAME').value('TRUE');
-    sandbox.stub(process.env, 'CONSOLE_LOG_JSON_NO_PACKAGE_NAME').value('TRUE');
-    sandbox.stub(process.env, 'CONSOLE_LOG_JSON_NO_TIME_STAMP').value('TRUE');
+    stubEnv('CONSOLE_LOG_JSON_CONTEXT_KEY', 'context');
+    stubEnv('CONSOLE_LOG_JSON_NO_STACK_FOR_NON_ERROR', 'TRUE');
+    stubEnv('CONSOLE_LOG_JSON_NO_FILE_NAME', 'TRUE');
+    stubEnv('CONSOLE_LOG_JSON_NO_PACKAGE_NAME', 'TRUE');
+    stubEnv('CONSOLE_LOG_JSON_NO_TIME_STAMP', 'TRUE');
     const { originalWrite, outputText } = overrideStdOut();
     LoggerAdaptToConsole();
 
@@ -73,11 +74,11 @@ describe('CONSOLE_LOG_JSON_CONTEXT_KEY', () => {
   });
 
   it('handles conflicting keys inside the context object', async () => {
-    sandbox.stub(process.env, 'CONSOLE_LOG_JSON_CONTEXT_KEY').value('context');
-    sandbox.stub(process.env, 'CONSOLE_LOG_JSON_NO_STACK_FOR_NON_ERROR').value('TRUE');
-    sandbox.stub(process.env, 'CONSOLE_LOG_JSON_NO_FILE_NAME').value('TRUE');
-    sandbox.stub(process.env, 'CONSOLE_LOG_JSON_NO_PACKAGE_NAME').value('TRUE');
-    sandbox.stub(process.env, 'CONSOLE_LOG_JSON_NO_TIME_STAMP').value('TRUE');
+    stubEnv('CONSOLE_LOG_JSON_CONTEXT_KEY', 'context');
+    stubEnv('CONSOLE_LOG_JSON_NO_STACK_FOR_NON_ERROR', 'TRUE');
+    stubEnv('CONSOLE_LOG_JSON_NO_FILE_NAME', 'TRUE');
+    stubEnv('CONSOLE_LOG_JSON_NO_PACKAGE_NAME', 'TRUE');
+    stubEnv('CONSOLE_LOG_JSON_NO_TIME_STAMP', 'TRUE');
     const { originalWrite, outputText } = overrideStdOut();
     LoggerAdaptToConsole();
 
@@ -102,11 +103,11 @@ describe('CONSOLE_LOG_JSON_CONTEXT_KEY', () => {
   });
 
   it('supports custom key names', async () => {
-    sandbox.stub(process.env, 'CONSOLE_LOG_JSON_CONTEXT_KEY').value('data');
-    sandbox.stub(process.env, 'CONSOLE_LOG_JSON_NO_STACK_FOR_NON_ERROR').value('TRUE');
-    sandbox.stub(process.env, 'CONSOLE_LOG_JSON_NO_FILE_NAME').value('TRUE');
-    sandbox.stub(process.env, 'CONSOLE_LOG_JSON_NO_PACKAGE_NAME').value('TRUE');
-    sandbox.stub(process.env, 'CONSOLE_LOG_JSON_NO_TIME_STAMP').value('TRUE');
+    stubEnv('CONSOLE_LOG_JSON_CONTEXT_KEY', 'data');
+    stubEnv('CONSOLE_LOG_JSON_NO_STACK_FOR_NON_ERROR', 'TRUE');
+    stubEnv('CONSOLE_LOG_JSON_NO_FILE_NAME', 'TRUE');
+    stubEnv('CONSOLE_LOG_JSON_NO_PACKAGE_NAME', 'TRUE');
+    stubEnv('CONSOLE_LOG_JSON_NO_TIME_STAMP', 'TRUE');
     const { originalWrite, outputText } = overrideStdOut();
     LoggerAdaptToConsole();
 
@@ -123,9 +124,9 @@ describe('CONSOLE_LOG_JSON_CONTEXT_KEY', () => {
   });
 
   it('preserves @filename and @packageName at top level', async () => {
-    sandbox.stub(process.env, 'CONSOLE_LOG_JSON_CONTEXT_KEY').value('context');
-    sandbox.stub(process.env, 'CONSOLE_LOG_JSON_NO_STACK_FOR_NON_ERROR').value('TRUE');
-    sandbox.stub(process.env, 'CONSOLE_LOG_JSON_NO_TIME_STAMP').value('TRUE');
+    stubEnv('CONSOLE_LOG_JSON_CONTEXT_KEY', 'context');
+    stubEnv('CONSOLE_LOG_JSON_NO_STACK_FOR_NON_ERROR', 'TRUE');
+    stubEnv('CONSOLE_LOG_JSON_NO_TIME_STAMP', 'TRUE');
     const { originalWrite, outputText } = overrideStdOut();
     LoggerAdaptToConsole();
 
@@ -146,10 +147,10 @@ describe('CONSOLE_LOG_JSON_CONTEXT_KEY', () => {
   });
 
   it('does not nest when context key is not set (default behavior)', async () => {
-    sandbox.stub(process.env, 'CONSOLE_LOG_JSON_NO_STACK_FOR_NON_ERROR').value('TRUE');
-    sandbox.stub(process.env, 'CONSOLE_LOG_JSON_NO_FILE_NAME').value('TRUE');
-    sandbox.stub(process.env, 'CONSOLE_LOG_JSON_NO_PACKAGE_NAME').value('TRUE');
-    sandbox.stub(process.env, 'CONSOLE_LOG_JSON_NO_TIME_STAMP').value('TRUE');
+    stubEnv('CONSOLE_LOG_JSON_NO_STACK_FOR_NON_ERROR', 'TRUE');
+    stubEnv('CONSOLE_LOG_JSON_NO_FILE_NAME', 'TRUE');
+    stubEnv('CONSOLE_LOG_JSON_NO_PACKAGE_NAME', 'TRUE');
+    stubEnv('CONSOLE_LOG_JSON_NO_TIME_STAMP', 'TRUE');
     const { originalWrite, outputText } = overrideStdOut();
     LoggerAdaptToConsole();
 
@@ -168,11 +169,11 @@ describe('CONSOLE_LOG_JSON_CONTEXT_KEY', () => {
   });
 
   it('works with console.error and error objects', async () => {
-    sandbox.stub(process.env, 'CONSOLE_LOG_JSON_CONTEXT_KEY').value('context');
-    sandbox.stub(process.env, 'CONSOLE_LOG_JSON_NO_STACK_FOR_NON_ERROR').value('TRUE');
-    sandbox.stub(process.env, 'CONSOLE_LOG_JSON_NO_FILE_NAME').value('TRUE');
-    sandbox.stub(process.env, 'CONSOLE_LOG_JSON_NO_PACKAGE_NAME').value('TRUE');
-    sandbox.stub(process.env, 'CONSOLE_LOG_JSON_NO_TIME_STAMP').value('TRUE');
+    stubEnv('CONSOLE_LOG_JSON_CONTEXT_KEY', 'context');
+    stubEnv('CONSOLE_LOG_JSON_NO_STACK_FOR_NON_ERROR', 'TRUE');
+    stubEnv('CONSOLE_LOG_JSON_NO_FILE_NAME', 'TRUE');
+    stubEnv('CONSOLE_LOG_JSON_NO_PACKAGE_NAME', 'TRUE');
+    stubEnv('CONSOLE_LOG_JSON_NO_TIME_STAMP', 'TRUE');
     const { originalWrite, outputText } = overrideStdOut();
     LoggerAdaptToConsole();
 
@@ -195,11 +196,11 @@ describe('CONSOLE_LOG_JSON_CONTEXT_KEY', () => {
   });
 
   it('works with console.warn', async () => {
-    sandbox.stub(process.env, 'CONSOLE_LOG_JSON_CONTEXT_KEY').value('ctx');
-    sandbox.stub(process.env, 'CONSOLE_LOG_JSON_NO_STACK_FOR_NON_ERROR').value('TRUE');
-    sandbox.stub(process.env, 'CONSOLE_LOG_JSON_NO_FILE_NAME').value('TRUE');
-    sandbox.stub(process.env, 'CONSOLE_LOG_JSON_NO_PACKAGE_NAME').value('TRUE');
-    sandbox.stub(process.env, 'CONSOLE_LOG_JSON_NO_TIME_STAMP').value('TRUE');
+    stubEnv('CONSOLE_LOG_JSON_CONTEXT_KEY', 'ctx');
+    stubEnv('CONSOLE_LOG_JSON_NO_STACK_FOR_NON_ERROR', 'TRUE');
+    stubEnv('CONSOLE_LOG_JSON_NO_FILE_NAME', 'TRUE');
+    stubEnv('CONSOLE_LOG_JSON_NO_PACKAGE_NAME', 'TRUE');
+    stubEnv('CONSOLE_LOG_JSON_NO_TIME_STAMP', 'TRUE');
     const { originalWrite, outputText } = overrideStdOut();
     LoggerAdaptToConsole();
 
@@ -216,11 +217,11 @@ describe('CONSOLE_LOG_JSON_CONTEXT_KEY', () => {
   });
 
   it('handles no context objects (message only)', async () => {
-    sandbox.stub(process.env, 'CONSOLE_LOG_JSON_CONTEXT_KEY').value('context');
-    sandbox.stub(process.env, 'CONSOLE_LOG_JSON_NO_STACK_FOR_NON_ERROR').value('TRUE');
-    sandbox.stub(process.env, 'CONSOLE_LOG_JSON_NO_FILE_NAME').value('TRUE');
-    sandbox.stub(process.env, 'CONSOLE_LOG_JSON_NO_PACKAGE_NAME').value('TRUE');
-    sandbox.stub(process.env, 'CONSOLE_LOG_JSON_NO_TIME_STAMP').value('TRUE');
+    stubEnv('CONSOLE_LOG_JSON_CONTEXT_KEY', 'context');
+    stubEnv('CONSOLE_LOG_JSON_NO_STACK_FOR_NON_ERROR', 'TRUE');
+    stubEnv('CONSOLE_LOG_JSON_NO_FILE_NAME', 'TRUE');
+    stubEnv('CONSOLE_LOG_JSON_NO_PACKAGE_NAME', 'TRUE');
+    stubEnv('CONSOLE_LOG_JSON_NO_TIME_STAMP', 'TRUE');
     const { originalWrite, outputText } = overrideStdOut();
     LoggerAdaptToConsole();
 
@@ -238,11 +239,11 @@ describe('CONSOLE_LOG_JSON_CONTEXT_KEY', () => {
   });
 
   it('works with customOptions (static properties stay at top level)', async () => {
-    sandbox.stub(process.env, 'CONSOLE_LOG_JSON_CONTEXT_KEY').value('context');
-    sandbox.stub(process.env, 'CONSOLE_LOG_JSON_NO_STACK_FOR_NON_ERROR').value('TRUE');
-    sandbox.stub(process.env, 'CONSOLE_LOG_JSON_NO_FILE_NAME').value('TRUE');
-    sandbox.stub(process.env, 'CONSOLE_LOG_JSON_NO_PACKAGE_NAME').value('TRUE');
-    sandbox.stub(process.env, 'CONSOLE_LOG_JSON_NO_TIME_STAMP').value('TRUE');
+    stubEnv('CONSOLE_LOG_JSON_CONTEXT_KEY', 'context');
+    stubEnv('CONSOLE_LOG_JSON_NO_STACK_FOR_NON_ERROR', 'TRUE');
+    stubEnv('CONSOLE_LOG_JSON_NO_FILE_NAME', 'TRUE');
+    stubEnv('CONSOLE_LOG_JSON_NO_PACKAGE_NAME', 'TRUE');
+    stubEnv('CONSOLE_LOG_JSON_NO_TIME_STAMP', 'TRUE');
     const { originalWrite, outputText } = overrideStdOut();
     LoggerAdaptToConsole({ customOptions: { service: 'my-api' } });
 

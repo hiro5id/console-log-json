@@ -15,6 +15,7 @@ import { jsonStringifySafe } from '../src/json-stringify-safe/stringify-safe';
 import { colorJson, supportsColor } from '../src/colors/colorize';
 import { FormatErrorObject, loadEnvConfig, restoreStdOut } from '../src';
 import sinon from 'sinon';
+import { stubEnv } from './support/env';
 
 /**
  * These tests verify that the library degrades gracefully in browser-like
@@ -315,7 +316,7 @@ describe('Browser compatibility', () => {
     it('returns \\n when env var is not set (browser default)', () => {
       // In browser, getEnv returns undefined, so NewLineCharacter should return \n
       resetNewLineCharacterCache();
-      sandbox.stub(process.env, 'CONSOLE_LOG_JSON_NO_NEW_LINE_CHARACTERS').value('');
+      stubEnv('CONSOLE_LOG_JSON_NO_NEW_LINE_CHARACTERS', '');
       resetNewLineCharacterCache();
       expect(NewLineCharacter()).to.equal('\n');
     });
@@ -329,24 +330,24 @@ describe('Browser compatibility', () => {
       // In browser, getEnv returns undefined for all vars
       // truth(undefined) is false, so onHeroku=false, forceNoColor=false, forceColor=false
       // Result: (!false && !false) || false = true
-      sandbox.stub(process.env, 'FORCE_NO_COLOR').value('');
-      sandbox.stub(process.env, 'FORCE_COLOR').value('');
-      sandbox.stub(process.env, 'DYNO').value('');
+      stubEnv('FORCE_NO_COLOR', '');
+      stubEnv('FORCE_COLOR', '');
+      stubEnv('DYNO', '');
       expect(supportsColor()).to.equal(true);
     });
 
     it('colorJson produces colored output by default in browser', () => {
-      sandbox.stub(process.env, 'FORCE_NO_COLOR').value('');
-      sandbox.stub(process.env, 'FORCE_COLOR').value('');
-      sandbox.stub(process.env, 'DYNO').value('');
+      stubEnv('FORCE_NO_COLOR', '');
+      stubEnv('FORCE_COLOR', '');
+      stubEnv('DYNO', '');
       const result = colorJson({ level: 'info', message: 'browser log' });
       expect(result).to.include('\x1b[');
     });
 
     it('colorJson falls back to plain JSON when colors not supported', () => {
-      sandbox.stub(process.env, 'FORCE_NO_COLOR').value('true');
-      sandbox.stub(process.env, 'FORCE_COLOR').value('');
-      sandbox.stub(process.env, 'DYNO').value('');
+      stubEnv('FORCE_NO_COLOR', 'true');
+      stubEnv('FORCE_COLOR', '');
+      stubEnv('DYNO', '');
       const result = colorJson({ level: 'info', message: 'plain' });
       const parsed = JSON.parse(result);
       expect(parsed.level).to.equal('info');
@@ -358,7 +359,7 @@ describe('Browser compatibility', () => {
   // ============================================================
   describe('FormatErrorObject browser behavior', () => {
     it('produces valid JSON without timestamp when configured', () => {
-      sandbox.stub(process.env, 'CONSOLE_LOG_JSON_NO_TIME_STAMP').value('TRUE');
+      stubEnv('CONSOLE_LOG_JSON_NO_TIME_STAMP', 'TRUE');
       loadEnvConfig();
       const result = FormatErrorObject({ level: 'info', message: 'browser test' });
       const parsed = JSON.parse(result.trim());
@@ -367,7 +368,7 @@ describe('Browser compatibility', () => {
     });
 
     it('handles error objects without V8-specific stack format', () => {
-      sandbox.stub(process.env, 'CONSOLE_LOG_JSON_NO_TIME_STAMP').value('TRUE');
+      stubEnv('CONSOLE_LOG_JSON_NO_TIME_STAMP', 'TRUE');
       loadEnvConfig();
       // Simulate a non-V8 stack trace (Firefox-style)
       const result = FormatErrorObject({
@@ -598,10 +599,10 @@ describe('Browser compatibility', () => {
   // ============================================================
   describe('Logger output shape consistency', () => {
     it('output is always valid JSON even when metadata features are disabled', () => {
-      sandbox.stub(process.env, 'CONSOLE_LOG_JSON_NO_FILE_NAME').value('TRUE');
-      sandbox.stub(process.env, 'CONSOLE_LOG_JSON_NO_PACKAGE_NAME').value('TRUE');
-      sandbox.stub(process.env, 'CONSOLE_LOG_JSON_NO_TIME_STAMP').value('TRUE');
-      sandbox.stub(process.env, 'CONSOLE_LOG_JSON_NO_STACK_FOR_NON_ERROR').value('TRUE');
+      stubEnv('CONSOLE_LOG_JSON_NO_FILE_NAME', 'TRUE');
+      stubEnv('CONSOLE_LOG_JSON_NO_PACKAGE_NAME', 'TRUE');
+      stubEnv('CONSOLE_LOG_JSON_NO_TIME_STAMP', 'TRUE');
+      stubEnv('CONSOLE_LOG_JSON_NO_STACK_FOR_NON_ERROR', 'TRUE');
       loadEnvConfig();
 
       const result = FormatErrorObject({ level: 'info', message: 'minimal log' });
@@ -616,7 +617,7 @@ describe('Browser compatibility', () => {
     });
 
     it('output always has level and message fields', () => {
-      sandbox.stub(process.env, 'CONSOLE_LOG_JSON_NO_TIME_STAMP').value('TRUE');
+      stubEnv('CONSOLE_LOG_JSON_NO_TIME_STAMP', 'TRUE');
       loadEnvConfig();
 
       const result = FormatErrorObject({ level: 'warn', message: 'warning' });
@@ -628,7 +629,7 @@ describe('Browser compatibility', () => {
     });
 
     it('error objects produce level:error with errCallStack regardless of environment', () => {
-      sandbox.stub(process.env, 'CONSOLE_LOG_JSON_NO_TIME_STAMP').value('TRUE');
+      stubEnv('CONSOLE_LOG_JSON_NO_TIME_STAMP', 'TRUE');
       loadEnvConfig();
 
       const err = new Error('browser error');

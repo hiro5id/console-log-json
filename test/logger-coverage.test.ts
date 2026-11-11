@@ -13,6 +13,7 @@ import {
   SetLogLevel,
 } from '../src';
 import sinon from 'sinon';
+import { stubEnv } from './support/env';
 
 describe('logger - additional coverage', () => {
   const sandbox = sinon.createSandbox();
@@ -220,7 +221,7 @@ describe('logger - additional coverage', () => {
 
   // ---- Environment variable: CONSOLE_LOG_JSON_NO_NEW_LINE_CHARACTERS_EXCEPT_STACK ----
   it('CONSOLE_LOG_JSON_NO_NEW_LINE_CHARACTERS_EXCEPT_STACK removes end-of-log newline', async () => {
-    sandbox.stub(process.env, 'CONSOLE_LOG_JSON_NO_NEW_LINE_CHARACTERS_EXCEPT_STACK').value('TRUE');
+    stubEnv('CONSOLE_LOG_JSON_NO_NEW_LINE_CHARACTERS_EXCEPT_STACK', 'TRUE');
     const { originalWrite, outputText } = overrideStdOut();
     LoggerAdaptToConsole();
 
@@ -239,7 +240,7 @@ describe('logger - additional coverage', () => {
 
   // ---- Environment variable: CONSOLE_LOG_JSON_NO_LOGGER_DEBUG ----
   it('CONSOLE_LOG_JSON_NO_LOGGER_DEBUG suppresses _loggerDebug field', async () => {
-    sandbox.stub(process.env, 'CONSOLE_LOG_JSON_NO_LOGGER_DEBUG').value('TRUE');
+    stubEnv('CONSOLE_LOG_JSON_NO_LOGGER_DEBUG', 'TRUE');
     const { originalWrite, outputText } = overrideStdOut();
     LoggerAdaptToConsole({ debugString: true });
 
@@ -344,7 +345,7 @@ describe('logger - additional coverage', () => {
 
   // ---- FormatErrorObject direct tests ----
   it('FormatErrorObject handles plain object with level and message', () => {
-    sandbox.stub(process.env, 'CONSOLE_LOG_JSON_NO_TIME_STAMP').value('TRUE');
+    stubEnv('CONSOLE_LOG_JSON_NO_TIME_STAMP', 'TRUE');
     loadEnvConfig();
     const result = FormatErrorObject({ level: 'info', message: 'test' });
     const parsed = JSON.parse(result.trim());
@@ -353,7 +354,7 @@ describe('logger - additional coverage', () => {
   });
 
   it('FormatErrorObject handles extraContext merging', () => {
-    sandbox.stub(process.env, 'CONSOLE_LOG_JSON_NO_TIME_STAMP').value('TRUE');
+    stubEnv('CONSOLE_LOG_JSON_NO_TIME_STAMP', 'TRUE');
     // extraContext gets merged into the return data and then removed
     const result = FormatErrorObject({ level: 'info', message: 'test msg', extraContext: { extra: 'data' } });
     const parsed = JSON.parse(result.trim());
@@ -363,7 +364,7 @@ describe('logger - additional coverage', () => {
   });
 
   it('FormatErrorObject handles object with stack trace', () => {
-    sandbox.stub(process.env, 'CONSOLE_LOG_JSON_NO_TIME_STAMP').value('TRUE');
+    stubEnv('CONSOLE_LOG_JSON_NO_TIME_STAMP', 'TRUE');
     const err = new Error('test error');
     const result = FormatErrorObject({ level: 'info', message: 'test', stack: err.stack });
     const parsed = JSON.parse(result.trim());
@@ -372,7 +373,7 @@ describe('logger - additional coverage', () => {
   });
 
   it('FormatErrorObject handles empty message with error level', () => {
-    sandbox.stub(process.env, 'CONSOLE_LOG_JSON_NO_TIME_STAMP').value('TRUE');
+    stubEnv('CONSOLE_LOG_JSON_NO_TIME_STAMP', 'TRUE');
     loadEnvConfig();
     const result = FormatErrorObject({ level: 'error', message: '' });
     const parsed = JSON.parse(result.trim());
@@ -380,7 +381,7 @@ describe('logger - additional coverage', () => {
   });
 
   it('FormatErrorObject handles empty message with info level', () => {
-    sandbox.stub(process.env, 'CONSOLE_LOG_JSON_NO_TIME_STAMP').value('TRUE');
+    stubEnv('CONSOLE_LOG_JSON_NO_TIME_STAMP', 'TRUE');
     loadEnvConfig();
     const result = FormatErrorObject({ level: 'info', message: '' });
     const parsed = JSON.parse(result.trim());
@@ -388,7 +389,7 @@ describe('logger - additional coverage', () => {
   });
 
   it('FormatErrorObject cleans leading dash in message', () => {
-    sandbox.stub(process.env, 'CONSOLE_LOG_JSON_NO_TIME_STAMP').value('TRUE');
+    stubEnv('CONSOLE_LOG_JSON_NO_TIME_STAMP', 'TRUE');
     loadEnvConfig();
     const result = FormatErrorObject({ level: 'info', message: ' - actual message' });
     const parsed = JSON.parse(result.trim());
@@ -396,7 +397,7 @@ describe('logger - additional coverage', () => {
   });
 
   it('FormatErrorObject handles extraContext', () => {
-    sandbox.stub(process.env, 'CONSOLE_LOG_JSON_NO_TIME_STAMP').value('TRUE');
+    stubEnv('CONSOLE_LOG_JSON_NO_TIME_STAMP', 'TRUE');
     loadEnvConfig();
     const result = FormatErrorObject({ level: 'info', message: 'test', extraContext: { key: 'ctx' } });
     const parsed = JSON.parse(result.trim());
@@ -421,7 +422,7 @@ describe('logger - additional coverage', () => {
   });
 
   it('omits @timestamp when CONSOLE_LOG_JSON_NO_TIME_STAMP is TRUE', async () => {
-    sandbox.stub(process.env, 'CONSOLE_LOG_JSON_NO_TIME_STAMP').value('TRUE');
+    stubEnv('CONSOLE_LOG_JSON_NO_TIME_STAMP', 'TRUE');
     const { originalWrite, outputText } = overrideStdOut();
     LoggerAdaptToConsole();
 
@@ -463,7 +464,7 @@ describe('logger - additional coverage', () => {
   });
 
   it('omits @filename when CONSOLE_LOG_JSON_NO_FILE_NAME is TRUE', async () => {
-    sandbox.stub(process.env, 'CONSOLE_LOG_JSON_NO_FILE_NAME').value('TRUE');
+    stubEnv('CONSOLE_LOG_JSON_NO_FILE_NAME', 'TRUE');
     const { originalWrite, outputText } = overrideStdOut();
     LoggerAdaptToConsole();
 
@@ -477,7 +478,7 @@ describe('logger - additional coverage', () => {
   });
 
   it('omits @packageName when CONSOLE_LOG_JSON_NO_PACKAGE_NAME is TRUE', async () => {
-    sandbox.stub(process.env, 'CONSOLE_LOG_JSON_NO_PACKAGE_NAME').value('TRUE');
+    stubEnv('CONSOLE_LOG_JSON_NO_PACKAGE_NAME', 'TRUE');
     const { originalWrite, outputText } = overrideStdOut();
     LoggerAdaptToConsole();
 
@@ -520,7 +521,7 @@ describe('logger - additional coverage', () => {
   });
 
   it('CONSOLE_LOG_JSON_DISABLE_AUTO_PARSE keeps JSON as string but formats it', async () => {
-    sandbox.stub(process.env, 'CONSOLE_LOG_JSON_DISABLE_AUTO_PARSE').value('TRUE');
+    stubEnv('CONSOLE_LOG_JSON_DISABLE_AUTO_PARSE', 'TRUE');
     const { originalWrite, outputText } = overrideStdOut();
     LoggerAdaptToConsole();
 
@@ -842,10 +843,10 @@ describe('logger - additional coverage', () => {
 
   // ---- Level ordering in JSON output ----
   it('level is first and message is second in JSON output', async () => {
-    sandbox.stub(process.env, 'CONSOLE_LOG_JSON_NO_TIME_STAMP').value('TRUE');
-    sandbox.stub(process.env, 'CONSOLE_LOG_JSON_NO_STACK_FOR_NON_ERROR').value('TRUE');
-    sandbox.stub(process.env, 'CONSOLE_LOG_JSON_NO_FILE_NAME').value('TRUE');
-    sandbox.stub(process.env, 'CONSOLE_LOG_JSON_NO_PACKAGE_NAME').value('TRUE');
+    stubEnv('CONSOLE_LOG_JSON_NO_TIME_STAMP', 'TRUE');
+    stubEnv('CONSOLE_LOG_JSON_NO_STACK_FOR_NON_ERROR', 'TRUE');
+    stubEnv('CONSOLE_LOG_JSON_NO_FILE_NAME', 'TRUE');
+    stubEnv('CONSOLE_LOG_JSON_NO_PACKAGE_NAME', 'TRUE');
 
     const { originalWrite, outputText } = overrideStdOut();
     LoggerAdaptToConsole();

@@ -19,6 +19,7 @@ import { colorJson } from '../src/colors/colorize';
 import callsites from '../src/callsites/get-callsites';
 import { getCallStack } from '../src/get-call-stack';
 import sinon from 'sinon';
+import { stubEnv } from './support/env';
 
 // ============================================================
 // 1. getCallingFilename — direct tests
@@ -263,9 +264,9 @@ describe('colorJson - warn level', () => {
   });
 
   it('colors warn level with hash-based truecolor', () => {
-    sandbox.stub(process.env, 'FORCE_NO_COLOR').value('');
-    sandbox.stub(process.env, 'FORCE_COLOR').value('');
-    sandbox.stub(process.env, 'DYNO').value('');
+    stubEnv('FORCE_NO_COLOR', '');
+    stubEnv('FORCE_COLOR', '');
+    stubEnv('DYNO', '');
 
     const result = colorJson({ level: 'warn', message: 'warning message' });
     // all tokens use hash-based truecolor codes
@@ -273,9 +274,9 @@ describe('colorJson - warn level', () => {
   });
 
   it('colors warn output differently from error output', () => {
-    sandbox.stub(process.env, 'FORCE_NO_COLOR').value('');
-    sandbox.stub(process.env, 'FORCE_COLOR').value('');
-    sandbox.stub(process.env, 'DYNO').value('');
+    stubEnv('FORCE_NO_COLOR', '');
+    stubEnv('FORCE_COLOR', '');
+    stubEnv('DYNO', '');
 
     const warnResult = colorJson({ level: 'warn', message: 'warn msg' });
     const errorResult = colorJson({ level: 'error', message: 'error msg' });
@@ -287,9 +288,9 @@ describe('colorJson - warn level', () => {
   });
 
   it('colors all key-value pairs with hash-based truecolor', () => {
-    sandbox.stub(process.env, 'FORCE_NO_COLOR').value('');
-    sandbox.stub(process.env, 'FORCE_COLOR').value('');
-    sandbox.stub(process.env, 'DYNO').value('');
+    stubEnv('FORCE_NO_COLOR', '');
+    stubEnv('FORCE_COLOR', '');
+    stubEnv('DYNO', '');
 
     const obj = {
       level: 'info',
@@ -311,9 +312,9 @@ describe('colorJson - warn level', () => {
   });
 
   it('handles spacing parameter', () => {
-    sandbox.stub(process.env, 'FORCE_NO_COLOR').value('true');
-    sandbox.stub(process.env, 'FORCE_COLOR').value('');
-    sandbox.stub(process.env, 'DYNO').value('');
+    stubEnv('FORCE_NO_COLOR', 'true');
+    stubEnv('FORCE_COLOR', '');
+    stubEnv('DYNO', '');
 
     const result = colorJson({ level: 'info', message: 'test' }, undefined, undefined, 2);
     // With spacing, the output should be indented
@@ -333,7 +334,7 @@ describe('FormatErrorObject edge cases', () => {
   });
 
   it('handles message that is an object without a message string property', () => {
-    sandbox.stub(process.env, 'CONSOLE_LOG_JSON_NO_TIME_STAMP').value('TRUE');
+    stubEnv('CONSOLE_LOG_JSON_NO_TIME_STAMP', 'TRUE');
     loadEnvConfig();
     // When message is an object like { key: 'value' }, preserve it under
     // a dedicated field without crashing or overwriting the canonical message.
@@ -345,7 +346,7 @@ describe('FormatErrorObject edge cases', () => {
   });
 
   it('handles message that is an object with its own message property', () => {
-    sandbox.stub(process.env, 'CONSOLE_LOG_JSON_NO_TIME_STAMP').value('TRUE');
+    stubEnv('CONSOLE_LOG_JSON_NO_TIME_STAMP', 'TRUE');
     loadEnvConfig();
     const result = FormatErrorObject({ level: 'info', message: { message: 'inner msg', extra: 'data' } });
     const parsed = JSON.parse(result.trim());
@@ -355,7 +356,7 @@ describe('FormatErrorObject edge cases', () => {
   });
 
   it('handles stack with Caused By section', () => {
-    sandbox.stub(process.env, 'CONSOLE_LOG_JSON_NO_TIME_STAMP').value('TRUE');
+    stubEnv('CONSOLE_LOG_JSON_NO_TIME_STAMP', 'TRUE');
     loadEnvConfig();
     const stack = 'Error: outer\n    at func1 (file.ts:1:1)\nCaused By: Error: inner\n    at func2 (file.ts:2:2)';
     const result = FormatErrorObject({ level: 'info', message: 'test', stack });
@@ -365,7 +366,7 @@ describe('FormatErrorObject edge cases', () => {
   });
 
   it('auto-parses JSON arrays in message', () => {
-    sandbox.stub(process.env, 'CONSOLE_LOG_JSON_NO_TIME_STAMP').value('TRUE');
+    stubEnv('CONSOLE_LOG_JSON_NO_TIME_STAMP', 'TRUE');
     loadEnvConfig();
     const result = FormatErrorObject({ level: 'info', message: '[1,2,3]' });
     const parsed = JSON.parse(result.trim());
@@ -373,8 +374,8 @@ describe('FormatErrorObject edge cases', () => {
   });
 
   it('handles CONSOLE_LOG_JSON_NO_NEW_LINE_CHARACTERS with stack trace', () => {
-    sandbox.stub(process.env, 'CONSOLE_LOG_JSON_NO_TIME_STAMP').value('TRUE');
-    sandbox.stub(process.env, 'CONSOLE_LOG_JSON_NO_NEW_LINE_CHARACTERS').value('TRUE');
+    stubEnv('CONSOLE_LOG_JSON_NO_TIME_STAMP', 'TRUE');
+    stubEnv('CONSOLE_LOG_JSON_NO_NEW_LINE_CHARACTERS', 'TRUE');
     loadEnvConfig();
     const stack = 'Error: test\n    at func (file.ts:1:1)';
     const result = FormatErrorObject({ level: 'info', message: 'msg', stack });
@@ -383,11 +384,11 @@ describe('FormatErrorObject edge cases', () => {
   });
 
   it('handles colorized output with CONSOLE_LOG_COLORIZE', () => {
-    sandbox.stub(process.env, 'CONSOLE_LOG_JSON_NO_TIME_STAMP').value('TRUE');
-    sandbox.stub(process.env, 'CONSOLE_LOG_COLORIZE').value('TRUE');
-    sandbox.stub(process.env, 'FORCE_NO_COLOR').value('');
-    sandbox.stub(process.env, 'FORCE_COLOR').value('');
-    sandbox.stub(process.env, 'DYNO').value('');
+    stubEnv('CONSOLE_LOG_JSON_NO_TIME_STAMP', 'TRUE');
+    stubEnv('CONSOLE_LOG_COLORIZE', 'TRUE');
+    stubEnv('FORCE_NO_COLOR', '');
+    stubEnv('FORCE_COLOR', '');
+    stubEnv('DYNO', '');
     loadEnvConfig();
     const result = FormatErrorObject({ level: 'info', message: 'colorized' });
     // Should contain ANSI escape codes
@@ -416,10 +417,10 @@ describe('colorized log output integration', () => {
   });
 
   it('console.warn with COLORIZE uses warn colors', async () => {
-    sandbox.stub(process.env, 'CONSOLE_LOG_COLORIZE').value('TRUE');
-    sandbox.stub(process.env, 'FORCE_NO_COLOR').value('');
-    sandbox.stub(process.env, 'FORCE_COLOR').value('');
-    sandbox.stub(process.env, 'DYNO').value('');
+    stubEnv('CONSOLE_LOG_COLORIZE', 'TRUE');
+    stubEnv('FORCE_NO_COLOR', '');
+    stubEnv('FORCE_COLOR', '');
+    stubEnv('DYNO', '');
 
     const { originalWrite, outputText } = overrideStdOut();
     LoggerAdaptToConsole();
