@@ -7,8 +7,12 @@
 <!-- ALL-CONTRIBUTORS-BADGE:START - Do not remove or modify this section -->
 [![All Contributors](https://img.shields.io/badge/all_contributors-5-orange.svg?style=flat-square)](#contributors-)
 <!-- ALL-CONTRIBUTORS-BADGE:END -->
+[![Publish](https://github.com/hiro5id/console-log-json/actions/workflows/publish.yml/badge.svg?branch=master)](https://github.com/hiro5id/console-log-json/actions/workflows/publish.yml)
+[![Test](https://github.com/hiro5id/console-log-json/actions/workflows/test.yml/badge.svg?branch=master)](https://github.com/hiro5id/console-log-json/actions/workflows/test.yml)
+[![CodeQL](https://github.com/hiro5id/console-log-json/actions/workflows/codeql-analysis.yml/badge.svg?branch=master)](https://github.com/hiro5id/console-log-json/actions/workflows/codeql-analysis.yml)
 
 [![console-log-json](https://raw.githubusercontent.com/hiro5id/console-log-json/master/docs/images/console-log-json-image.png)](https://www.npmjs.com/package/console-log-json)
+
 
 **Drop-in structured JSON logging for Node.js and the browser. Zero required dependencies. No vendor lock-in. One line to set up. TypeScript types included.**
 
