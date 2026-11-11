@@ -56,6 +56,7 @@ Messages, stacks and file names
 
 - **`@filename` is project-relative again**, and stack traces strip the same prefix. Projects directly under `/` (for example Docker's `/app`) and Windows drive roots behave as before.
 - **No duplicate stack traces** when an error is logged together with context.
+- **An error logged on its own with all metadata disabled no longer gets a placeholder message.** `console.error(new Error('boom'))` with `noFileName`, `noPackageName` and `noStackForNonError` logged `"<nothing-was-passed-to-console-log> - boom"`; it now logs `"boom"`.
 - **`" - "` separates the message from the error message for every error type**, including `TypeError`, custom errors and Node.js system errors (`Error [ERR_X]: ...`), and without the double space.
 - **`@logCallStack` and `@filename` skip the library's own frames wherever it is installed**, including vendored or linked copies outside `node_modules/console-log-json/`.
 - **Windows:** library frames with backslash paths are filtered out of stack traces, and ES module stack frames (`file:///C:/...`) have the project's parent directory stripped.

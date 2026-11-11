@@ -174,6 +174,32 @@ describe('regressions', () => {
       expect(error.level).to.equal('warn');
     });
 
+    it('keeps the stack of an Error whose stack is an own accessor, as on Node.js 22+', () => {
+      // Since V8 12, `stack` is an own accessor whose getter only works on the original
+      // error. Reproduce that on any Node version: the getter reads per-instance storage.
+      const error: any = new Error('boom');
+      error.level = 'warn';
+      const stacks = new WeakMap<object, string>([[error, error.stack]]);
+      Object.defineProperty(error, 'stack', {
+        get() {
+          return stacks.get(this);
+        },
+        set(value: string) {
+          stacks.set(this, value);
+        },
+        enumerable: false,
+        configurable: true,
+      });
+
+      const [log] = capture({}, () => console.log(error));
+
+      // Logging an Error always uses level "error".
+      expect(log.level).to.equal('error');
+      expect(log.message).to.equal('boom');
+      expect(log.errCallStack).to.be.a('string');
+      expect(log.errCallStack.startsWith('Error: boom')).to.equal(true);
+    });
+
     it('does not append metadata to the array passed to logUsingConsoleJson', () => {
       const args: any[] = ['hello', { a: 1 }];
       capture({ noFileName: false, debugString: true }, () => logUsingConsoleJson(args, LOG_LEVEL.info));
@@ -443,6 +469,19 @@ describe('regressions', () => {
       expect((log.errCallStack.match(/Caused By:/g) || []).length).to.equal(1);
       expect(log.errCallStack).to.include('Caused By: Error: inner');
       expect(log.step).to.equal('save');
+    });
+
+    it('does not add a "nothing was passed" placeholder when only an error is logged', () => {
+      for (const options of [QUIET, { noFileName: false, noPackageName: false, noStackForNonError: false }]) {
+        const logs = capture(options, () => {
+          console.error(new Error('boom'));
+          console.log();
+        });
+
+        expect(logs[0].message).to.equal('boom');
+        // An empty call still gets the placeholder.
+        expect(logs[1].message).to.equal('<nothing-was-passed-to-console-log>');
+      }
     });
 
     it('separates the message from any error type with " - "', () => {

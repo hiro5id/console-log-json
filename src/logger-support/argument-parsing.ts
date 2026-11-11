@@ -25,14 +25,37 @@ export function findExplicitLogLevelAndUseIt(args: any[], defaultLevel: LOG_LEVE
 
     resolvedLevel = explicitLevel;
     // Drop the level key from a copy, never from the caller's own object.
-    // The copy keeps the prototype and property descriptors so Errors stay Errors.
-    const entryWithoutLevel = Object.create(Object.getPrototypeOf(entry), Object.getOwnPropertyDescriptors(entry));
-    delete entryWithoutLevel[levelKey];
-    args[index] = entryWithoutLevel;
+    args[index] = copyWithoutKey(entry, levelKey);
     foundLevel = true;
   });
 
   return resolvedLevel;
+}
+
+/**
+ * Shallow copy that keeps the prototype (so Errors stay Errors) and property enumerability.
+ *
+ * Values are read through the original object, not copied as descriptors: since V8 12
+ * (Node.js 22), an error's `stack` is an own accessor whose getter only works on the
+ * original error, so a descriptor copy would have `stack === undefined`.
+ */
+function copyWithoutKey(source: any, keyToDrop: string): any {
+  const copy = Object.create(Object.getPrototypeOf(source));
+  for (const key of Reflect.ownKeys(source)) {
+    if (key === keyToDrop) {
+      continue;
+    }
+
+    const descriptor = Object.getOwnPropertyDescriptor(source, key);
+    let value: any;
+    try {
+      value = source[key];
+    } catch (_) {
+      continue; // a throwing getter: leave the property out
+    }
+    Object.defineProperty(copy, key, { value, writable: true, configurable: true, enumerable: descriptor != null && descriptor.enumerable === true });
+  }
+  return copy;
 }
 
 export function extractParametersFromArguments(
@@ -100,7 +123,10 @@ export function extractParametersFromArguments(
     }
   }
 
-  if (nullOrUndefinedCount === 0 && message.length === 0 && !errorObjectWasPassed && !extraContextWasPassed) {
+  // An error passed on its own (no context, e.g. with all metadata disabled) is never wrapped,
+  // so errorObjectWasPassed stays false; it still counts as something passed.
+  const errorWasPassed = errorObjectWasPassed || errorObject instanceof Error || isErrorLikeObject(errorObject);
+  if (nullOrUndefinedCount === 0 && message.length === 0 && !errorWasPassed && !extraContextWasPassed) {
     message = '<nothing-was-passed-to-console-log>';
   }
 
