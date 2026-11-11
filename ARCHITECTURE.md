@@ -34,7 +34,9 @@ Together they:
 - writes directly to `process.stdout.write()`
 - optionally invokes an async-safe interception callback
 
-The main log pipeline entry point is `logUsingConsoleJson()`.
+The main log pipeline entry point is the internal `logUsingConsoleJson()`. It, `FormatErrorObject()` and `loadEnvConfig()` are internal: the package entry point (`src/index.ts`) exports only `LoggerAdaptToConsole`, `LoggerRestoreConsole`, `GetLogLevel`, `SetLogLevel`, `NativeConsoleLog`, `ErrorWithContext`, `LOG_LEVEL` and the option/hook types. Tests reach the internals through `test/support/logger.ts`.
+
+Besides the leveled methods (`log`, `info`, `warn`, `error`, `http`, `verbose`, `debug`, `silly`), the output-producing extended methods (`trace`, `table`, `dir`, `dirxml`, `assert`, `count`/`countReset`, `time`/`timeLog`/`timeEnd`, `group`/`groupCollapsed`/`groupEnd`) are patched by `src/logger-support/console-methods.ts`. They forward to the same pipeline with per-call options: `forceCallStack` (trace) and `metadata` (`@table`, `@count`, `@label`, `@durationMs`).
 
 ## Core Data Flow
 
@@ -45,18 +47,19 @@ User calls console.log("msg", { data }, err)
 LoggerAdaptToConsole() has patched console methods
   |
   v
-logUsingConsoleJson(args, level, customOptions)
+logUsingConsoleJson(args, level, customOptions, { forceCallStack?, metadata? })
+  |-- resolves the level first: { level } override, else `error` if an Error is present, else the method's level
   |-- adds @packageName
   |-- optionally adds _loggerDebug
-  |-- captures one shared Error().stack for @logCallStack and stack fallback
+  |-- captures one shared Error().stack for @logCallStack (skipped for non-error logs with noStackForNonError) and stack fallback
   |-- prefers V8 callsites for @filename when available
-  |-- appends customOptions as context fragments
-  |-- detects explicit { level: "warn" } override in args
-  |-- extractParametersFromArguments(args)
+  |-- appends extended-method metadata (@table, @count, ...)
+  |-- extractParametersFromArguments(args, envConfig, customOptions)
   |     |-- strings/numbers/booleans -> message
   |     |-- Error-like objects -> errorObject
   |     |-- other objects -> extraContext
   |     |-- merges multiple context objects
+  |     |-- nests user context under contextKey, then merges customOptions at the top level
   |     |-- wraps error + context into ErrorWithContext
   |
   v
@@ -113,7 +116,7 @@ At initialization time it:
 
 1. Normalizes direct options and env-style overrides.
 2. Compiles `redact` paths if configured.
-3. Calls `loadEnvConfig()` to cache environment-driven behavior.
+3. Calls the internal `loadEnvConfig()` to cache environment-driven behavior.
 4. Locates the package root and package name.
 5. Sets the logger level.
 6. Backs up the original console methods once.
@@ -174,7 +177,7 @@ For each log call, `logUsingConsoleJson()` may add:
 - `@filename`
 - `@logCallStack`
 - `_loggerDebug`
-- custom option properties
+- custom option properties (merged at the top level after `contextKey` nesting, so they are never nested)
 
 Implementation details:
 

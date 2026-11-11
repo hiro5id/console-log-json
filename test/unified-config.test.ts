@@ -6,7 +6,7 @@ import {
   LoggerRestoreConsole,
   overrideStdOut,
   restoreStdOut,
-} from '../src';
+} from './support/logger';
 
 const CONFIG_ENV_KEYS = [
   'CONSOLE_LOG_JSON_LOG_LEVEL',

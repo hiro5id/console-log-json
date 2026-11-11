@@ -11,7 +11,7 @@ import {
   overrideStdOut,
   restoreStdOut,
   SetLogLevel,
-} from '../src';
+} from './support/logger';
 import sinon from 'sinon';
 import { stubEnv } from './support/env';
 

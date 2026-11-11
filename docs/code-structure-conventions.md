@@ -15,7 +15,7 @@ The goal is not abstraction for its own sake. The goal is to keep behavior obvio
 ### Logger runtime boundary
 
 - `src/logger.ts` owns the main logger runtime and public logger API.
-- It is the orchestration layer: initialization, runtime state, console patching flow, package-name buffering, and exported helpers such as `LoggerAdaptToConsole()` and `logUsingConsoleJson()`.
+- It is the orchestration layer: initialization, runtime state, console patching flow, package-name buffering, the public functions such as `LoggerAdaptToConsole()`, and internal helpers such as `logUsingConsoleJson()`. Only what `src/index.ts` re-exports is public; keep internals out of it.
 - It should not re-absorb parsing, formatting, env normalization, or console state machinery that now live in focused helper modules.
 
 ### Logger internal support modules

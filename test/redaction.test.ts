@@ -1,6 +1,6 @@
 /* tslint:disable:object-literal-sort-keys */
 import { expect } from 'chai';
-import { LoggerAdaptToConsole, LoggerRestoreConsole, overrideStdOut, restoreStdOut } from '../src';
+import { LoggerAdaptToConsole, LoggerRestoreConsole, overrideStdOut, restoreStdOut } from './support/logger';
 
 const stripAnsi = (value: string): string => value.replace(/\x1b\[[0-9;]*m/g, '');
 

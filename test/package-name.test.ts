@@ -7,7 +7,7 @@ import sinon from 'sinon';
 import { spawnSync } from 'child_process';
 import { pathToFileURL } from 'url';
 
-import { LoggerAdaptToConsole, LoggerRestoreConsole } from '../src';
+import { LoggerAdaptToConsole, LoggerRestoreConsole } from './support/logger';
 import * as packageNameModule from '../src/package-name';
 
 describe('@packageName initialization', () => {

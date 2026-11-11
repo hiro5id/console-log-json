@@ -1,17 +1,27 @@
 import { ErrorWithContext, wrapErrorKeepingStack } from '../error-with-context';
 import { safeObjectAssign } from '../safe-object-assign';
-import { sortObject } from '../sort-object';
 import { parseLogLevelValue } from './config';
 import { LOG_LEVEL, LoggerEnvironmentConfig } from './types';
 
-const LOGGER_METADATA_KEYS = ['@filename', '@logCallStack', '@packageName'];
+// Fields the logger adds itself. They stay at the top level when contextKey nests user context,
+// and don't count as "something was passed".
+const LOGGER_METADATA_KEYS = ['@filename', '@logCallStack', '@packageName', '@table', '@count', '@label', '@durationMs'];
 
-export function findExplicitLogLevelAndUseIt(args: any[], defaultLevel: LOG_LEVEL): LOG_LEVEL {
-  let resolvedLevel = defaultLevel;
+/**
+ * Finds a `{ level: '...' }` override (the first argument object whose first key is `level` and whose
+ * value is a recognized level), replaces it in `args` with a copy without the `level` key, and returns
+ * the level. Returns null when there is no override; `args` is then unchanged.
+ */
+export function extractExplicitLogLevel(args: any[]): LOG_LEVEL | null {
+  let resolvedLevel: LOG_LEVEL | null = null;
   let foundLevel = false;
 
   args.forEach((entry: any, index: number) => {
     if (foundLevel || entry == null || typeof entry !== 'object' || Object.keys(entry).length === 0 || Object.keys(entry)[0].toLowerCase() !== 'level') {
+      return;
+    }
+    if (entry instanceof Error || isErrorLikeObject(entry)) {
+      // A `level` property on an error is data about the error, not an override.
       return;
     }
 
@@ -30,6 +40,10 @@ export function findExplicitLogLevelAndUseIt(args: any[], defaultLevel: LOG_LEVE
   });
 
   return resolvedLevel;
+}
+
+export function hasErrorArgument(args: any[]): boolean {
+  return args.some((entry) => entry instanceof Error || isErrorLikeObject(entry));
 }
 
 /**
@@ -58,9 +72,15 @@ function copyWithoutKey(source: any, keyToDrop: string): any {
   return copy;
 }
 
+/**
+ * @param customOptions merged at the top level after contextKey nesting, so they are never nested
+ * under the context key. On a key collision the call's own context keeps the name and the custom
+ * option is renamed with the `_` prefix.
+ */
 export function extractParametersFromArguments(
   args: any[],
   envConfig: LoggerEnvironmentConfig,
+  customOptions?: object | null,
 ): {
   message: string;
   errorObject: ErrorWithContext | undefined;
@@ -83,8 +103,16 @@ export function extractParametersFromArguments(
     }
   });
 
+  const hasCustomOptions = customOptions != null && Object.keys(customOptions).length > 0;
+  if (extraContext === undefined && hasCustomOptions) {
+    extraContext = {};
+  }
+
   if (extraContext !== undefined) {
-    const normalizedContext = normalizeExtraContext(extraContext, envConfig);
+    let normalizedContext = normalizeExtraContext(extraContext, envConfig);
+    if (hasCustomOptions) {
+      normalizedContext = safeObjectAssign(normalizedContext, ['message'], customOptions);
+    }
     extraContext = normalizedContext;
     const normalizedContextMessage = (normalizedContext as any).message;
 
@@ -133,12 +161,19 @@ export function extractParametersFromArguments(
   return { message, errorObject };
 }
 
-export function suppressMetadataIfConfigured(errorObject: ErrorWithContext | undefined, envConfig: LoggerEnvironmentConfig): ErrorWithContext | undefined {
+/**
+ * @param keepCallStack true for error logs (and console.trace): noStackForNonError then leaves @logCallStack in place.
+ */
+export function suppressMetadataIfConfigured(
+  errorObject: ErrorWithContext | undefined,
+  envConfig: LoggerEnvironmentConfig,
+  keepCallStack: boolean = false,
+): ErrorWithContext | undefined {
   if (errorObject === undefined) {
     return undefined;
   }
 
-  if (envConfig.noStackForNonError) {
+  if (envConfig.noStackForNonError && !keepCallStack) {
     delete (errorObject as any)['@logCallStack'];
   }
 
@@ -192,7 +227,9 @@ function mergeExtraContext(existingContext: object | undefined, nextContext: obj
 }
 
 function normalizeExtraContext(extraContext: object, envConfig: LoggerEnvironmentConfig): object {
-  let normalizedContext: any = sortObject(extraContext);
+  // Deep copy with keys sorted at every level (and circular references replaced). Merging two
+  // objects already did this; a single context object must come out the same way.
+  let normalizedContext: any = safeObjectAssign({}, [], extraContext);
 
   if (!envConfig.contextKey) {
     return normalizedContext;

@@ -31,7 +31,13 @@ const err: Error = new ErrorWithContext('boom', { a: 1 });
 void err;
 // @ts-expect-error unknown option must be rejected
 LoggerAdaptToConsole({ notARealOption: true });
+// onLog may take a third { signal } argument, and two-argument callbacks still type-check.
+LoggerAdaptToConsole({ onLog: (_json, _parsed, { signal }) => fetch('http://localhost', { signal }), colorizeBackground: 'light' });
+LoggerAdaptToConsole({ onLog: (json: string) => json.length });
 `;
+
+// The package's public runtime API. Internal helpers must not leak into it.
+const PUBLIC_EXPORTS = ['ErrorWithContext', 'GetLogLevel', 'LOG_LEVEL', 'LoggerAdaptToConsole', 'LoggerRestoreConsole', 'NativeConsoleLog', 'SetLogLevel'];
 
 // dist/esm/index.mjs has no default export, so a default import throws a
 // SyntaxError at runtime. TypeScript must reject it too (TS1192); it only
@@ -154,6 +160,15 @@ describe('published package type declarations', () => {
     ]) {
       expect(typeCheck('consumer-default.mts', options)).to.deep.equal([]);
     }
+  }, 60000);
+
+  it('exports exactly the public API from both the CommonJS and the ES module build', () => {
+    const listExports = (script: string) =>
+      JSON.parse(execFileSync(process.execPath, ['-e', script], { cwd: workDir, encoding: 'utf8' })) as string[];
+    const cjsExports = listExports(`console.log(JSON.stringify(Object.keys(require('console-log-json')).sort()))`);
+    const esmExports = listExports(`import('console-log-json').then((m) => console.log(JSON.stringify(Object.keys(m).sort())))`);
+    expect(cjsExports).to.deep.equal(PUBLIC_EXPORTS);
+    expect(esmExports).to.deep.equal(PUBLIC_EXPORTS);
   }, 60000);
 
   it('type-checks a CommonJS consumer with moduleResolution nodenext', () => {

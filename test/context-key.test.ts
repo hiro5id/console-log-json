@@ -5,7 +5,7 @@ import {
   LoggerRestoreConsole,
   overrideStdOut,
   restoreStdOut,
-} from '../src';
+} from './support/logger';
 import sinon from 'sinon';
 import { stubEnv } from './support/env';
 

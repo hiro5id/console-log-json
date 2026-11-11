@@ -12,7 +12,7 @@ const internalCallerFunctions = new Set<AnyFunction>();
 
 // Fallback patterns for when __filename is not available (browser/ESM).
 // These match function names and will work in unminified code.
-const FALLBACK_PATTERNS = [/logUsingConsoleJson/, /LoggerAdaptToConsole\.console\./, /getCallingFilename/, /getCallStack/];
+const FALLBACK_PATTERNS = [/logUsingConsoleJson/, /LoggerAdaptToConsole\.console\./, /getCallingFilename/, /getCallStack/, /consoleJson[A-Z]\w*/];
 
 registerInternalCallerFunction(getCallingFilename);
 registerInternalCallerFunction(getCallStack);

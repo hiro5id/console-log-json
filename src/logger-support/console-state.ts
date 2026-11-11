@@ -1,6 +1,9 @@
-type ConsoleMethodName = 'error' | 'warn' | 'info' | 'http' | 'verbose' | 'debug' | 'silly' | 'log';
+import { EXTENDED_CONSOLE_METHOD_NAMES, ExtendedConsoleMethodName } from './console-methods';
 
-const CONSOLE_METHOD_NAMES: ConsoleMethodName[] = ['error', 'warn', 'info', 'http', 'verbose', 'debug', 'silly', 'log'];
+type ConsoleMethodName = 'error' | 'warn' | 'info' | 'http' | 'verbose' | 'debug' | 'silly' | 'log' | ExtendedConsoleMethodName;
+
+// Every method LoggerAdaptToConsole() patches, so LoggerRestoreConsole() can put all of them back.
+const CONSOLE_METHOD_NAMES: ConsoleMethodName[] = ['error', 'warn', 'info', 'http', 'verbose', 'debug', 'silly', 'log', ...EXTENDED_CONSOLE_METHOD_NAMES];
 const capturedConsoleMethods: Partial<Record<ConsoleMethodName, any>> = {};
 
 let internalWriteDepth = 0;

@@ -15,14 +15,16 @@ let stackMessageRegexCache: { separator: string; regex: RegExp } | null = null;
 /**
  * @param sourceIsError false when `object` was built from plain context objects only. A `stack`
  * key in user context (e.g. { stack: 'prod-eu' }) is then ordinary data, not an error stack trace.
+ * @param forceErrorLevel set `level` to `error` when an error stack is attached. The console pipeline
+ * passes false because it has already resolved the level, and a `{ level }` override must win.
  */
-export function buildFormattedLogObject(object: any, envConfig: LoggerEnvironmentConfig, sourceIsError: boolean = true): any {
+export function buildFormattedLogObject(object: any, envConfig: LoggerEnvironmentConfig, sourceIsError: boolean = true, forceErrorLevel: boolean = true): any {
   let formattedObject: any = object;
 
   formattedObject = preserveMessageObject(formattedObject);
   formattedObject = mergeExtraContext(formattedObject);
   if (sourceIsError) {
-    formattedObject = attachFormattedStack(object, formattedObject);
+    formattedObject = attachFormattedStack(object, formattedObject, forceErrorLevel);
   }
   formattedObject = promoteMessageField(formattedObject);
   formattedObject = promoteLevelField(formattedObject);
@@ -39,10 +41,11 @@ export function formatErrorObject(object: any, envConfig: LoggerEnvironmentConfi
 }
 
 export function formatLogObjectForOutput(logObject: any, envConfig: LoggerEnvironmentConfig, jsonString?: string): string {
+  // No trailing newline: writeOutput() ends each entry with exactly one.
   if (envConfig.colorize) {
-    return appendTrailingLogCharacter(colorJson(logObject), envConfig);
+    return colorJson(logObject);
   }
-  return appendTrailingLogCharacter(jsonString != null ? jsonString : jsonStringifySafe(logObject), envConfig);
+  return jsonString != null ? jsonString : jsonStringifySafe(logObject);
 }
 
 function preserveMessageObject(formattedObject: any): any {
@@ -73,7 +76,7 @@ function mergeExtraContext(formattedObject: any): any {
   return safeObjectAssign(formattedObject, ['message'], extraContext);
 }
 
-function attachFormattedStack(sourceObject: any, formattedObject: any): any {
+function attachFormattedStack(sourceObject: any, formattedObject: any, forceErrorLevel: boolean): any {
   if (!sourceObject.stack) {
     return formattedObject;
   }
@@ -84,7 +87,9 @@ function attachFormattedStack(sourceObject: any, formattedObject: any): any {
   delete formattedObject.errCallStack;
 
   formattedObject = safeObjectAssign(formattedObject, ['message'], { errCallStack: formattedStack });
-  formattedObject.level = 'error';
+  if (forceErrorLevel) {
+    formattedObject.level = 'error';
+  }
 
   if (formattedObject.message) {
     const stackRegexMatch = formattedStack.match(getStackMessageRegex());
@@ -155,23 +160,17 @@ function autoParseMessageJson(formattedObject: any, envConfig: LoggerEnvironment
 }
 
 function ensureMessagePlaceholder(formattedObject: any): any {
-  if (formattedObject.message != null && typeof formattedObject.message === 'string' && formattedObject.message.length === 0) {
-    formattedObject.message = formattedObject.level === 'error' ? EMPTY_ERROR_MESSAGE : EMPTY_MESSAGE;
+  const message = formattedObject.message;
+  const isMissing = message == null || (typeof message === 'string' && message.length === 0);
+  if (!isMissing) {
+    return formattedObject;
   }
 
-  if (formattedObject.message == null && formattedObject['@messageObject'] != null) {
-    formattedObject.message = formattedObject.level === 'error' ? EMPTY_ERROR_MESSAGE : EMPTY_MESSAGE;
-  }
-
-  return formattedObject;
-}
-
-function appendTrailingLogCharacter(text: string, envConfig: LoggerEnvironmentConfig): string {
-  let endOfLogCharacter = '\n';
-  if (envConfig.noNewLineCharacters || envConfig.noNewLineCharactersExceptStack) {
-    endOfLogCharacter = '';
-  }
-  return `${text}${endOfLogCharacter}`;
+  // Every entry has a message: an empty or missing one (e.g. `new Error('')`) gets a placeholder,
+  // placed right after `level` like a real message.
+  const placeholder = formattedObject.level === 'error' ? EMPTY_ERROR_MESSAGE : EMPTY_MESSAGE;
+  const { level, message: _dropped, ...rest } = formattedObject;
+  return level !== undefined ? { level, message: placeholder, ...rest } : { message: placeholder, ...rest };
 }
 
 function tryParseMessageJson(message: string, disableAutoParse: boolean): any {

@@ -15,7 +15,7 @@ import {
   normalizeLogLevelValue,
   resolveLoggerAdaptToConsoleOptions,
 } from './logger-support/config';
-import { extractParametersFromArguments, findExplicitLogLevelAndUseIt, isErrorLikeObject, suppressMetadataIfConfigured } from './logger-support/argument-parsing';
+import { extractExplicitLogLevel, extractParametersFromArguments, hasErrorArgument, isErrorLikeObject, suppressMetadataIfConfigured } from './logger-support/argument-parsing';
 import {
   nativeConsoleLog,
   captureConsoleMethodBackups,
@@ -25,10 +25,19 @@ import {
   restoreConsoleMethodBackups,
   writeOutput,
 } from './logger-support/console-state';
+import { createExtendedConsoleMethods, EXTENDED_CONSOLE_METHOD_NAMES } from './logger-support/console-methods';
 import { buildFormattedLogObject, formatErrorObject, formatLogObjectForOutput } from './logger-support/formatting';
-import { LOG_LEVEL, LOG_LEVEL_PRIORITY, LoggerAdaptToConsoleOptions, LoggerEnvironmentConfig, ResolvedLoggerAdaptToConsoleOptions } from './logger-support/types';
+import {
+  LOG_LEVEL,
+  LOG_LEVEL_PRIORITY,
+  LoggerAdaptToConsoleOptions,
+  LoggerEnvironmentConfig,
+  OnLogCallback,
+  OnLogContext,
+  ResolvedLoggerAdaptToConsoleOptions,
+} from './logger-support/types';
 
-export { LOG_LEVEL, LoggerAdaptToConsoleOptions } from './logger-support/types';
+export { LOG_LEVEL, LoggerAdaptToConsoleOptions, OnLogCallback, OnLogContext } from './logger-support/types';
 
 const CONSOLE_METHOD_LEVELS: { name: 'error' | 'warn' | 'info' | 'http' | 'verbose' | 'debug' | 'silly' | 'log'; level: LOG_LEVEL }[] = [
   { name: 'error', level: LOG_LEVEL.error },
@@ -44,7 +53,7 @@ const CONSOLE_METHOD_LEVELS: { name: 'error' | 'warn' | 'info' | 'http' | 'verbo
 let envConfig: LoggerEnvironmentConfig = createDefaultLoggerEnvironmentConfig();
 let envOptionOverrides: Record<string, any> = {};
 
-let onLogCallback: ((jsonString: string, parsedObject: any) => void) | null = null;
+let onLogCallback: OnLogCallback | null = null;
 let onLogTimeoutMs = 5000;
 let transformOutputCallback: ((parsedObject: any) => any) | null = null;
 let redactor: Redactor | null = null;
@@ -55,7 +64,15 @@ let customOptionKeys: string[] = [];
 
 let packageName = '';
 type PackageNameState = 'uninitialized' | 'pending' | 'ready' | 'unavailable';
-type PendingLogEntry = { args: any[]; level: LOG_LEVEL; customOptions?: object; fileInfo?: any | null; skipHooks: boolean };
+/** Extra per-call behavior for the console methods that need it (trace, table, count, time...). */
+export interface ConsoleJsonLogOptions {
+  /** Always include @logCallStack, even with noStackForNonError (console.trace). */
+  forceCallStack?: boolean;
+  /** Logger-owned fields such as @table or @count. They stay top-level under contextKey. */
+  metadata?: { [key: string]: any };
+}
+type EmitOptions = ConsoleJsonLogOptions & { customOptions?: object; fileInfo?: any | null; skipHooks: boolean };
+type PendingLogEntry = { args: any[]; level: LOG_LEVEL; options: EmitOptions };
 let packageNameState: PackageNameState = 'uninitialized';
 let packageNameInitVersion = 0;
 let pendingLogs: PendingLogEntry[] = [];
@@ -125,7 +142,8 @@ const Logger = {
 
     const info = createLogInfo(level, message, errorObject);
     const sourceIsError = errorObject instanceof Error || isErrorLikeObject(errorObject);
-    let outputObject = buildFormattedLogObject(info, envConfig, sourceIsError);
+    // `level` is already final (see resolveLogLevel), so a { level } override beats an Error.
+    let outputObject = buildFormattedLogObject(info, envConfig, sourceIsError, false);
 
     if (!skipHooks) {
       outputObject = applyTransformOutput(outputObject);
@@ -171,25 +189,48 @@ export function LoggerAdaptToConsole(options?: LoggerAdaptToConsoleOptions) {
   patchConsoleMethods(resolvedOptions.customOptions || undefined);
 }
 
-export function logUsingConsoleJson(args: any[], level: LOG_LEVEL, customOptions?: object) {
+export function logUsingConsoleJson(callerArgs: any[], methodLevel: LOG_LEVEL, customOptions?: object, consoleOptions: ConsoleJsonLogOptions = {}) {
   if (isHandlingInternalWriteFeedback()) {
     return;
   }
 
-  const skipHooks = isInsideUserHook();
+  // Work on a copy: the level override is replaced and metadata appended, and callers pass their own array.
+  const args = callerArgs.slice();
+  const level = resolveLogLevel(args, methodLevel);
+  const options: EmitOptions = { ...consoleOptions, customOptions, skipHooks: isInsideUserHook() };
 
   if (shouldBufferUntilPackageNameResolves()) {
-    pendingLogs.push({
-      args: args.slice(),
-      level,
-      customOptions,
-      fileInfo: captureFileInfo(),
-      skipHooks,
-    });
+    // Capture the stack now: by the time the buffered log is written it would point at the flush.
+    options.fileInfo = captureFileInfo(shouldIncludeCallStack(level, options));
+    pendingLogs.push({ args, level, options });
     return;
   }
 
-  emitConsoleJsonLog(args, level, customOptions, undefined, skipHooks);
+  emitConsoleJsonLog(args, level, options);
+}
+
+/**
+ * The level the log is written at: a `{ level }` override if there is one, otherwise `error` when an
+ * Error is among the arguments, otherwise the console method's level. Removes the override from `args`.
+ */
+function resolveLogLevel(args: any[], methodLevel: LOG_LEVEL): LOG_LEVEL {
+  try {
+    const explicitLevel = extractExplicitLogLevel(args);
+    if (explicitLevel != null) {
+      return explicitLevel;
+    }
+    return hasErrorArgument(args) ? LOG_LEVEL.error : methodLevel;
+  } catch (_) {
+    return methodLevel;
+  }
+}
+
+function shouldKeepCallStack(level: LOG_LEVEL, options: EmitOptions): boolean {
+  return level === LOG_LEVEL.error || options.forceCallStack === true;
+}
+
+function shouldIncludeCallStack(level: LOG_LEVEL, options: EmitOptions): boolean {
+  return !envConfig.noStackForNonError || shouldKeepCallStack(level, options);
 }
 
 registerInternalCallerFunction(logUsingConsoleJson);
@@ -200,25 +241,6 @@ export function LoggerRestoreConsole() {
 
 export function NativeConsoleLog(...args: any[]) {
   nativeConsoleLog(...args);
-}
-
-export function overrideStdOut() {
-  const output: string[] = [];
-  if (typeof process !== 'undefined' && process.stdout) {
-    const originalWrite = process.stdout.write;
-    (process.stdout.write as any) = (...text: string[]): void => {
-      output.push(text[0]);
-    };
-    return { originalWrite, outputText: output };
-  }
-
-  return { originalWrite: null, outputText: output };
-}
-
-export function restoreStdOut(originalWrite: any) {
-  if (originalWrite != null && typeof process !== 'undefined' && process.stdout) {
-    (process.stdout.write as any) = originalWrite;
-  }
 }
 
 function getConfiguredEnvValue(envVarName: string): any {
@@ -281,7 +303,9 @@ function applyTransformOutput(outputObject: any): any {
 
   try {
     const transform = transformOutputCallback;
-    const transformed = runUserHook(() => transform(outputObject));
+    // A copy, so a transform that changes the object and then throws can't alter the fallback.
+    const workingCopy = cloneForMutation(outputObject);
+    const transformed = runUserHook(() => transform(workingCopy));
     if (transformed != null && typeof transformed === 'object') {
       return transformed;
     }
@@ -317,10 +341,19 @@ function scheduleOnLogCallback(outputObject: any, callbackJsonString: string | n
   try {
     const jsonString = callbackJsonString == null ? jsonStringifySafe(outputObject) : callbackJsonString;
     const parsedCopy = JSON.parse(jsonString);
-    // Nothing waits on the callback, so a hung one is already abandoned. The
-    // timer must not keep the process alive past the end of the program.
+    // JavaScript can't stop a running callback, so the timeout aborts a signal the callback can
+    // pass on (e.g. fetch(url, { signal })). AbortController is missing on Node < 15.
+    const abortController = createAbortController();
+    const hookContextArg: OnLogContext = abortController != null ? { signal: abortController.signal } : {};
+    // The timer must not keep the process alive past the end of the program.
     const timeoutId: any = setTimeout(() => {
-      /* interceptor timed out — silently ignore */
+      if (abortController != null) {
+        try {
+          abortController.abort();
+        } catch (_) {
+          /* a listener threw — ignore */
+        }
+      }
     }, timeout);
     if (timeoutId != null && typeof timeoutId.unref === 'function') {
       timeoutId.unref();
@@ -328,7 +361,7 @@ function scheduleOnLogCallback(outputObject: any, callbackJsonString: string | n
 
     const invoke = () => {
       Promise.resolve()
-        .then(() => runUserHook(() => callback(jsonString, parsedCopy)))
+        .then(() => runUserHook(() => callback(jsonString, parsedCopy, hookContextArg)))
         .then(() => clearTimeout(timeoutId))
         .catch(() => clearTimeout(timeoutId));
     };
@@ -343,6 +376,14 @@ function scheduleOnLogCallback(outputObject: any, callbackJsonString: string | n
     }
   } catch (_) {
     /* interceptor error — silently ignore */
+  }
+}
+
+function createAbortController(): AbortController | null {
+  try {
+    return typeof AbortController === 'function' ? new AbortController() : null;
+  } catch (_) {
+    return null;
   }
 }
 
@@ -389,6 +430,16 @@ function patchConsoleMethods(customOptions?: { [key: string]: any }): void {
     };
 
     patchConsoleMethod(consoleMethod.name, patchedMethod);
+    registerInternalCallerFunction(patchedMethod as any);
+  }
+
+  // Named with the consoleJson prefix so stack filtering skips it in bundles.
+  const consoleJsonForward = (args: any[], level: LOG_LEVEL, consoleOptions?: ConsoleJsonLogOptions) => logUsingConsoleJson(args, level, customOptions, consoleOptions);
+  registerInternalCallerFunction(consoleJsonForward);
+  const extendedMethods = createExtendedConsoleMethods(consoleJsonForward);
+  for (const methodName of EXTENDED_CONSOLE_METHOD_NAMES) {
+    const patchedMethod = extendedMethods[methodName];
+    patchConsoleMethod(methodName, patchedMethod);
     registerInternalCallerFunction(patchedMethod as any);
   }
 }
@@ -451,7 +502,7 @@ function flushPendingLogs(): void {
   pendingLogs = [];
 
   for (const pendingLog of logsToFlush) {
-    emitConsoleJsonLog(pendingLog.args, pendingLog.level, pendingLog.customOptions, pendingLog.fileInfo, pendingLog.skipHooks);
+    emitConsoleJsonLog(pendingLog.args, pendingLog.level, pendingLog.options);
   }
 }
 
@@ -459,23 +510,22 @@ function shouldBufferUntilPackageNameResolves(): boolean {
   return !envConfig.noPackageName && packageNameState === 'pending';
 }
 
-function emitConsoleJsonLog(callerArgs: any[], level: LOG_LEVEL, customOptions?: object, fileInfo?: any | null, skipHooks: boolean = false) {
-  // Work on a copy: metadata is appended below, and logUsingConsoleJson() callers pass their own array.
-  const args = callerArgs.slice();
+/** @param args the caller's arguments, already copied by logUsingConsoleJson(); appended to here. */
+function emitConsoleJsonLog(args: any[], level: LOG_LEVEL, options: EmitOptions) {
   appendPackageNameMetadata(args);
   appendDebugMetadata(args);
-  appendFileMetadata(args, fileInfo);
-  appendRuntimeCustomOptions(args, customOptions);
+  appendFileMetadata(args, options.fileInfo !== undefined ? options.fileInfo : captureFileInfo(shouldIncludeCallStack(level, options)));
+  if (options.metadata != null) {
+    args.push(options.metadata);
+  }
 
   try {
-    const effectiveLevel = findExplicitLogLevelAndUseIt(args, level);
-
     if ((console as any).exception != null) {
       (console as any).exception();
     }
 
-    const { message, errorObject } = extractParametersFromArguments(args, envConfig);
-    Logger.log(effectiveLevel, message, suppressMetadataIfConfigured(errorObject, envConfig), skipHooks);
+    const { message, errorObject } = extractParametersFromArguments(args, envConfig, getRuntimeCustomOptions(options.customOptions));
+    Logger.log(level, message, suppressMetadataIfConfigured(errorObject, envConfig, shouldKeepCallStack(level, options)), options.skipHooks);
   } catch (err: any) {
     logLastResortProcessingError('console.log', err);
   }
@@ -526,50 +576,50 @@ function debugStringify(value: any): string {
   }
 }
 
-function appendFileMetadata(args: any[], fileInfo?: any | null): void {
-  const effectiveFileInfo = fileInfo !== undefined ? fileInfo : captureFileInfo();
-  if (effectiveFileInfo != null) {
-    args.push(effectiveFileInfo);
+function appendFileMetadata(args: any[], fileInfo: any | null): void {
+  if (fileInfo != null) {
+    args.push(fileInfo);
   }
 }
 
-function appendRuntimeCustomOptions(args: any[], customOptions?: object): void {
+/** The customOptions for this log, copied so a getter or later mutation can't break the merge. */
+function getRuntimeCustomOptions(customOptions?: object): { [key: string]: any } | null {
   try {
     const runtimeCustomOptions = customOptionsReference || (customOptions ? (customOptions as { [key: string]: any }) : null);
-    const runtimeCustomOptionKeys = customOptionsReference ? customOptionKeys : runtimeCustomOptions ? Object.keys(runtimeCustomOptions) : [];
-
     if (!runtimeCustomOptions) {
-      return;
+      return null;
     }
 
-    for (const key of runtimeCustomOptionKeys) {
+    const keys = customOptionsReference ? customOptionKeys : Object.keys(runtimeCustomOptions);
+    const copy: { [key: string]: any } = {};
+    for (const key of keys) {
       if (Object.prototype.hasOwnProperty.call(runtimeCustomOptions, key)) {
-        const customOptionFragment: { [key: string]: any } = {};
-        customOptionFragment[key] = runtimeCustomOptions[key];
-        args.push(customOptionFragment);
+        copy[key] = runtimeCustomOptions[key];
       }
     }
+    return copy;
   } catch (err: any) {
-    args.push({ _customOptionsError: `err ${err.message}` });
+    return { _customOptionsError: `err ${err.message}` };
   }
 }
 
-function captureFileInfo(): any | null {
-  if (envConfig.noFileName && envConfig.noStackForNonError) {
+/** @param includeCallStack false for non-error logs when noStackForNonError is set. */
+function captureFileInfo(includeCallStack: boolean): any | null {
+  if (envConfig.noFileName && !includeCallStack) {
     return null;
   }
 
   try {
     const sharedStack = new Error().stack || '';
     const fileName = !envConfig.noFileName ? getCallingFilename(sharedStack) : null;
-    const callStack = !envConfig.noStackForNonError ? getCallStackFromString(sharedStack) : undefined;
+    const callStack = includeCallStack ? getCallStackFromString(sharedStack) : undefined;
     const fileInfo: any = {};
 
     if (!envConfig.noFileName) {
       fileInfo['@filename'] = fileName || '<unknown>';
     }
 
-    if (!envConfig.noStackForNonError) {
+    if (includeCallStack) {
       fileInfo['@logCallStack'] = callStack;
     }
 

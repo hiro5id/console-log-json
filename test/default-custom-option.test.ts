@@ -11,7 +11,7 @@ import {
   overrideStdOut,
   restoreStdOut,
   //   SetLogLevel,
-} from '../src';
+} from './support/logger';
 import sinon from 'sinon';
 
 describe('logger with custom options', () => {

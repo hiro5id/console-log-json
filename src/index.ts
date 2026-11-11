@@ -2,7 +2,6 @@
 
 export { ErrorWithContext } from './error-with-context';
 export {
-  FormatErrorObject,
   GetLogLevel,
   SetLogLevel,
   LOG_LEVEL,
@@ -10,8 +9,6 @@ export {
   LoggerAdaptToConsole,
   LoggerRestoreConsole,
   NativeConsoleLog,
-  loadEnvConfig,
-  logUsingConsoleJson,
-  overrideStdOut,
-  restoreStdOut,
+  OnLogCallback,
+  OnLogContext,
 } from './logger';

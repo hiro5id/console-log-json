@@ -1,6 +1,6 @@
 /* tslint:disable:only-arrow-functions */
 import { expect } from 'chai';
-import { LoggerAdaptToConsole, LoggerRestoreConsole, overrideStdOut, restoreStdOut } from '../src';
+import { LoggerAdaptToConsole, LoggerRestoreConsole, overrideStdOut, restoreStdOut } from './support/logger';
 
 describe('when a request-like error occurs', function () {
   it('catches error properly and logs it as JSON', async function () {
