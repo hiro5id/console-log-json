@@ -23,12 +23,15 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest]
-        node: [20.x, 22.x, 24.x]
+        # Full Jest suite. Jest 30 / TypeScript 6 need a modern Node, so older runtimes are covered by the `compat` job.
+        node: [20.x, 22.x, 24.x, 26.x]
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: ${{ matrix.node }}
           cache: npm
@@ -42,3 +45,61 @@ jobs:
 
       - name: Test
         run: npm test
+
+  package:
+    name: Pack tarball for compat tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24.x
+          cache: npm
+
+      - run: npm ci
+      - run: npm run build
+
+      - name: Pack
+        run: npm pack --ignore-scripts && mv console-log-json-*.tgz console-log-json.tgz
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: package-tarball
+          path: console-log-json.tgz
+          retention-days: 3
+
+  compat:
+    # package.json declares "engines": { "node": ">=10" }. Run the packed package on the oldest
+    # supported runtimes with a dependency-free smoke test (scripts/compat-smoke.js).
+    name: Compat Node ${{ matrix.node }} on ${{ matrix.os }}
+    needs: package
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        # macOS runners are arm64, and Node < 16 has no arm64 macOS builds, so old versions run on Linux and Windows.
+        os: [ubuntu-latest, windows-latest]
+        node: [10.x, 12.x, 14.x, 16.x, 18.x]
+
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+          sparse-checkout: scripts
+
+      - uses: actions/download-artifact@v8
+        with:
+          name: package-tarball
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: ${{ matrix.node }}
+          package-manager-cache: false
+
+      - name: Smoke test
+        run: node scripts/compat-smoke.js console-log-json.tgz

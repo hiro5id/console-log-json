@@ -65,7 +65,10 @@ describe('published package type declarations', () => {
     // Run through the shell so npm's Windows .cmd shim works (execFile can't spawn
     // .cmd files on Node >= 18.20 / 20.12). --ignore-scripts keeps any future
     // prepack/prepare/postpack script from running a build or writing to stdout.
-    const packOutput = execSync(`npm pack --json --ignore-scripts --pack-destination "${workDir}"`, {
+    // --dry-run=false: when this test runs inside `npm publish --dry-run` (prepublishOnly),
+    // npm exports npm_config_dry_run=true to child processes, which would make this pack
+    // skip writing the tarball.
+    const packOutput = execSync(`npm pack --json --ignore-scripts --dry-run=false --pack-destination "${workDir}"`, {
       cwd: PROJECT_ROOT,
       encoding: 'utf8',
       stdio: ['ignore', 'pipe', 'ignore'],
