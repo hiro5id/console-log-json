@@ -4,21 +4,13 @@ name: Publish
 # No npm token is stored anywhere; npm trusts this workflow file + the `npm-publish` environment.
 # See https://docs.npmjs.com/trusted-publishers
 #
-# Before running: add a `## <new version>` section to CHANGELOG.md and merge it to master.
+# The version comes from CHANGELOG.md: the first `## x.y.z` heading is the version that gets released,
+# and the text under it becomes the GitHub release notes.
+# Before running: add a `## <new version>` section at the top of CHANGELOG.md and merge it to master.
 
 on:
   workflow_dispatch:
     inputs:
-      bump:
-        description: Version bump
-        type: choice
-        required: true
-        default: patch
-        options: [patch, minor, major, prerelease, exact]
-      version:
-        description: Exact version (only used when bump = exact), e.g. 7.0.0-rc.1
-        type: string
-        required: false
       dist_tag:
         description: npm dist-tag
         type: string
@@ -70,41 +62,32 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Bump version
+      - name: Read version from CHANGELOG
         id: version
-        env:
-          BUMP: ${{ inputs.bump }}
-          EXACT_VERSION: ${{ inputs.version }}
         run: |
-          if [ "$BUMP" = "exact" ]; then
-            if ! echo "$EXACT_VERSION" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$'; then
-              echo "::error::bump=exact requires a valid semver 'version' input (got '$EXACT_VERSION')"
-              exit 1
-            fi
-            TARGET="$EXACT_VERSION"
-          elif [ "$BUMP" = "prerelease" ]; then
-            TARGET="prerelease --preid=rc"
-          else
-            TARGET="$BUMP"
+          VERSION=$(sed -nE 's/^## ([0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?)[[:space:]]*$/\1/p' CHANGELOG.md | head -n 1)
+          if [ -z "$VERSION" ]; then
+            echo "::error::No '## x.y.z' heading found in CHANGELOG.md"
+            exit 1
           fi
-          # shellcheck disable=SC2086
-          npm version $TARGET --no-git-tag-version --ignore-scripts
-          VERSION=$(node -p "require('./package.json').version")
+          CURRENT=$(node -p "require('./package.json').version")
+          # Use the semver module bundled with npm to make sure the CHANGELOG version is newer.
+          SEMVER="$(npm root -g)/npm/node_modules/semver"
+          if ! node -e "process.exit(require('$SEMVER').gt('$VERSION', '$CURRENT') ? 0 : 1)"; then
+            echo "::error::CHANGELOG.md top version $VERSION is not newer than package.json version $CURRENT. Add a new '## x.y.z' section at the top of CHANGELOG.md."
+            exit 1
+          fi
           if git rev-parse -q --verify "refs/tags/v$VERSION" >/dev/null; then
             echo "::error::Tag v$VERSION already exists"
             exit 1
           fi
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
-          echo "Releasing v$VERSION"
+          echo "Releasing v$VERSION (was $CURRENT)"
 
-      - name: Check CHANGELOG has an entry
+      - name: Set package version
         env:
           VERSION: ${{ steps.version.outputs.version }}
-        run: |
-          if ! grep -Fxq "## $VERSION" CHANGELOG.md; then
-            echo "::error::CHANGELOG.md has no '## $VERSION' heading. Add release notes first."
-            exit 1
-          fi
+        run: npm version "$VERSION" --no-git-tag-version --ignore-scripts
 
       - name: Commit and tag
         env:

@@ -361,10 +361,10 @@ Tests run directly from TypeScript through Jest:
 
 Releases are published from GitHub Actions with npm Trusted Publishing (OIDC). No npm token is stored anywhere.
 
-1. Add a `## x.y.z` section to `CHANGELOG.md` and merge it to `master`.
-2. Go to Actions → **Publish** → Run workflow. Pick a `bump` (`patch`/`minor`/`major`/`prerelease`, or `exact` with a `version`), a `dist_tag` (default `latest`), and optionally `dry_run`.
+1. Add a `## x.y.z` section at the top of `CHANGELOG.md` and merge it to `master`. That heading sets the release version.
+2. Go to Actions → **Publish** → Run workflow. Optionally set a `dist_tag` (default `latest`) and `dry_run`.
 
-The workflow (`.github/workflows/publish.yml`) bumps the version, fails if the CHANGELOG has no heading for the new version, commits and tags, then runs `npm publish`. `prepublishOnly` builds and tests first, and provenance is attached automatically. After the publish succeeds, it pushes the commit and tag to `master` and creates a GitHub Release from the CHANGELOG section.
+The workflow (`.github/workflows/publish.yml`) reads the version from the first `## x.y.z` heading in `CHANGELOG.md`. It fails if that version isn't newer than `package.json` or is already tagged. Then it sets the version, commits and tags, and runs `npm publish`. `prepublishOnly` builds and tests first, and provenance is attached automatically. After the publish succeeds, it pushes the commit and tag to `master` and creates a GitHub Release from the CHANGELOG section.
 
 This depends on the npm package's Trusted Publisher settings (repo `hiro5id/console-log-json`, workflow `publish.yml`, environment `npm-publish`) and on a GitHub environment `npm-publish` that only `master` can deploy to. `npm run interactive-publish` (np) is still available as a local fallback.
 
