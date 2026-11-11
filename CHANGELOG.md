@@ -1,6 +1,6 @@
 # Changelog
 
-## 6.5.1
+## 6.5.1 - deployed
 
 Two stack-trace formatting fixes change what gets logged. Check the upgrade notes if you search, alert on, or snapshot-test `errCallStack` or `@logCallStack`.
 
