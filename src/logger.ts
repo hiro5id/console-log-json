@@ -6,14 +6,16 @@ import { getCallingFilename, registerInternalCallerFunction } from './get-callin
 import { jsonStringifySafe } from './json-stringify-safe/stringify-safe';
 import { getPackageNameAsync, getPackageNameSync } from './package-name';
 import { compileRedactor, Redactor } from './redact';
+import { conflictResolutionPrefix } from './safe-object-assign';
 import {
   buildEnvOptionOverrides,
   createConfiguredEnvValueGetter,
   createDefaultLoggerEnvironmentConfig,
   loadLoggerEnvironmentConfig,
+  normalizeLogLevelValue,
   resolveLoggerAdaptToConsoleOptions,
 } from './logger-support/config';
-import { extractParametersFromArguments, findExplicitLogLevelAndUseIt, suppressMetadataIfConfigured } from './logger-support/argument-parsing';
+import { extractParametersFromArguments, findExplicitLogLevelAndUseIt, isErrorLikeObject, suppressMetadataIfConfigured } from './logger-support/argument-parsing';
 import {
   nativeConsoleLog,
   captureConsoleMethodBackups,
@@ -53,10 +55,52 @@ let customOptionKeys: string[] = [];
 
 let packageName = '';
 type PackageNameState = 'uninitialized' | 'pending' | 'ready' | 'unavailable';
-type PendingLogEntry = { args: any[]; level: LOG_LEVEL; customOptions?: object; fileInfo?: any | null };
+type PendingLogEntry = { args: any[]; level: LOG_LEVEL; customOptions?: object; fileInfo?: any | null; skipHooks: boolean };
 let packageNameState: PackageNameState = 'uninitialized';
 let packageNameInitVersion = 0;
 let pendingLogs: PendingLogEntry[] = [];
+
+// Logs emitted from inside a user hook (transformOutput / onLog) are still written, but
+// skip the hooks themselves; otherwise a hook that calls console.log would recurse forever
+// (transformOutput) or loop endlessly (onLog).
+//
+// userHookDepth covers the synchronous part of a hook everywhere. Where AsyncLocalStorage
+// exists (Node.js), hookContext also covers async continuations, e.g. a console.log after
+// an `await` inside an async onLog.
+let userHookDepth = 0;
+const hookContext = createHookContext();
+
+interface HookContext {
+  run<T>(store: boolean, callback: () => T): T;
+  getStore(): boolean | undefined;
+}
+
+function createHookContext(): HookContext | null {
+  try {
+    if (typeof require !== 'undefined') {
+      const asyncHooks = require('async_hooks'); // tslint:disable-line:no-var-requires
+      if (asyncHooks != null && typeof asyncHooks.AsyncLocalStorage === 'function') {
+        return new asyncHooks.AsyncLocalStorage() as HookContext;
+      }
+    }
+  } catch (_) {
+    /* async_hooks not available (browser or minimal runtime) */
+  }
+  return null;
+}
+
+function runUserHook<T>(hook: () => T): T {
+  userHookDepth += 1;
+  try {
+    return hookContext != null ? hookContext.run(true, hook) : hook();
+  } finally {
+    userHookDepth -= 1;
+  }
+}
+
+function isInsideUserHook(): boolean {
+  return userHookDepth > 0 || (hookContext != null && hookContext.getStore() === true);
+}
 
 export function FormatErrorObject(object: any) {
   return formatErrorObject(object, envConfig);
@@ -74,22 +118,28 @@ const Logger = {
   set level(level: string) {
     this._level = level;
   },
-  log(level: string, message: string, errorObject?: any): void {
+  log(level: string, message: string, errorObject?: any, skipHooks: boolean = false): void {
     if (!shouldWriteLog(level, this._level)) {
       return;
     }
 
     const info = createLogInfo(level, message, errorObject);
-    let outputObject = buildFormattedLogObject(info, envConfig);
+    const sourceIsError = errorObject instanceof Error || isErrorLikeObject(errorObject);
+    let outputObject = buildFormattedLogObject(info, envConfig, sourceIsError);
 
-    outputObject = applyTransformOutput(outputObject);
+    if (!skipHooks) {
+      outputObject = applyTransformOutput(outputObject);
+    }
     outputObject = applyStructuredRedaction(outputObject);
 
-    const callbackJsonString = onLogCallback || !envConfig.colorize ? jsonStringifySafe(outputObject) : null;
+    const runOnLog = onLogCallback != null && !skipHooks;
+    const callbackJsonString = runOnLog || !envConfig.colorize ? jsonStringifySafe(outputObject) : null;
     const formattedOutput = formatLogObjectForOutput(outputObject, envConfig, callbackJsonString == null ? undefined : callbackJsonString);
 
     writeOutput(formattedOutput);
-    scheduleOnLogCallback(outputObject, callbackJsonString);
+    if (runOnLog) {
+      scheduleOnLogCallback(outputObject, callbackJsonString);
+    }
   },
 };
 
@@ -98,7 +148,9 @@ export function GetLogLevel() {
 }
 
 export function SetLogLevel(level: string) {
-  Logger.level = level;
+  // Accept the same spellings as the logLevel option ('WARN', ' Info ', 'warning').
+  // An unrecognized value leaves the current level unchanged.
+  Logger.level = normalizeLogLevelValue(level, Logger.level as LOG_LEVEL);
 }
 
 /**
@@ -124,17 +176,20 @@ export function logUsingConsoleJson(args: any[], level: LOG_LEVEL, customOptions
     return;
   }
 
+  const skipHooks = isInsideUserHook();
+
   if (shouldBufferUntilPackageNameResolves()) {
     pendingLogs.push({
       args: args.slice(),
       level,
       customOptions,
       fileInfo: captureFileInfo(),
+      skipHooks,
     });
     return;
   }
 
-  emitConsoleJsonLog(args, level, customOptions);
+  emitConsoleJsonLog(args, level, customOptions, undefined, skipHooks);
 }
 
 registerInternalCallerFunction(logUsingConsoleJson);
@@ -184,6 +239,16 @@ function createLogInfo(level: string, message: string, errorObject?: any): any {
   }
 
   Object.assign(info, errorObject);
+  if (Object.prototype.hasOwnProperty.call(errorObject, 'level') && errorObject.level !== level) {
+    // A context field named `level` that isn't a level override (e.g. { level: 5 }) would be
+    // overwritten by the log level. Keep it under `_level`, the same rename safeObjectAssign
+    // applies to every other conflicting key.
+    let preservedKey = `${conflictResolutionPrefix}level`;
+    while (preservedKey in info) {
+      preservedKey = `${conflictResolutionPrefix}${preservedKey}`;
+    }
+    info[preservedKey] = errorObject.level;
+  }
   info.level = level;
 
   if (errorObject instanceof Error) {
@@ -215,7 +280,8 @@ function applyTransformOutput(outputObject: any): any {
   }
 
   try {
-    const transformed = transformOutputCallback(outputObject);
+    const transform = transformOutputCallback;
+    const transformed = runUserHook(() => transform(outputObject));
     if (transformed != null && typeof transformed === 'object') {
       return transformed;
     }
@@ -251,14 +317,30 @@ function scheduleOnLogCallback(outputObject: any, callbackJsonString: string | n
   try {
     const jsonString = callbackJsonString == null ? jsonStringifySafe(outputObject) : callbackJsonString;
     const parsedCopy = JSON.parse(jsonString);
-    const timeoutId = setTimeout(() => {
+    // Nothing waits on the callback, so a hung one is already abandoned. The
+    // timer must not keep the process alive past the end of the program.
+    const timeoutId: any = setTimeout(() => {
       /* interceptor timed out — silently ignore */
     }, timeout);
+    if (timeoutId != null && typeof timeoutId.unref === 'function') {
+      timeoutId.unref();
+    }
 
-    Promise.resolve()
-      .then(() => callback(jsonString, parsedCopy))
-      .then(() => clearTimeout(timeoutId))
-      .catch(() => clearTimeout(timeoutId));
+    const invoke = () => {
+      Promise.resolve()
+        .then(() => runUserHook(() => callback(jsonString, parsedCopy)))
+        .then(() => clearTimeout(timeoutId))
+        .catch(() => clearTimeout(timeoutId));
+    };
+
+    if (hookContext == null && typeof setTimeout === 'function') {
+      // Without AsyncLocalStorage (browsers), a log made after an `await` inside onLog can't
+      // be told apart from an ordinary log, so it runs onLog again. Starting each callback
+      // as a macrotask keeps such a loop from starving the event loop and freezing the page.
+      setTimeout(invoke, 0);
+    } else {
+      invoke();
+    }
   } catch (_) {
     /* interceptor error — silently ignore */
   }
@@ -369,7 +451,7 @@ function flushPendingLogs(): void {
   pendingLogs = [];
 
   for (const pendingLog of logsToFlush) {
-    emitConsoleJsonLog(pendingLog.args, pendingLog.level, pendingLog.customOptions, pendingLog.fileInfo);
+    emitConsoleJsonLog(pendingLog.args, pendingLog.level, pendingLog.customOptions, pendingLog.fileInfo, pendingLog.skipHooks);
   }
 }
 
@@ -377,7 +459,9 @@ function shouldBufferUntilPackageNameResolves(): boolean {
   return !envConfig.noPackageName && packageNameState === 'pending';
 }
 
-function emitConsoleJsonLog(args: any[], level: LOG_LEVEL, customOptions?: object, fileInfo?: any | null) {
+function emitConsoleJsonLog(callerArgs: any[], level: LOG_LEVEL, customOptions?: object, fileInfo?: any | null, skipHooks: boolean = false) {
+  // Work on a copy: metadata is appended below, and logUsingConsoleJson() callers pass their own array.
+  const args = callerArgs.slice();
   appendPackageNameMetadata(args);
   appendDebugMetadata(args);
   appendFileMetadata(args, fileInfo);
@@ -391,7 +475,7 @@ function emitConsoleJsonLog(args: any[], level: LOG_LEVEL, customOptions?: objec
     }
 
     const { message, errorObject } = extractParametersFromArguments(args, envConfig);
-    Logger.log(effectiveLevel, message, suppressMetadataIfConfigured(errorObject, envConfig));
+    Logger.log(effectiveLevel, message, suppressMetadataIfConfigured(errorObject, envConfig), skipHooks);
   } catch (err: any) {
     logLastResortProcessingError('console.log', err);
   }
@@ -417,13 +501,28 @@ function appendDebugMetadata(args: any[]): void {
       (console as any).debugStringException();
     }
 
-    let argsStringArray = args.map((value) => JSON.stringify(value, Object.getOwnPropertyNames(value)));
-    if (!argsStringArray) {
-      argsStringArray = [];
-    }
-    args.push({ _loggerDebug: argsStringArray });
+    args.push({ _loggerDebug: args.map(debugStringify) });
   } catch (err: any) {
     args.push({ _loggerDebug: `err ${err.message}` });
+  }
+}
+
+function debugStringify(value: any): string {
+  if (value == null) {
+    return String(value);
+  }
+
+  try {
+    const serialized = JSON.stringify(value, Object.getOwnPropertyNames(value));
+    return serialized === undefined ? String(value) : serialized;
+  } catch (_) {
+    // BigInt or circular values: jsonStringifySafe handles both.
+    try {
+      const safeSerialized = jsonStringifySafe(value);
+      return safeSerialized === undefined ? String(value) : safeSerialized;
+    } catch (__) {
+      return String(value);
+    }
   }
 }
 

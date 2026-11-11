@@ -1,14 +1,14 @@
 import { CallSite } from './callsites';
+import { getAppRootParentDir } from './get-app-root';
 import callsites from './callsites/get-callsites';
 import { getCallStack } from './get-call-stack';
+import { fileUrlToPath, isInternalFilePath, normalizeSlashes } from './internal-frames';
 
 type AnyFunction = (...args: any[]) => any;
 
-// Used to skip internal frames. File paths survive minification in Node/ESM builds,
-// while function identity helps when library helpers are bundled into one file.
-const internalModuleDirs = detectInternalModuleDirs();
+// Used to skip internal frames. File paths (internal-frames.ts) survive minification in
+// Node/ESM builds, while function identity helps when library helpers are bundled into one file.
 const internalCallerFunctions = new Set<AnyFunction>();
-const INTERNAL_PATH_HINTS = ['/node_modules/console-log-json/', '/console-log-json/dist/', '/console-log-json/src/'];
 
 // Fallback patterns for when __filename is not available (browser/ESM).
 // These match function names and will work in unminified code.
@@ -121,87 +121,25 @@ function isInternalFrame(frameLine: string): boolean {
   return false;
 }
 
-function isInternalFilePath(text: string): boolean {
-  const normalizedText = normalizeSlashes(text);
-  for (const dir of internalModuleDirs) {
-    if (normalizedText.includes(dir)) {
-      return true;
-    }
-  }
-
-  for (const hint of INTERNAL_PATH_HINTS) {
-    if (normalizedText.includes(hint)) {
-      return true;
-    }
-  }
-
-  return false;
-}
-
-function detectInternalModuleDirs(): string[] {
-  const dirs = new Set<string>();
-
-  try {
-    if (typeof __filename !== 'undefined') {
-      const dir = getDirectoryName(__filename);
-      if (dir) {
-        dirs.add(dir);
-      }
-    }
-  } catch (_) {
-    /* __filename not available */
-  }
-
-  const importMetaPath = tryGetImportMetaPath();
-  if (importMetaPath) {
-    const dir = getDirectoryName(importMetaPath);
-    if (dir) {
-      dirs.add(dir);
-    }
-  }
-
-  return Array.from(dirs);
-}
-
-function tryGetImportMetaPath(): string | null {
-  try {
-    const importMetaUrl = (0, eval)('import.meta.url') as string; // tslint:disable-line:no-eval
-    if (!importMetaUrl || typeof importMetaUrl !== 'string' || !importMetaUrl.startsWith('file://')) {
-      return null;
-    }
-    return fileUrlToPath(importMetaUrl);
-  } catch (_) {
-    return null;
-  }
-}
-
-function fileUrlToPath(fileUrl: string): string | null {
-  try {
-    const parsed = new URL(fileUrl);
-    let pathname = decodeURIComponent(parsed.pathname);
-    if (/^\/[A-Za-z]:\//.test(pathname)) {
-      pathname = pathname.substring(1);
-    }
-    return normalizeSlashes(pathname);
-  } catch (_) {
-    return null;
-  }
-}
-
-function getDirectoryName(filePath: string): string | null {
-  const normalized = normalizeSlashes(filePath);
-  const lastSep = normalized.lastIndexOf('/');
-  if (lastSep < 0) {
-    return null;
-  }
-  return normalized.substring(0, lastSep);
-}
-
 function stripAppRoot(name: string): string {
-  if (name.startsWith('/')) {
-    return name.substring(1);
+  return stripParentDir(name, getAppRootParentDir());
+}
+
+/**
+ * Exported for tests. Removes `parentDir` (the directory containing the project root)
+ * from the start of a slash-normalized file name, then any leading slash.
+ */
+export function stripParentDir(name: string, rawParentDir: string): string {
+  const parentDir = normalizeSlashes(rawParentDir);
+  const parentPrefix = parentDir.endsWith('/') ? parentDir : `${parentDir}/`;
+  let stripped = name;
+  if (parentDir.length > 0 && stripped.startsWith(parentPrefix)) {
+    stripped = stripped.substring(parentPrefix.length - 1);
   }
-  return name;
+  if (stripped.startsWith('/')) {
+    stripped = stripped.substring(1);
+  }
+  return stripped;
 }
 
 function extractFilenameFromFrame(frameLine: string): string | null {
@@ -225,8 +163,4 @@ function normalizeCapturedFileName(fileName: string | null): string | null {
     return fileUrlToPath(fileName);
   }
   return normalizeSlashes(fileName);
-}
-
-function normalizeSlashes(value: string): string {
-  return value.replace(/\\/g, '/');
 }

@@ -9,7 +9,7 @@
   "exports": {
     ".": {
       "import": {
-        "types": "./dist/esm/index.d.ts",
+        "types": "./dist/esm/index.d.mts",
         "default": "./dist/esm/index.mjs"
       },
       "require": {
@@ -22,7 +22,8 @@
   "browser": {
     "fs": false,
     "path": false,
-    "source-map-support": false
+    "source-map-support": false,
+    "async_hooks": false
   },
   "engines": {
     "node": ">=10"
@@ -32,7 +33,8 @@
     "dist/src/**/*",
     "dist/esm/index.mjs",
     "dist/esm/index.mjs.map",
-    "dist/esm/index.d.ts",
+    "dist/esm/**/*.d.ts",
+    "dist/esm/index.d.mts",
     "dist/index.js",
     "dist/index.d.ts",
     "dist/index.js.map",
@@ -62,7 +64,7 @@
   "scripts": {
     "prebuild": "",
     "build": "npm run format:prettier && npm run lint && tsc -sourcemap && npm run build:esm",
-    "build:esm": "node -e \"require('esbuild').buildSync({entryPoints:['src/index.ts'],outfile:'dist/esm/index.mjs',bundle:true,format:'esm',platform:'node',sourcemap:true,target:'es2017'})\" && tsc -p tsconfig.esm.json --emitDeclarationOnly",
+    "build:esm": "node scripts/build-esm.js && tsc -p tsconfig.esm.json --emitDeclarationOnly",
     "test": "jest",
     "build:watch": "tsc -w",
     "clean": "rm -rf dist && rm -rf node_modules || (find node_modules -delete 2>/dev/null; true)",

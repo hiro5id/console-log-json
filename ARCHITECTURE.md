@@ -239,6 +239,7 @@ Behavior:
 - redact paths are compiled once at initialization rather than reparsed on every log call
 - redaction runs after `transformOutput`, so transformed fields can also be redacted
 - redaction mutates only the final log object, not the caller's original context objects
+- a path also matches the `_`-prefixed copies `safeObjectAssign` creates when merged objects share a key (`password` also redacts `_password`, `__password`, case-insensitively)
 - invalid redact paths are ignored and redaction failures are swallowed so logging never breaks the application
 - redaction is for structured fields, not arbitrary regex scrubbing of free-text `message` strings
 
@@ -279,6 +280,9 @@ Hook behavior:
 - `redact` runs after `transformOutput` and censors configured structured paths on the final log object
 - `onLog` is invoked asynchronously after writing output
 - `onLog` failures are swallowed so logging never breaks the caller
+- the `onLogTimeout` timer is `unref()`'d, so a hung callback never keeps the process alive
+- logs emitted from inside `transformOutput` or `onLog` are written but skip both hooks, so a hook that logs cannot recurse or loop (tracked synchronously everywhere, and across `await` via `AsyncLocalStorage` on Node.js)
+- without `AsyncLocalStorage` (browsers), `onLog` is started with `setTimeout(..., 0)` instead of a microtask, so an async `onLog` that logs after an `await` repeats at timer pace instead of starving the event loop
 
 ## Log Levels
 
@@ -320,10 +324,12 @@ The package publishes both CommonJS and ESM builds.
 
 Current package layout:
 
-- CommonJS entry: `dist/index.js`
-- ESM entry: `dist/esm/index.mjs`
-- Type declarations: `dist/index.d.ts` and `dist/esm/index.d.ts`
+- CommonJS entry: `dist/index.js`, types `dist/index.d.ts` (re-exporting `dist/src/**/*.d.ts`)
+- ESM entry: `dist/esm/index.mjs`, types `dist/esm/index.d.mts`
+  - `index.d.mts` is a one-line `export * from './index.js'` over the per-module `dist/esm/**/*.d.ts` files
+  - the `.d.mts` extension makes TypeScript treat the ESM types as ESM; the package has no `"type": "module"`, so a `.d.ts` entry would be read as CommonJS and TypeScript would accept a default import that fails at runtime
 - root `index.ts` re-exports `src`
+- every declaration file the `exports` map can reach must be listed in `"files"`; `test/package-types.test.ts` packs the package and type-checks ESM and CommonJS consumers against the tarball to enforce this
 
 Current build pipeline from `package.json`:
 
@@ -333,12 +339,23 @@ Current build pipeline from `package.json`:
   - `tsc -sourcemap`
   - `npm run build:esm`
 - `npm run build:esm`
-  - bundles `src/index.ts` with `esbuild`
-  - emits ESM declarations with `tsc -p tsconfig.esm.json --emitDeclarationOnly`
+  - runs `scripts/build-esm.js`, which bundles `src/index.ts` with `esbuild` and writes `dist/esm/index.d.mts`
+  - emits the per-module ESM declarations with `tsc -p tsconfig.esm.json --emitDeclarationOnly`
+
+The ESM bundle starts with a banner (see `scripts/build-esm.js`) because the source loads optional Node modules (`fs`, `path`, `async_hooks`, `source-map-support`) with guarded `require()` calls, and an ES module has no `require`:
+
+- Node >= 20.16 / 22.3: `require` is created synchronously with `process.getBuiltinModule('module').createRequire(import.meta.url)`
+- older Node: it is created asynchronously via `import('module')`; esbuild's `require` shim checks for it on every call, and `getAppRoot()` retries instead of caching an early failure
+- browsers: `require` stays undefined and the existing guards apply
+- the banner avoids static imports so browser bundlers that resolve the ESM build keep working
+- it also defines `__console_log_json_module_url__` (`import.meta.url`) so the library can recognize its own stack frames by file
+- `source-map-support` is external, not bundled; the installed optional dependency is used
 
 Tests run directly from TypeScript through Jest:
 
 - `npm test` -> `jest`
+- some tests use the built output (`npm pack` of `dist/`, and child processes running `dist/index.js` / `dist/esm/index.mjs`), so run `npm run build` first
+- CI (`.github/workflows/test.yml`) builds and tests on Linux, macOS and Windows across supported Node versions
 
 ## Dependencies
 
@@ -349,6 +366,8 @@ It does have one optional runtime integration:
 - `source-map-support`
 
 It is loaded with `try/catch`, so the logger still works if it is absent.
+
+`async_hooks` (`AsyncLocalStorage`) is used when available so that logs made inside `onLog` / `transformOutput`, including after an `await`, skip the hooks instead of re-triggering them. It is mapped to `false` in the `browser` field.
 
 Development tooling includes TypeScript, Jest, ts-jest, Chai, Sinon, esbuild, Prettier, and TSLint.
 

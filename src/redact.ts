@@ -1,3 +1,5 @@
+import { conflictResolutionPrefix } from './safe-object-assign';
+
 type RedactPathToken = string | number | typeof WILDCARD_TOKEN;
 
 const WILDCARD_TOKEN = Symbol('console-log-json.redact-wildcard');
@@ -195,16 +197,42 @@ function redactAtPath(target: any, tokens: RedactPathToken[], tokenIndex: number
     return;
   }
 
-  if (!Object.prototype.hasOwnProperty.call(target, token)) {
-    return;
+  for (const key of findKeysMatchingToken(target, token)) {
+    if (isLeaf) {
+      target[key] = censor;
+    } else {
+      redactAtPath(target[key], tokens, tokenIndex + 1, censor);
+    }
+  }
+}
+
+/**
+ * The exact key, plus any copies that were renamed when log objects were merged.
+ *
+ * When two context objects share a key (case-insensitively), safeObjectAssign keeps
+ * the second one under a `_`-prefixed name (`password` -> `_password` -> `__password`).
+ * Those copies hold the same kind of data, so they must be redacted too.
+ */
+function findKeysMatchingToken(target: any, token: string): string[] {
+  const matches: string[] = [];
+  if (Object.prototype.hasOwnProperty.call(target, token)) {
+    matches.push(token);
   }
 
-  if (isLeaf) {
-    target[token] = censor;
-    return;
+  const lowerToken = token.toLowerCase();
+  for (const key of Object.keys(target)) {
+    if (key === token || key.length <= token.length || !key.startsWith(conflictResolutionPrefix)) {
+      continue;
+    }
+
+    const prefix = key.substring(0, key.length - token.length);
+    const baseKey = key.substring(prefix.length);
+    if (prefix.split(conflictResolutionPrefix).join('') === '' && baseKey.toLowerCase() === lowerToken) {
+      matches.push(key);
+    }
   }
 
-  redactAtPath(target[token], tokens, tokenIndex + 1, censor);
+  return matches;
 }
 
 function redactWildcard(target: any, tokens: RedactPathToken[], tokenIndex: number, isLeaf: boolean, censor: any): void {

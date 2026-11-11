@@ -310,11 +310,24 @@ function scanJsonNumberEndIndex(json: string, startIndex: number): number {
   return index > startIndex ? index : startIndex + 1;
 }
 
-function colorizeJsonString(json: string, colors: IColorConfiguration, colorMap: IDefaultColorMap): string {
+function colorizeJsonString(json: string, colors: IColorConfiguration, colorMap: IDefaultColorMap, separatorIsExplicit: boolean): string {
   const theme = getBackgroundTheme();
-  const separatorColor = (colorMap as any)[colors.separator];
+  // The default separator is black, which is invisible on dark terminals. Unless the caller
+  // chose a separator color, follow the background (unknown is treated as dark, like keys).
+  const separatorName: ColorValue = separatorIsExplicit ? colors.separator : theme === 'light' ? 'black' : 'white';
+  const separatorColor = (colorMap as any)[separatorName];
   let previousBareKeyName = '';
   let previousTokenWasKey = false;
+  // One entry per open container: the key whose color an array's values use, or null for an
+  // object (whose values follow their own keys). Nested arrays inherit the outer key.
+  const containerKeys: (string | null)[] = [];
+  const keyForValue = (): string => {
+    if (previousTokenWasKey) {
+      return previousBareKeyName;
+    }
+    const container = containerKeys.length > 0 ? containerKeys[containerKeys.length - 1] : null;
+    return container != null ? container : '';
+  };
   let lastCopiedIndex = 0;
   let output = separatorColor;
   let index = 0;
@@ -337,8 +350,9 @@ function colorizeJsonString(json: string, colors: IColorConfiguration, colorMap:
         previousBareKeyName = bareKeyName;
         previousTokenWasKey = true;
       } else {
-        if (previousTokenWasKey && previousBareKeyName !== '') {
-          directAnsi = generateValueAnsiCode(previousBareKeyName, theme);
+        const valueKey = keyForValue();
+        if (valueKey !== '') {
+          directAnsi = generateValueAnsiCode(valueKey, theme);
         } else {
           colorCode = 'string';
         }
@@ -347,8 +361,9 @@ function colorizeJsonString(json: string, colors: IColorConfiguration, colorMap:
     } else if (character === 't' && json.slice(index, index + 4) === 'true') {
       tokenEndIndex = index + 4;
       tokenText = json.slice(index, tokenEndIndex);
-      if (previousTokenWasKey && previousBareKeyName !== '') {
-        directAnsi = generateValueAnsiCode(previousBareKeyName, theme);
+      const valueKey = keyForValue();
+      if (valueKey !== '') {
+        directAnsi = generateValueAnsiCode(valueKey, theme);
       } else {
         colorCode = 'boolean';
       }
@@ -356,8 +371,9 @@ function colorizeJsonString(json: string, colors: IColorConfiguration, colorMap:
     } else if (character === 'f' && json.slice(index, index + 5) === 'false') {
       tokenEndIndex = index + 5;
       tokenText = json.slice(index, tokenEndIndex);
-      if (previousTokenWasKey && previousBareKeyName !== '') {
-        directAnsi = generateValueAnsiCode(previousBareKeyName, theme);
+      const valueKey = keyForValue();
+      if (valueKey !== '') {
+        directAnsi = generateValueAnsiCode(valueKey, theme);
       } else {
         colorCode = 'boolean';
       }
@@ -365,17 +381,28 @@ function colorizeJsonString(json: string, colors: IColorConfiguration, colorMap:
     } else if (character === 'n' && json.slice(index, index + 4) === 'null') {
       tokenEndIndex = index + 4;
       tokenText = json.slice(index, tokenEndIndex);
-      if (previousTokenWasKey && previousBareKeyName !== '') {
-        directAnsi = generateValueAnsiCode(previousBareKeyName, theme);
+      const valueKey = keyForValue();
+      if (valueKey !== '') {
+        directAnsi = generateValueAnsiCode(valueKey, theme);
       } else {
         colorCode = 'null';
       }
       previousTokenWasKey = false;
+    } else if (character === '[') {
+      containerKeys.push(keyForValue());
+      previousTokenWasKey = false;
+    } else if (character === '{') {
+      containerKeys.push(null);
+      previousTokenWasKey = false;
+    } else if (character === ']' || character === '}') {
+      containerKeys.pop();
+      previousTokenWasKey = false;
     } else if (character === '-' || isDigitCharacter(character)) {
       tokenEndIndex = scanJsonNumberEndIndex(json, index);
       tokenText = json.slice(index, tokenEndIndex);
-      if (previousTokenWasKey && previousBareKeyName !== '') {
-        directAnsi = generateValueAnsiCode(previousBareKeyName, theme);
+      const valueKey = keyForValue();
+      if (valueKey !== '') {
+        directAnsi = generateValueAnsiCode(valueKey, theme);
       } else {
         colorCode = 'number';
       }
@@ -414,10 +441,11 @@ function colorizeJsonString(json: string, colors: IColorConfiguration, colorMap:
  */
 export function colorJson(jsonInput: any, colorsInput: Partial<IColorConfiguration> = defaultColors, colorMap: IDefaultColorMap = defaultColorMap, spacing?: number) {
   const colors = { ...defaultColors, ...colorsInput };
+  const separatorIsExplicit = colorsInput !== defaultColors && colorsInput.separator !== undefined;
   const json = getJsonString(jsonInput, spacing);
 
   if (supportsColor()) {
-    return colorizeJsonString(json, colors, colorMap);
+    return colorizeJsonString(json, colors, colorMap, separatorIsExplicit);
   }
 
   return json;

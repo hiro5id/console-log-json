@@ -42,6 +42,9 @@ export function getSerialize(serializer?: EntryProcessor, decycler?: EntryProces
       stack.push(value);
     }
 
+    // JSON.stringify throws on BigInt, which would drop the whole log line.
+    if (typeof value === 'bigint') value = value.toString();
+
     return serializer == null ? value : serializer.call(this, key, value);
   };
 }

@@ -81,13 +81,22 @@ export function resolveLoggerAdaptToConsoleOptions(
 }
 
 export function normalizeLogLevelValue(value: any, defaultLevel: LOG_LEVEL = LOG_LEVEL.info): LOG_LEVEL {
+  const parsedLevel = parseLogLevelValue(value);
+  return parsedLevel != null ? parsedLevel : defaultLevel;
+}
+
+/**
+ * The log level named by `value` (case-insensitive, with the aliases err / warning / information),
+ * or null when `value` is not a recognized level.
+ */
+export function parseLogLevelValue(value: any): LOG_LEVEL | null {
   if (typeof value !== 'string') {
-    return defaultLevel;
+    return null;
   }
 
   let normalizedLevel = value.trim().toLowerCase();
   if (normalizedLevel.length === 0) {
-    return defaultLevel;
+    return null;
   }
 
   if (normalizedLevel === 'err') {
@@ -98,7 +107,7 @@ export function normalizeLogLevelValue(value: any, defaultLevel: LOG_LEVEL = LOG
     normalizedLevel = LOG_LEVEL.info;
   }
 
-  return Object.prototype.hasOwnProperty.call(LOG_LEVEL_PRIORITY, normalizedLevel) ? (normalizedLevel as LOG_LEVEL) : defaultLevel;
+  return Object.prototype.hasOwnProperty.call(LOG_LEVEL_PRIORITY, normalizedLevel) ? (normalizedLevel as LOG_LEVEL) : null;
 }
 
 function applyIfDefined(target: Record<string, any>, envVarName: string, value: any): void {

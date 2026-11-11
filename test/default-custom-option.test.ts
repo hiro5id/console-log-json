@@ -51,7 +51,7 @@ describe('logger with custom options', () => {
 
     expect(testObj).eql({
       level: 'error',
-      message: 'some string  - error object',
+      message: 'some string - error object',
       '@errorObjectName': 'Error',
       '@packageName': 'console-log-json',
       'extra-context': 'extra-context',
@@ -83,7 +83,7 @@ it('logs error in correct shape with multiple properties', async () => {
 
   expect(testObj).eql({
     level: 'error',
-    message: 'some string  - error object',
+    message: 'some string - error object',
     '@errorObjectName': 'Error',
     '@packageName': 'console-log-json',
     'extra-context': 'extra-context',

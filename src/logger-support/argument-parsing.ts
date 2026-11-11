@@ -1,7 +1,7 @@
-import { ErrorWithContext } from '../error-with-context';
+import { ErrorWithContext, wrapErrorKeepingStack } from '../error-with-context';
 import { safeObjectAssign } from '../safe-object-assign';
 import { sortObject } from '../sort-object';
-import { normalizeLogLevelValue } from './config';
+import { parseLogLevelValue } from './config';
 import { LOG_LEVEL, LoggerEnvironmentConfig } from './types';
 
 const LOGGER_METADATA_KEYS = ['@filename', '@logCallStack', '@packageName'];
@@ -10,14 +10,25 @@ export function findExplicitLogLevelAndUseIt(args: any[], defaultLevel: LOG_LEVE
   let resolvedLevel = defaultLevel;
   let foundLevel = false;
 
-  args.forEach((entry: any) => {
+  args.forEach((entry: any, index: number) => {
     if (foundLevel || entry == null || typeof entry !== 'object' || Object.keys(entry).length === 0 || Object.keys(entry)[0].toLowerCase() !== 'level') {
       return;
     }
 
     const levelKey = Object.keys(entry)[0];
-    resolvedLevel = normalizeLogLevelValue(entry[levelKey], LOG_LEVEL.info);
-    delete entry[levelKey];
+    const explicitLevel = parseLogLevelValue(entry[levelKey]);
+    if (explicitLevel == null) {
+      // Not a level override, just context that happens to have a `level` field
+      // (e.g. { level: 5 }). Keep it as data and keep the console method's level.
+      return;
+    }
+
+    resolvedLevel = explicitLevel;
+    // Drop the level key from a copy, never from the caller's own object.
+    // The copy keeps the prototype and property descriptors so Errors stay Errors.
+    const entryWithoutLevel = Object.create(Object.getPrototypeOf(entry), Object.getOwnPropertyDescriptors(entry));
+    delete entryWithoutLevel[levelKey];
+    args[index] = entryWithoutLevel;
     foundLevel = true;
   });
 
@@ -40,7 +51,7 @@ export function extractParametersFromArguments(
   const nullOrUndefinedCount = filterNullOrUndefinedParameters(args);
 
   args.forEach((entry: any) => {
-    if (typeof entry === 'string' || typeof entry === 'number' || typeof entry === 'boolean') {
+    if (typeof entry === 'string' || typeof entry === 'number' || typeof entry === 'boolean' || typeof entry === 'bigint') {
       message = appendMessageFragment(message, entry);
     } else if (isErrorLikeObject(entry)) {
       errorObject = entry;
@@ -74,7 +85,7 @@ export function extractParametersFromArguments(
       } else {
         extraContext = normalizedContext;
       }
-      errorObject = new ErrorWithContext(errorObject, extraContext as object);
+      errorObject = wrapErrorKeepingStack(errorObject, extraContext as object);
     }
   }
 
@@ -133,16 +144,18 @@ function filterNullOrUndefinedParameters(args: any[]): number {
   return nullOrUndefinedCount;
 }
 
-function appendMessageFragment(message: string, fragment: string | number | boolean): string {
+function appendMessageFragment(message: string, fragment: string | number | boolean | bigint): string {
   return `${message}${message.length > 0 ? ' - ' : ''}${fragment}`;
 }
 
-function isErrorLikeObject(value: any): boolean {
+export function isErrorLikeObject(value: any): boolean {
   return value != null && typeof value === 'object' && typeof value.message === 'string' && typeof value.stack === 'string' && value.stack.length > 0;
 }
 
 function isContextObject(value: any): boolean {
-  return value != null && typeof value === 'object' && value.name !== 'Error' && value.stack === undefined;
+  // Anything that isn't an error is context, including plain objects that happen
+  // to have a `stack` or `name` property (e.g. { stack: 'prod-eu' }).
+  return value != null && typeof value === 'object' && !(value instanceof Error);
 }
 
 function mergeExtraContext(existingContext: object | undefined, nextContext: object): object {

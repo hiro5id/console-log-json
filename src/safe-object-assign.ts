@@ -139,4 +139,4 @@ function deepSortObject(value: any): any {
   return sortedObject;
 }
 
-const conflictResolutionPrefix = '_';
+export const conflictResolutionPrefix = '_';

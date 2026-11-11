@@ -91,7 +91,7 @@ console.log("request failed", 500, new Error("timeout"), { endpoint: "/api/users
 ```
 
 ```json
-{"level":"error","message":"request failed - 500  - timeout","endpoint":"/api/users","errCallStack":"Error: timeout\n    at ...","@timestamp":"..."}
+{"level":"error","message":"request failed - 500 - timeout","endpoint":"/api/users","errCallStack":"Error: timeout\n    at ...","@timestamp":"..."}
 ```
 
 ### Single-line JSON for log ingestion
@@ -210,7 +210,7 @@ console.log("payment failed", new Error("card declined"), { customerId: "C-456",
 ```
 
 ```json
-{"level":"error","message":"payment failed  - card declined","@errorObjectName":"Error","amount":99.99,"customerId":"C-456","errCallStack":"Error: card declined\n    at ...","@timestamp":"..."}
+{"level":"error","message":"payment failed - card declined","@errorObjectName":"Error","amount":99.99,"customerId":"C-456","errCallStack":"Error: card declined\n    at ...","@timestamp":"..."}
 ```
 
 - Log level is automatically set to `error` when an Error object is present, even when using `console.log()`
@@ -831,9 +831,10 @@ console.error("payment failed", new Error("card declined"), { cartId: "ABC-123" 
 
 The `onLog` callback is designed to be safe and non-blocking:
 
-- **Runs asynchronously** — the `console.log()` call returns immediately. The callback runs in the next microtask so it never blocks your application.
+- **Runs asynchronously** — the `console.log()` call returns immediately. The callback runs in the next microtask on Node.js, and on the next timer tick in browsers, so it never blocks your application.
 - **Crash-safe** — if your callback throws an error, it's silently caught. The logger continues working normally and your application is unaffected.
-- **Timeout protected** — callbacks that hang are abandoned after 5 seconds (configurable via `onLogTimeout` in milliseconds).
+- **Timeout protected** — callbacks that hang are abandoned after 5 seconds (configurable via `onLogTimeout` in milliseconds). A hung callback never keeps your process from exiting.
+- **Safe to log from** — a `console.log()` made inside `onLog` or `transformOutput` is written normally, but the hooks are not run again for it, so a hook that logs can't loop forever. On Node.js this includes logs made after an `await` inside an async `onLog`. In browsers only the synchronous part is covered: a log made after an `await` runs `onLog` again, once per timer tick, so avoid logging from inside an async `onLog` there.
 - **Does not affect output** — the log is written to the console before the callback runs. Your callback receives a copy of the parsed data, so modifications don't affect the logged output.
 
 ```js

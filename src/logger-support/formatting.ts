@@ -12,12 +12,18 @@ const EMPTY_MESSAGE = '<no-message-was-passed-to-console-log>';
 
 let stackMessageRegexCache: { separator: string; regex: RegExp } | null = null;
 
-export function buildFormattedLogObject(object: any, envConfig: LoggerEnvironmentConfig): any {
+/**
+ * @param sourceIsError false when `object` was built from plain context objects only. A `stack`
+ * key in user context (e.g. { stack: 'prod-eu' }) is then ordinary data, not an error stack trace.
+ */
+export function buildFormattedLogObject(object: any, envConfig: LoggerEnvironmentConfig, sourceIsError: boolean = true): any {
   let formattedObject: any = object;
 
   formattedObject = preserveMessageObject(formattedObject);
   formattedObject = mergeExtraContext(formattedObject);
-  formattedObject = attachFormattedStack(object, formattedObject);
+  if (sourceIsError) {
+    formattedObject = attachFormattedStack(object, formattedObject);
+  }
   formattedObject = promoteMessageField(formattedObject);
   formattedObject = promoteLevelField(formattedObject);
   formattedObject = appendTimestamp(formattedObject, envConfig);
@@ -84,7 +90,8 @@ function attachFormattedStack(sourceObject: any, formattedObject: any): any {
     const stackRegexMatch = formattedStack.match(getStackMessageRegex());
     if (stackRegexMatch != null && stackRegexMatch.length >= 2) {
       const stackMessage = stackRegexMatch[1];
-      formattedObject.message = `${ToOneLine(formattedObject.message).replace(stackMessage, '')} - ${stackMessage}`;
+      const messageWithoutStackMessage = ToOneLine(formattedObject.message).replace(stackMessage, '').replace(/\s+$/, '');
+      formattedObject.message = `${messageWithoutStackMessage} - ${stackMessage}`;
     }
     formattedObject.message = ToOneLine(formattedObject.message);
   }
@@ -175,6 +182,11 @@ function tryParseMessageJson(message: string, disableAutoParse: boolean): any {
 
   try {
     const parsedValue = JSON.parse(message);
+    // Leave numbers that don't survive the round trip as the original text: auto-parsing
+    // "12345678901234567890" would log 12345678901234567000, silently changing the value.
+    if (typeof parsedValue === 'number' && String(parsedValue) !== trimmedMessage) {
+      return null;
+    }
     return disableAutoParse ? JSON.stringify(parsedValue) : parsedValue;
   } catch (_) {
     return null;
@@ -200,8 +212,13 @@ function getStackMessageRegex(): RegExp {
   if (stackMessageRegexCache == null || stackMessageRegexCache.separator !== separator) {
     stackMessageRegexCache = {
       separator,
-      regex: new RegExp(`^Error:[ ](.*?)${separator}`, 'im'),
+      // The first line of any stack: "Error: msg", "TypeError: msg", "Error [ERR_X]: msg", ...
+      regex: new RegExp(`^[^:\\n]*?:[ ](.*?)${escapeRegExp(separator)}`, 'i'),
     };
   }
   return stackMessageRegexCache.regex;
+}
+
+function escapeRegExp(text: string): string {
+  return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }

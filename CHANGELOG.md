@@ -1,5 +1,70 @@
 # Changelog
 
+## 6.5.0
+
+This release fixes a large set of bugs. No exports or options were removed, but several fixes change what gets logged. Read the upgrade notes if you search, alert on, or snapshot-test log output.
+
+### Upgrade notes
+
+These changes can affect log searches, alerts, dashboards, or tests that compare exact output:
+
+| Change | Before | After |
+|---|---|---|
+| Message joined to an error message | `"failed  - boom"` (two spaces), and `"failed boom"` for non-`Error` types when metadata was off | `"failed - boom"` for every error type |
+| `@filename` (regression since 6.0.0) | `"home/me/my-app/src/index.ts"` | `"my-app/src/index.ts"`, as documented |
+| `errCallStack` for an error logged with context | logger-internal frames, then `Caused By:` and the real stack | only the real stack. `Caused By:` now appears only for errors you wrap with `ErrorWithContext` yourself |
+| Context field `level` that isn't a log level, e.g. `console.error('x', { level: 5 })` | logged at `info`, field dropped | logged at the console method's level (`error`), field kept as `_level` |
+| Redaction of keys renamed on merge | `{ password }` plus `{ password }` left the second one visible as `_password` | `_password`, `__password`, ... are redacted too. A genuine `_password` key is now also redacted by the path `password` |
+| Numeric messages that don't round-trip, e.g. `"1.50"`, `"12345678901234567890"` | `@autoParsedJson: 1.5` / `12345678901234567000` | kept as the original text in `message` |
+| ES module build on Node.js 20.16+ / 22.3+ | absolute paths in stack traces, no source maps | project-relative paths like the CommonJS build, and source maps applied. `source-map-support` now installs its global stack-trace hook in ES module apps too, as it always has in CommonJS |
+| Colorized output (`CONSOLE_LOG_COLORIZE=true`) | black braces and commas, invisible on dark terminals; only the first value in an array colored by its key | separators follow the background (white on dark or unknown, black on light) unless you set `separator`; all array values use their key's color |
+
+Fields that used to be silently dropped now appear: context objects with a `stack` or `name: 'Error'` property, and BigInt values. Check that nothing sensitive was relying on being dropped.
+
+Smaller behavior changes:
+
+- `SetLogLevel('WARN')` stores `'warn'`, so `GetLogLevel()` returns lowercase. An unrecognized level is ignored instead of silently behaving like `info`.
+- `new ErrorWithContext(err, 'text')` no longer modifies `err.message`.
+- In browsers, `onLog` starts on the next timer tick (`setTimeout(..., 0)`) instead of the next microtask. On Node.js it still runs in the next microtask.
+- A pending async `onLog` callback no longer keeps the process alive for up to `onLogTimeout`. In-flight network requests still keep Node.js running, so log shipping is not cut off.
+- TypeScript users importing the ES module build now get real types instead of `any`, so wrong option types become compile errors. A default import (`import clj from 'console-log-json'`) is now a type error; it always failed at runtime.
+
+### Bug Fix
+
+Packaging and TypeScript
+
+- **TypeScript types now resolve for ES module imports.** The published package only included `dist/esm/index.d.ts`, not the declaration files it re-exports from, so `import { ... } from 'console-log-json'` failed with TS2307 or, with `skipLibCheck: true`, silently typed every import as `any`. All ESM declaration files are now published.
+- **TypeScript no longer accepts a default import from the ES module build.** The `import` condition's types now point at `dist/esm/index.d.mts`, so TypeScript treats them as ESM instead of CommonJS. Use named imports (`import { LoggerAdaptToConsole } from 'console-log-json'`).
+- **The ES module build can load `fs`, `path`, `async_hooks` and `source-map-support` on Node.js.** Every `require()` failed silently in the ESM bundle. On Node.js 20.16+ / 22.3+ they work from the start; on older versions they become available shortly after startup. `source-map-support` is no longer bundled into `index.mjs`, which roughly halves its size.
+
+Hooks
+
+- **`console.log` inside `onLog` or `transformOutput` no longer hangs or recurses.** In `onLog` it caused an endless microtask chain that starved timers and I/O; in `transformOutput` it recursed until the stack overflowed. Logs made from inside a hook, including after an `await` in an async `onLog` (on Node.js), are written without running the hooks again. In browsers, `onLog` now starts on the next timer tick instead of the next microtask, so an async `onLog` that logs can no longer freeze the page.
+- **`onLogTimeout` no longer keeps the process alive.**
+
+Redaction and data handling
+
+- **Redaction now covers keys renamed during merging** (`_password`, `user._token`). Previously these copies leaked.
+- **BigInt values are logged as strings** instead of dropping the whole log line (inside objects) or being ignored (passed directly).
+- **Auto-parsed numbers keep their exact value.**
+- **Context objects with a `stack` property or `name: 'Error'` are no longer silently dropped.**
+- **A context `level` field that isn't a log level is kept as data** (`_level`) instead of downgrading the log to `info`.
+- **Logging no longer modifies your objects.** A `{ level }` override object keeps its `level` key, `logUsingConsoleJson(args)` no longer appends to `args`, and `new ErrorWithContext(err, 'text')` no longer changes `err.message`.
+- **`debugString` handles `null`, `undefined`, BigInt and circular arguments** instead of replacing all debug output with an error message.
+
+Messages, stacks and file names
+
+- **`@filename` is project-relative again**, and stack traces strip the same prefix. Projects directly under `/` (for example Docker's `/app`) and Windows drive roots behave as before.
+- **No duplicate stack traces** when an error is logged together with context.
+- **`" - "` separates the message from the error message for every error type**, including `TypeError`, custom errors and Node.js system errors (`Error [ERR_X]: ...`), and without the double space.
+- **`@logCallStack` and `@filename` skip the library's own frames wherever it is installed**, including vendored or linked copies outside `node_modules/console-log-json/`.
+- **Windows:** library frames with backslash paths are filtered out of stack traces, and ES module stack frames (`file:///C:/...`) have the project's parent directory stripped.
+
+Other
+
+- **`SetLogLevel()` accepts the same spellings as the `logLevel` option** (`'WARN'`, `' warning '`).
+- **Colorized output is readable on dark terminals**, and arrays are colored consistently.
+
 ## 6.4.1
 
 ### Bug Fix
