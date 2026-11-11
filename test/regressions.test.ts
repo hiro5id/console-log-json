@@ -471,6 +471,20 @@ describe('regressions', () => {
       expect(log.step).to.equal('save');
     });
 
+    it('puts "Caused By" on its own line instead of gluing it to the previous frame', () => {
+      const [log] = capture({}, () => console.error(new ErrorWithContext(new Error('inner'), { step: 'save' })));
+
+      expect(log.errCallStack).to.include('\nCaused By: Error: inner');
+      expect(log.errCallStack).to.not.match(/\)Caused By:/);
+    });
+
+    it('separates "Caused By" with " - " when newlines are disabled', () => {
+      const [log] = capture({ noNewLineCharacters: true }, () => console.error(new ErrorWithContext(new Error('inner'), { step: 'save' })));
+
+      expect(log.errCallStack).to.include(' - Caused By: Error: inner');
+      expect(log.errCallStack).to.not.include('\n');
+    });
+
     it('does not add a "nothing was passed" placeholder when only an error is logged', () => {
       for (const options of [QUIET, { noFileName: false, noPackageName: false, noStackForNonError: false }]) {
         const logs = capture(options, () => {
@@ -594,7 +608,19 @@ describe('regressions', () => {
         '    at userCode (C:\\work\\app\\src\\a.js:1:1)',
       ].join('\n');
 
-      expect(getCallStackFromString(stack).trim().startsWith('userCode')).to.equal(true);
+      expect(getCallStackFromString(stack).startsWith('at userCode (')).to.equal(true);
+    });
+
+    it('starts @logCallStack with "at" like every other frame', () => {
+      const stack = ['Error', '    at first (/app/src/a.js:1:1)', '    at second (/app/src/b.js:2:2)'].join('\n');
+
+      expect(getCallStackFromString(stack)).to.match(/^at first \(.*a\.js:1:1\)\n {4}at second \(.*b\.js:2:2\)$/);
+    });
+
+    it('leaves Firefox/Safari-style stacks without "at" frames unchanged', () => {
+      const stack = 'first@http://localhost/app.js:1:1\nsecond@http://localhost/app.js:2:2';
+
+      expect(getCallStackFromString(stack).startsWith('at')).to.equal(false);
     });
   });
 

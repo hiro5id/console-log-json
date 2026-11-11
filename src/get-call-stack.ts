@@ -36,7 +36,14 @@ export function getCallStackFromString(stack: string): string {
     callStack.splice(0, 1);
   }
 
-  return FormatStackTrace.stripAppParentDir(callStack).join(`${NewLineCharacter()}${FormatStackTrace.divider}`);
+  const lines = FormatStackTrace.stripAppParentDir(callStack);
+  // Splitting on "    at" leaves the first remaining frame as " fn (file:1:1)": give it the
+  // same "at fn (...)" form as every other frame. Stacks without "    at" frames (Firefox,
+  // Safari: "fn@url:1:1") have no leading space and are left alone.
+  if (lines.length > 0 && /^ \S/.test(lines[0])) {
+    lines[0] = `at${lines[0]}`;
+  }
+  return lines.join(`${NewLineCharacter()}${FormatStackTrace.divider}`);
 }
 
 function isInternalStackFrame(frameLine: string): boolean {

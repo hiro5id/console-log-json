@@ -5,7 +5,7 @@ export class FormatStackTrace {
   public static readonly divider = '    at';
   public static toNewLines(stack: string): string {
     const lines = this.toArray(stack);
-    return lines.join(`${NewLineCharacter()}${this.divider}`);
+    return restoreCausedBySeparator(lines.join(`${NewLineCharacter()}${this.divider}`));
   }
 
   public static toArray(stack: string): string[] {
@@ -31,6 +31,15 @@ export class FormatStackTrace {
     }
     return lines;
   }
+}
+
+/**
+ * Splitting on the "    at" divider drops the line break that ErrorWithContext puts before
+ * "Caused By:", which glued it onto the previous frame ("...:1:1)Caused By: Error: ...").
+ * Put the separator back.
+ */
+function restoreCausedBySeparator(stack: string): string {
+  return stack.replace(/\s*(?: - )?Caused By: /g, `${NewLineCharacter()}Caused By: `);
 }
 
 /**

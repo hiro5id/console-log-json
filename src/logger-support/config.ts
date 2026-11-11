@@ -202,7 +202,7 @@ function normalizeRedactValue(value: any): RedactOptions | undefined {
 }
 
 function resolveGlobalPath(path: string): any {
-  const rootObject: any = typeof globalThis !== 'undefined' ? globalThis : {};
+  const rootObject: any = typeof globalThis !== 'undefined' ? globalThis : typeof global !== 'undefined' ? global : {}; // `global`: Node < 12 has no globalThis
   const parts = path
     .split('.')
     .map((part) => part.trim())

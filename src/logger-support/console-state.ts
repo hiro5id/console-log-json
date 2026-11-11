@@ -105,7 +105,7 @@ function shouldUseProcessStdoutWrite(): boolean {
 }
 
 function hasDomLikeDocument(): boolean {
-  const globalObject: any = typeof globalThis !== 'undefined' ? globalThis : {};
+  const globalObject: any = typeof globalThis !== 'undefined' ? globalThis : typeof global !== 'undefined' ? global : {}; // `global`: Node < 12 has no globalThis
   const maybeWindow = globalObject.window;
   const maybeDocument = globalObject.document || (maybeWindow != null ? maybeWindow.document : undefined);
   if (maybeDocument == null) {
