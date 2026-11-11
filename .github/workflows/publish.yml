@@ -78,6 +78,16 @@ jobs:
             exit 1
           fi
 
+      # The release commit is pushed to master after npm publish. If master has moved since this run
+      # started, that push is rejected while the package is already on npm. Fail before publishing instead.
+      - name: Check this run is on the tip of master
+        run: |
+          git fetch origin master
+          if [ "$(git rev-parse HEAD)" != "$(git rev-parse origin/master)" ]; then
+            echo "::error::master moved since this run started ($(git rev-parse --short HEAD) -> $(git rev-parse --short origin/master)). Re-run the workflow."
+            exit 1
+          fi
+
       - name: Configure git
         run: |
           git config user.name "github-actions[bot]"
@@ -162,9 +172,25 @@ jobs:
             npm publish --tag "$DIST_TAG"
           fi
 
+      # --atomic: the branch and the tag land together or not at all (a plain push can update the
+      # tag while master is rejected). If master moved during the publish, rebase the release commit
+      # (it only touches package.json, package-lock.json and the CHANGELOG heading) and retry once.
       - name: Push commit and tag
         if: ${{ !inputs.dry_run }}
-        run: git push origin HEAD:master --follow-tags
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          if git push --atomic origin HEAD:master "refs/tags/v$VERSION"; then
+            exit 0
+          fi
+          echo "::warning::Push rejected, master probably moved during the release. Rebasing and retrying once."
+          git fetch origin master
+          git rebase origin/master
+          git tag -f -a "v$VERSION" -m "v$VERSION"
+          if ! git push --atomic origin HEAD:master "refs/tags/v$VERSION"; then
+            echo "::error::v$VERSION is published on npm, but the release commit and tag could not be pushed. Fix by hand: git fetch origin master && git checkout master && git cherry-pick <release commit> && git tag -a v$VERSION -m v$VERSION && git push --atomic origin master refs/tags/v$VERSION"
+            exit 1
+          fi
 
       - name: Create GitHub release
         if: ${{ !inputs.dry_run }}
